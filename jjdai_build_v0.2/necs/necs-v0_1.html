@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>JJ DAI — Node Engine Conformance Specification (NECS v0.1)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Michroma&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,400&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#141220;        /* deep indigo-black : the witness field */
+    --ink-2:#1e1b2e;      /* raised ink */
+    --bone:#ECE5D6;       /* warm parchment : reading surface */
+    --bone-2:#E3DAC6;     /* parchment shade */
+    --paper:#F4EFE3;      /* lightest paper */
+    --gold:#C6913E;       /* brass : normative emphasis, anchors */
+    --gold-bright:#E4B45E;
+    --indigo:#4a4370;     /* mid structure */
+    --indigo-soft:#6b6494;
+    --oxblood:#9A3E36;    /* MUST NOT / fail-closed */
+    --sage:#5f7050;       /* MUST pass / conformant */
+    --rule:rgba(20,18,32,.14);
+    --rule-strong:rgba(20,18,32,.28);
+    --ink-rule:rgba(236,229,214,.12);
+    --shadow:0 1px 0 rgba(20,18,32,.05);
+    --measure:74ch;
+  }
+
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  @media (prefers-reduced-motion:reduce){ html{scroll-behavior:auto;} }
+  body{
+    margin:0; background:var(--bone); color:#211d30;
+    font-family:"IBM Plex Sans",system-ui,sans-serif;
+    font-size:16.5px; line-height:1.62; -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+  }
+
+  /* ---------- MASTHEAD ---------- */
+  .masthead{
+    background:var(--ink); color:var(--bone);
+    padding:0; position:relative; overflow:hidden;
+    border-bottom:3px solid var(--gold);
+  }
+  .masthead::before{
+    /* faint merkle-grid texture */
+    content:""; position:absolute; inset:0; opacity:.5;
+    background-image:
+      linear-gradient(rgba(198,145,62,.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(198,145,62,.05) 1px, transparent 1px);
+    background-size:52px 52px; pointer-events:none;
+  }
+  .mast-inner{max-width:1180px; margin:0 auto; padding:34px 40px 44px; position:relative;}
+  .wordmark{
+    font-family:"Michroma",sans-serif; font-size:13px; letter-spacing:.42em;
+    color:var(--gold-bright); text-transform:uppercase;
+    display:flex; align-items:center; gap:14px;
+  }
+  .wordmark .dot{width:7px;height:7px;background:var(--gold);border-radius:50%;box-shadow:0 0 0 4px rgba(198,145,62,.15);}
+  .mast-title{
+    font-family:"Fraunces",serif; font-weight:600; font-optical-sizing:auto;
+    font-size:clamp(2.1rem,5.2vw,3.65rem); line-height:1.04; letter-spacing:-.015em;
+    margin:22px 0 6px; color:var(--paper); max-width:16ch;
+  }
+  .mast-sub{
+    font-family:"Fraunces",serif; font-style:italic; font-weight:400;
+    font-size:clamp(1.05rem,2.2vw,1.35rem); color:var(--indigo-soft);
+    margin:0 0 26px; max-width:52ch;
+  }
+  .mast-sub b{color:var(--bone); font-style:normal; font-weight:600;}
+  .meta-row{
+    display:flex; flex-wrap:wrap; gap:0; border:1px solid var(--ink-rule);
+    border-radius:3px; overflow:hidden; max-width:760px; background:rgba(236,229,214,.02);
+  }
+  .meta-cell{padding:11px 20px 12px; border-right:1px solid var(--ink-rule); flex:1 1 auto; min-width:120px;}
+  .meta-cell:last-child{border-right:none;}
+  .meta-k{font-family:"Michroma",sans-serif; font-size:9.5px; letter-spacing:.24em; text-transform:uppercase; color:var(--indigo-soft); display:block; margin-bottom:5px;}
+  .meta-v{font-family:"IBM Plex Mono",monospace; font-size:13.5px; color:var(--bone); font-weight:500;}
+  .meta-v.status{color:var(--gold-bright);}
+
+  /* ---------- SIGNATURE : conformance chain ---------- */
+  .chain-wrap{margin:38px 0 8px;}
+  .chain-label{font-family:"Michroma",sans-serif; font-size:10px; letter-spacing:.28em; text-transform:uppercase; color:var(--indigo-soft); margin-bottom:16px;}
+  .chain{
+    display:flex; align-items:stretch; gap:0; position:relative; flex-wrap:nowrap;
+    overflow-x:auto; padding-bottom:6px;
+  }
+  .gate{
+    flex:1 1 0; min-width:150px; text-decoration:none; color:inherit;
+    background:var(--ink-2); border:1px solid var(--ink-rule);
+    padding:16px 18px 18px; position:relative;
+    transition:border-color .25s ease, transform .25s ease, background .25s ease;
+  }
+  .gate:not(:last-child){border-right:none;}
+  .gate:hover,.gate:focus-visible{background:#25213a; border-color:rgba(198,145,62,.5); transform:translateY(-2px); outline:none;}
+  .gate:focus-visible{box-shadow:0 0 0 2px var(--gold);}
+  .gate-id{font-family:"Michroma",sans-serif; font-size:15px; letter-spacing:.08em; color:var(--gold-bright);}
+  .gate-name{font-size:13px; color:var(--bone); margin-top:7px; font-weight:500; line-height:1.35;}
+  .gate-desc{font-size:11.5px; color:var(--indigo-soft); margin-top:5px; line-height:1.4;}
+  .gate-arrow{position:absolute; right:-9px; top:50%; transform:translateY(-50%); z-index:3;
+    width:18px;height:18px; color:var(--gold);}
+  .terminal{
+    flex:0 0 auto; min-width:150px; background:linear-gradient(180deg,#2a2440,#211c36);
+    border:1px solid var(--gold); padding:16px 20px 18px; display:flex; flex-direction:column; justify-content:center;
+  }
+  .terminal .gate-id{color:var(--gold-bright);}
+  .terminal .gate-name{color:var(--paper);}
+  /* travelling pulse */
+  .pulse{position:absolute; top:0; left:0; height:2px; width:100%; overflow:hidden; pointer-events:none;}
+  .pulse::after{
+    content:""; position:absolute; top:0; height:2px; width:22%;
+    background:linear-gradient(90deg,transparent,var(--gold-bright),transparent);
+    animation:travel 4.6s linear infinite;
+  }
+  @keyframes travel{0%{left:-25%;}100%{left:105%;}}
+  @media (prefers-reduced-motion:reduce){ .pulse::after{animation:none; display:none;} }
+
+  /* ---------- LAYOUT ---------- */
+  .shell{max-width:1180px; margin:0 auto; padding:0 40px; display:grid; grid-template-columns:236px 1fr; gap:48px; align-items:start;}
+  nav.toc{position:sticky; top:0; align-self:start; padding:40px 0 40px; max-height:100vh; overflow-y:auto;}
+  .toc-title{font-family:"Michroma",sans-serif; font-size:9.5px; letter-spacing:.24em; text-transform:uppercase; color:var(--indigo); margin:0 0 14px;}
+  .toc a{display:block; text-decoration:none; color:#4a4560; font-size:13.5px; padding:5px 0 5px 14px; border-left:2px solid var(--rule); line-height:1.35; transition:color .18s, border-color .18s;}
+  .toc a .num{font-family:"IBM Plex Mono",monospace; color:var(--gold); font-size:11.5px; margin-right:7px;}
+  .toc a:hover{color:var(--ink);}
+  .toc a.active{color:var(--ink); border-left-color:var(--gold); font-weight:600;}
+  .toc a.sub{padding-left:26px; font-size:12.5px; color:#6a6580;}
+
+  main{padding:44px 0 90px; max-width:860px; min-width:0;}
+
+  /* ---------- SECTIONS ---------- */
+  section{margin-bottom:56px; scroll-margin-top:24px;}
+  .eyebrow{font-family:"Michroma",sans-serif; font-size:10px; letter-spacing:.26em; text-transform:uppercase; color:var(--gold); margin-bottom:12px; display:flex; align-items:center; gap:12px;}
+  .eyebrow::after{content:""; height:1px; flex:1; background:var(--rule);}
+  h2{font-family:"Fraunces",serif; font-weight:600; font-size:clamp(1.7rem,3.4vw,2.3rem); line-height:1.08; letter-spacing:-.012em; margin:0 0 6px; color:var(--ink);}
+  h2 .h-code{font-family:"IBM Plex Mono",monospace; color:var(--gold); font-weight:600; font-size:.72em; margin-right:12px; letter-spacing:0;}
+  h3{font-family:"Fraunces",serif; font-weight:600; font-size:1.28rem; margin:34px 0 10px; color:#2a2440; letter-spacing:-.008em;}
+  .goal{font-family:"Fraunces",serif; font-style:italic; font-size:1.12rem; color:#4a4560; margin:0 0 22px; padding-left:16px; border-left:2px solid var(--gold);}
+  p{max-width:var(--measure);}
+  main a{color:var(--gold); text-decoration:none; border-bottom:1px solid rgba(198,145,62,.4);}
+  main a:hover{border-bottom-color:var(--gold);}
+
+  /* normative keyword chips */
+  .kw{font-family:"IBM Plex Mono",monospace; font-size:.82em; font-weight:600; letter-spacing:.03em; padding:1px 5px; border-radius:2px; white-space:nowrap;}
+  .kw.must{color:#6d4d16; background:rgba(198,145,62,.18); border:1px solid rgba(198,145,62,.4);}
+  .kw.mustnot{color:#fff; background:var(--oxblood); border:1px solid var(--oxblood);}
+  .kw.should{color:#3c4a33; background:rgba(95,112,80,.18); border:1px solid rgba(95,112,80,.4);}
+  .kw.may{color:#3f3a5c; background:rgba(74,67,112,.14); border:1px solid rgba(74,67,112,.34);}
+
+  code{font-family:"IBM Plex Mono",monospace; font-size:.87em; background:var(--bone-2); padding:1px 5px; border-radius:3px; color:#3a2f52; border:1px solid var(--rule);}
+
+  /* requirement list */
+  ul.req{list-style:none; padding:0; margin:18px 0; max-width:var(--measure);}
+  ul.req li{position:relative; padding:11px 0 11px 68px; border-top:1px solid var(--rule); line-height:1.55;}
+  ul.req li:last-child{border-bottom:1px solid var(--rule);}
+  ul.req li .rid{position:absolute; left:0; top:11px; font-family:"IBM Plex Mono",monospace; font-size:12px; font-weight:600; color:var(--gold); background:rgba(198,145,62,.1); padding:2px 7px; border-radius:3px;}
+
+  /* callout */
+  .callout{margin:24px 0; padding:18px 22px; background:var(--ink); color:var(--bone); border-radius:4px; position:relative; overflow:hidden;}
+  .callout::before{content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--gold);}
+  .callout .co-k{font-family:"Michroma",sans-serif; font-size:10px; letter-spacing:.22em; text-transform:uppercase; color:var(--gold-bright); display:block; margin-bottom:8px;}
+  .callout p{margin:0; max-width:64ch; color:var(--bone); font-size:15px;}
+  .callout em{color:var(--gold-bright); font-style:normal;}
+  .sanskrit{font-family:"Fraunces",serif; font-style:italic;}
+
+  /* code blocks */
+  pre{background:var(--ink); color:#d7d0e4; border-radius:4px; padding:20px 22px; overflow-x:auto; font-family:"IBM Plex Mono",monospace; font-size:13px; line-height:1.62; margin:20px 0; border:1px solid rgba(0,0,0,.3);}
+  pre .cm{color:#7d769c;}            /* comment */
+  pre .k{color:var(--gold-bright);}  /* key */
+  pre .s{color:#b8c99a;}             /* string */
+  pre .fn{color:#e4b45e;}            /* fn */
+  pre .kw2{color:#c98d8d;}           /* keyword */
+  .code-cap{font-family:"Michroma",sans-serif; font-size:9.5px; letter-spacing:.2em; text-transform:uppercase; color:var(--indigo); margin:26px 0 -10px;}
+
+  /* tables */
+  .tbl-wrap{overflow-x:auto; margin:22px 0;}
+  table{border-collapse:collapse; width:100%; font-size:14px; min-width:520px;}
+  th,td{text-align:left; padding:11px 14px; border-bottom:1px solid var(--rule); vertical-align:top;}
+  thead th{font-family:"Michroma",sans-serif; font-size:9.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--ink); border-bottom:2px solid var(--rule-strong); font-weight:400;}
+  tbody tr:hover{background:var(--bone-2);}
+  td code{font-size:.82em;}
+  .yes{color:var(--sage); font-weight:600;}
+  .no{color:var(--oxblood); font-weight:600;}
+
+  /* test vectors */
+  .tv{margin:16px 0; border-left:2px solid var(--indigo); padding-left:18px;}
+  .tv-item{padding:8px 0; border-bottom:1px dashed var(--rule); max-width:var(--measure);}
+  .tv-item:last-child{border-bottom:none;}
+  .tv-id{font-family:"IBM Plex Mono",monospace; font-size:12px; font-weight:600; color:var(--indigo); background:rgba(74,67,112,.1); padding:2px 7px; border-radius:3px; margin-right:8px;}
+
+  /* checklist */
+  .checklist{background:var(--paper); border:1px solid var(--rule-strong); border-radius:4px; padding:22px 24px; margin:22px 0; max-width:var(--measure);}
+  .checklist .cl-row{display:flex; gap:14px; padding:9px 0; border-bottom:1px solid var(--rule); align-items:baseline;}
+  .checklist .cl-row:last-child{border-bottom:none;}
+  .checklist .cl-mark{color:var(--sage); font-weight:700; font-family:"IBM Plex Mono",monospace;}
+  .checklist .cl-code{font-family:"IBM Plex Mono",monospace; font-size:12.5px; color:var(--gold); font-weight:600; flex:0 0 128px;}
+
+  /* appendix worked example */
+  .worked{background:var(--ink); color:var(--bone); border-radius:4px; padding:6px 24px 20px; margin:22px 0;}
+  .worked h4{font-family:"Michroma",sans-serif; font-size:11px; letter-spacing:.14em; color:var(--gold-bright); margin:20px 0 10px;}
+  .worked p{color:var(--bone); max-width:62ch; font-size:14.5px;}
+  .worked .verdict{display:inline-block; font-family:"IBM Plex Mono",monospace; font-size:12px; padding:2px 9px; border-radius:3px; font-weight:600; margin-top:4px;}
+  .verdict.pass{background:rgba(95,112,80,.28); color:#b8d19c; border:1px solid var(--sage);}
+  .verdict.fail{background:rgba(154,62,54,.28); color:#e6a49c; border:1px solid var(--oxblood);}
+
+  footer{background:var(--ink); color:var(--indigo-soft); padding:34px 40px; text-align:center; border-top:3px solid var(--gold);}
+  footer .om{font-family:"Fraunces",serif; font-style:italic; color:var(--gold-bright); font-size:1.05rem;}
+  footer .fx{font-family:"Michroma",sans-serif; font-size:9.5px; letter-spacing:.22em; text-transform:uppercase; margin-top:8px;}
+
+  /* mobile toc toggle */
+  .toc-toggle{display:none;}
+
+  @media (max-width:900px){
+    .shell{grid-template-columns:1fr; gap:0; padding:0 22px;}
+    nav.toc{position:static; max-height:none; padding:0; margin:18px 0 4px;}
+    .toc-list{display:none; padding:14px 0;}
+    .toc-list.open{display:block;}
+    .toc-toggle{display:flex; align-items:center; gap:10px; width:100%; background:var(--ink); color:var(--bone); border:none; border-radius:4px; padding:13px 18px; font-family:"Michroma",sans-serif; font-size:10px; letter-spacing:.2em; text-transform:uppercase; cursor:pointer; margin-top:22px;}
+    .toc-toggle .chev{margin-left:auto; transition:transform .2s;}
+    .toc-toggle.open .chev{transform:rotate(180deg);}
+    main{padding:24px 0 70px;}
+    .mast-inner{padding:26px 22px 34px;}
+    .shell,.masthead .mast-inner{}
+  }
+  @media (max-width:560px){
+    body{font-size:15.5px;}
+    .meta-cell{flex:1 1 100%; border-right:none; border-bottom:1px solid var(--ink-rule);}
+    .gate{min-width:132px;}
+  }
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="mast-inner">
+    <div class="wordmark"><span class="dot"></span> JJ&nbsp;DAI · Decentralized Intelligence</div>
+    <h1 class="mast-title">Node Engine Conformance Specification</h1>
+    <p class="mast-sub">The three contracts an inference engine <b>must</b> satisfy to serve as a consensus node — so that heterogeneous engines behave uniformly, and every output is attributable, verifiable, and consensus-eligible.</p>
+
+    <div class="meta-row">
+      <div class="meta-cell"><span class="meta-k">Document</span><span class="meta-v">NECS</span></div>
+      <div class="meta-cell"><span class="meta-k">Version</span><span class="meta-v">0.1</span></div>
+      <div class="meta-cell"><span class="meta-k">Status</span><span class="meta-v status">Draft · Normative</span></div>
+      <div class="meta-cell"><span class="meta-k">Keywords</span><span class="meta-v">RFC 2119</span></div>
+    </div>
+
+    <div class="chain-wrap">
+      <div class="chain-label">Certification path — an engine passes each gate in sequence</div>
+      <div class="chain">
+        <div class="pulse"></div>
+        <a class="gate" href="#c1">
+          <span class="gate-id">C1</span>
+          <span class="gate-name">Interface</span>
+          <span class="gate-desc">One uniform API surface</span>
+          <svg class="gate-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </a>
+        <a class="gate" href="#c2">
+          <span class="gate-id">C2</span>
+          <span class="gate-name">Substrate + Provenance</span>
+          <span class="gate-desc">Content-addressed identity</span>
+          <svg class="gate-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </a>
+        <a class="gate" href="#c3">
+          <span class="gate-id">C3</span>
+          <span class="gate-name">Witness</span>
+          <span class="gate-desc">Hash-chained attestation</span>
+          <svg class="gate-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </a>
+        <div class="terminal">
+          <span class="gate-id">✓ NODE</span>
+          <span class="gate-name">Consensus-eligible</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="shell">
+  <nav class="toc">
+    <button class="toc-toggle" id="tocToggle">Contents <svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button>
+    <div class="toc-list" id="tocList">
+      <p class="toc-title">Contents</p>
+      <a href="#s0"><span class="num">0</span>Definitions &amp; Profiles</a>
+      <a href="#c1"><span class="num">C1</span>Interface Contract</a>
+      <a href="#c2"><span class="num">C2</span>Substrate + Provenance</a>
+      <a href="#c3"><span class="num">C3</span>Witness Contract</a>
+      <a href="#s4"><span class="num">4</span>Composition &amp; Certification</a>
+      <a href="#appA" class="sub">App. A · Canonicalization</a>
+      <a href="#appB" class="sub">App. B · DwarfStar worked example</a>
+      <a href="#appC" class="sub">App. C · Specialization spaces</a>
+    </div>
+  </nav>
+
+  <main>
+
+    <!-- PURPOSE -->
+    <section id="purpose">
+      <div class="eyebrow">Purpose</div>
+      <p>This document defines a <strong>conformance specification</strong>. An engine is certified against it once — after which the <code>NodeDaemon</code> and <code>ChampionRegistry</code> can treat vLLM, SGLang, DwarfStar-plus-sidecar, or any custom runtime as interchangeable node engines. Certification is not a benchmark. It is a guarantee that the engine speaks one interface, loads only declared and verifiable weights, and emits a witness record for every inference it performs.</p>
+      <p>Normative keywords <span class="kw must">MUST</span> · <span class="kw mustnot">MUST NOT</span> · <span class="kw should">SHOULD</span> · <span class="kw may">MAY</span> are used per RFC&nbsp;2119.</p>
+    </section>
+
+    <!-- SECTION 0 -->
+    <section id="s0">
+      <div class="eyebrow">Section 0</div>
+      <h2>Definitions &amp; Profiles</h2>
+
+      <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td><strong>NE</strong></td><td>Node Engine — the certified inference runtime</td></tr>
+          <tr><td><strong>Substrate</strong></td><td>The frozen base model, content-addressed</td></tr>
+          <tr><td><strong>Adapter</strong></td><td>LoRA / DoRA specialization, content-addressed, hot-swappable</td></tr>
+          <tr><td><strong>Engine Fingerprint</strong></td><td>Tuple that determines output reproducibility</td></tr>
+          <tr><td><strong>Witness Record</strong></td><td>One hash-chained, signed log entry per inference</td></tr>
+        </tbody>
+      </table>
+      </div>
+
+      <h3>Conformance profiles</h3>
+      <p>An NE is certified against exactly one profile, per node role. Specialization is available in every profile — the profiles differ in <em>how</em> specialization is carried, not <em>whether</em> it exists.</p>
+      <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Profile</th><th>Serves</th><th>Specialization mechanism</th><th>Contracts</th><th>Typical engine</th></tr></thead>
+        <tbody>
+          <tr><td><strong>B — Base</strong></td><td>Frozen base only</td><td>Context + steering</td><td>C1 · C2(base) · C3</td><td>DwarfStar + witness-sidecar</td></tr>
+          <tr><td><strong>B-spec — Baked</strong></td><td>Baked specialized substrates</td><td>Offline-merged weights → new <code>substrate_id</code></td><td>C1 · C2(base) · C3</td><td>DwarfStar + witness-sidecar</td></tr>
+          <tr><td><strong>A — Adapter</strong></td><td>Base + LoRA / DoRA</td><td>Hot-swapped <code>adapter_id</code> artifacts + multi-adapter batching</td><td>C1 · C2(full) · C3</td><td>vLLM / SGLang class</td></tr>
+        </tbody>
+      </table>
+      </div>
+
+      <h3>Determinism levels</h3>
+      <p>Declared by the NE, verified in C2:</p>
+      <ul class="req">
+        <li><span class="rid">attested</span>Output is signed but <strong>not</strong> bit-reproducible. Default for cross-engine operation.</li>
+        <li><span class="rid">reprod.</span>Bit-identical output given a pinned Engine Fingerprint. The NE <span class="kw must">MUST</span> document the pinning set.</li>
+      </ul>
+
+      <div class="callout">
+        <span class="co-k">Provenance ≠ Consensus</span>
+        <p>A Light-node closes the <em>origin</em> gap — who computed this — but not the <em>corroboration</em> gap — do independent parties agree. Local answers are therefore <em>attested, single-source</em>. Network answers add independence-weighted consensus. The <span class="sanskrit">sākṣī</span> — the witness — is real only where corroboration is.</p>
+      </div>
+    </section>
+
+    <!-- C1 -->
+    <section id="c1">
+      <div class="eyebrow">Contract 1</div>
+      <h2><span class="h-code">C1</span>Interface</h2>
+      <p class="goal">One uniform surface so NodeDaemon and ChampionRegistry stay engine-agnostic.</p>
+
+      <h3>Normative requirements</h3>
+      <ul class="req">
+        <li><span class="rid">C1.1</span>The NE <span class="kw must">MUST</span> expose an HTTP endpoint implementing the <strong>JJ DAI Inference Interface (JII)</strong> — a <code>/v1/messages</code>-class envelope plus mandatory JJ DAI metadata.</li>
+        <li><span class="rid">C1.2</span>The NE <span class="kw must">MUST</span> implement <code>GET /capabilities</code> returning a static capability descriptor.</li>
+        <li><span class="rid">C1.3</span>Every request <span class="kw must">MUST</span> carry <code>substrate_id</code>, <code>adapter_ids[]</code>, <code>sampling</code> (pinned: <code>seed</code>, <code>temperature</code>, <code>top_p</code>, <code>top_k</code>, <code>max_tokens</code>), <code>request_id</code> (UUIDv7), and <code>nonce</code> (128-bit). The NE <span class="kw must">MUST</span> echo <code>request_id</code> and <code>nonce</code> verbatim.</li>
+        <li><span class="rid">C1.4</span>The NE <span class="kw must">MUST</span> accept an opaque <code>champion_context</code> tag (topic / champion routing) and echo it for attribution.</li>
+        <li><span class="rid">C1.5</span>The NE <span class="kw must">MUST</span> support both streaming (SSE) and unary responses.</li>
+        <li><span class="rid">C1.6</span>The NE <span class="kw must">MUST</span> return the Provenance Descriptor (C2) and Witness Receipt (C3) with every completed inference.</li>
+        <li><span class="rid">C1.7</span>The NE <span class="kw should">SHOULD</span> support cooperative cancellation and <span class="kw mustnot">MUST NOT</span> silently mutate <code>sampling</code> params — any override returns <code>409 SAMPLING_UNSATISFIABLE</code>.</li>
+        <li><span class="rid">C1.8</span>Errors <span class="kw must">MUST</span> use the normative code set. An NE that cannot emit a witness receipt <span class="kw must">MUST</span> fail closed with <code>503</code> — never return an un-witnessed answer.</li>
+      </ul>
+
+      <p class="code-cap">Schema — JII request</p>
+<pre><span class="cm">// JII request</span>
+{
+  <span class="k">"substrate_id"</span>: <span class="s">"sha256:9f2b…"</span>,          <span class="cm">// C2 identity</span>
+  <span class="k">"adapter_ids"</span>: [<span class="s">"sha256:1a…"</span>],           <span class="cm">// [] for Profile B</span>
+  <span class="k">"champion_context"</span>: <span class="s">"topic:thermal-scada@v3"</span>,
+  <span class="k">"messages"</span>: [ { <span class="k">"role"</span>: <span class="s">"user"</span>, <span class="k">"content"</span>: <span class="s">"…"</span> } ],
+  <span class="k">"sampling"</span>: { <span class="k">"seed"</span>: 42, <span class="k">"temperature"</span>: 0.0,
+                <span class="k">"top_p"</span>: 1.0, <span class="k">"top_k"</span>: 0, <span class="k">"max_tokens"</span>: 1024 },
+  <span class="k">"request_id"</span>: <span class="s">"uuidv7:018f…"</span>,
+  <span class="k">"nonce"</span>: <span class="s">"hex:7c9a…"</span>
+}</pre>
+
+      <p class="code-cap">Schema — JII response &amp; capabilities</p>
+<pre><span class="cm">// JII response</span>
+{
+  <span class="k">"request_id"</span>: <span class="s">"uuidv7:018f…"</span>,
+  <span class="k">"nonce"</span>: <span class="s">"hex:7c9a…"</span>,
+  <span class="k">"champion_context"</span>: <span class="s">"topic:thermal-scada@v3"</span>,
+  <span class="k">"output"</span>: { <span class="k">"role"</span>: <span class="s">"assistant"</span>, <span class="k">"content"</span>: <span class="s">"…"</span> },
+  <span class="k">"provenance"</span>: { <span class="cm">/* C2 Provenance Descriptor */</span> },
+  <span class="k">"witness_receipt"</span>: { <span class="cm">/* C3 receipt */</span> }
+}
+
+<span class="cm">// GET /capabilities</span>
+{
+  <span class="k">"engine"</span>: <span class="s">"vllm"</span>, <span class="k">"engine_version"</span>: <span class="s">"0.x"</span>,
+  <span class="k">"backend"</span>: <span class="s">"cuda"</span>, <span class="k">"profile"</span>: <span class="s">"A"</span>,
+  <span class="k">"substrates"</span>: [<span class="s">"sha256:9f2b…"</span>],
+  <span class="k">"adapters"</span>: [<span class="s">"sha256:1a…"</span>],
+  <span class="k">"max_context"</span>: 65536,
+  <span class="k">"determinism_level"</span>: <span class="s">"attested"</span>,
+  <span class="k">"engine_fingerprint"</span>: <span class="s">"…"</span>,               <span class="cm">// see C2.4</span>
+  <span class="k">"witness"</span>: { <span class="k">"sig_alg"</span>: <span class="s">"ed25519"</span>, <span class="k">"anchor"</span>: <span class="s">"opentimestamps"</span> }
+}</pre>
+
+      <p class="code-cap">Normative error codes</p>
+      <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Code</th><th>Condition</th></tr></thead>
+        <tbody>
+          <tr><td><code>400 BAD_ENVELOPE</code></td><td>Malformed JII request</td></tr>
+          <tr><td><code>404 SUBSTRATE_UNKNOWN</code></td><td>Requested substrate not served</td></tr>
+          <tr><td><code>404 ADAPTER_UNKNOWN</code></td><td>Requested adapter not served</td></tr>
+          <tr><td><code>409 SAMPLING_UNSATISFIABLE</code></td><td>Engine cannot honor pinned sampling</td></tr>
+          <tr><td><code>422 PROVENANCE_MISMATCH</code></td><td>Weight/adapter hash verification failed</td></tr>
+          <tr><td><code>503 WITNESS_UNAVAILABLE</code></td><td>Witness backend down — fail closed</td></tr>
+        </tbody>
+      </table>
+      </div>
+
+      <h3>Acceptance criteria</h3>
+      <div class="tv">
+        <div class="tv-item"><span class="tv-id">T-C1-a</span>Send request with <code>nonce=N</code>; response <code>nonce</code> <span class="kw must">MUST</span> equal <code>N</code>. Anti-replay / attribution.</div>
+        <div class="tv-item"><span class="tv-id">T-C1-b</span>Request a <code>substrate_id</code> absent from <code>/capabilities</code> → <span class="kw must">MUST</span> return <code>404</code>, no inference performed.</div>
+        <div class="tv-item"><span class="tv-id">T-C1-c</span><code>temperature=0.0, seed=42</code> twice on a <code>reproducible</code> NE → output <span class="kw must">MUST</span> be byte-identical. Skipped on <code>attested</code> NE.</div>
+        <div class="tv-item"><span class="tv-id">T-C1-d</span>Kill witness backend, send request → <span class="kw must">MUST</span> return <code>503</code>, <span class="kw mustnot">MUST NOT</span> return <code>output</code>.</div>
+      </div>
+    </section>
+
+    <!-- C2 -->
+    <section id="c2">
+      <div class="eyebrow">Contract 2</div>
+      <h2><span class="h-code">C2</span>Substrate + Provenance</h2>
+      <p class="goal">Load only declared base and adapters, with content-addressed, verifiable identity — enabling attribution and, where declared, reproducibility.</p>
+
+      <h3>Normative requirements</h3>
+      <ul class="req">
+        <li><span class="rid">C2.1</span>Every substrate <span class="kw must">MUST</span> be identified by a <strong>Merkle root over its weight-shard manifest</strong>, prefixed with the quantization descriptor hash — quantization is part of identity because it changes outputs.</li>
+        <li><span class="rid">C2.2</span>At load, the NE <span class="kw must">MUST</span> recompute shard hashes, rebuild the root, and compare against the declared <code>substrate_id</code>. On mismatch it <span class="kw must">MUST</span> refuse to serve (<code>422</code>).</li>
+        <li><span class="rid">C2.3</span>(Profile A) Every adapter <span class="kw must">MUST</span> be identified by <code>adapter_id = sha256(canonical(weights ‖ base_compat_tag ‖ {type, rank}))</code>. The NE <span class="kw must">MUST</span> verify it and confirm <code>base_compat_tag == substrate_id</code> before activation.</li>
+        <li><span class="rid">C2.4</span>The NE <span class="kw must">MUST</span> emit a Provenance Descriptor per inference and declare its <code>determinism_level</code>. The Engine Fingerprint is <code>H(engine ‖ version ‖ backend ‖ kernels ‖ quant ‖ hardware_class)</code>.</li>
+        <li><span class="rid">C2.5</span>Substrate and adapter artifacts <span class="kw must">MUST</span> be immutable and content-addressed. Upgrades produce <strong>new IDs</strong> (pull-by-choice); in-place mutation is forbidden. Aligns with Manifesto Art. VII — history is append-only.</li>
+        <li><span class="rid">C2.6</span>The NE <span class="kw must">MUST</span> produce a Merkle inclusion proof that any given shard or adapter belongs to the declared set — reusing the sqlite-vec + Merkle machinery.</li>
+      </ul>
+
+      <p class="code-cap">Schema — manifest &amp; provenance descriptor</p>
+<pre><span class="cm">// Weight manifest (defines substrate_id)</span>
+{
+  <span class="k">"quant"</span>: <span class="s">"iq2_xxs+q2_k"</span>,                  <span class="cm">// part of identity</span>
+  <span class="k">"quant_hash"</span>: <span class="s">"sha256:…"</span>,
+  <span class="k">"shards"</span>: [
+    { <span class="k">"path"</span>: <span class="s">"model-00001.gguf"</span>, <span class="k">"sha256"</span>: <span class="s">"…"</span>, <span class="k">"bytes"</span>: 4.2e9 }
+  ],
+  <span class="k">"merkle_root"</span>: <span class="s">"sha256:9f2b…"</span>              <span class="cm">// == substrate_id (post quant-prefix)</span>
+}
+
+<span class="cm">// Provenance Descriptor (per inference)</span>
+{
+  <span class="k">"substrate_id"</span>: <span class="s">"sha256:9f2b…"</span>,
+  <span class="k">"adapter_ids"</span>: [<span class="s">"sha256:1a…"</span>],
+  <span class="k">"engine_fingerprint"</span>: <span class="s">"sha256:c4…"</span>,
+  <span class="k">"determinism_level"</span>: <span class="s">"attested"</span>,
+  <span class="k">"sampling"</span>: { <span class="k">"seed"</span>: 42, <span class="k">"temperature"</span>: 0.0, <span class="k">"top_p"</span>: 1.0 },
+  <span class="k">"hardware_class"</span>: <span class="s">"apple-m3-max-128g"</span>
+}</pre>
+
+      <p class="code-cap">Reference pseudocode</p>
+<pre><span class="kw2">def</span> <span class="fn">verify_substrate</span>(manifest, declared_id):
+    leaves = sorted(shard.sha256 <span class="kw2">for</span> shard <span class="kw2">in</span> manifest.shards)
+    root = merkle_root([sha256(manifest.quant)] + leaves)
+    <span class="kw2">if</span> root != declared_id:
+        <span class="kw2">raise</span> ProvenanceMismatch(422)
+    <span class="kw2">return</span> root
+
+<span class="kw2">def</span> <span class="fn">verify_adapter</span>(adapter, substrate_id):
+    aid = sha256(canonical(adapter.weights, adapter.base_compat_tag,
+                           {<span class="s">"type"</span>: adapter.type, <span class="s">"rank"</span>: adapter.rank}))
+    <span class="kw2">if</span> aid != adapter.id <span class="kw2">or</span> adapter.base_compat_tag != substrate_id:
+        <span class="kw2">raise</span> ProvenanceMismatch(422)
+
+<span class="kw2">def</span> <span class="fn">build_provenance</span>(cfg, active_adapters):
+    <span class="kw2">return</span> ProvenanceDescriptor(
+        substrate_id=cfg.substrate_id,
+        adapter_ids=[a.id <span class="kw2">for</span> a <span class="kw2">in</span> active_adapters],
+        engine_fingerprint=engine_fingerprint(),
+        determinism_level=cfg.determinism_level,
+        sampling=cfg.sampling,
+        hardware_class=cfg.hardware_class)</pre>
+
+      <h3>Acceptance criteria</h3>
+      <div class="tv">
+        <div class="tv-item"><span class="tv-id">T-C2-a</span>Flip one byte in any shard → <code>verify_substrate</code> <span class="kw must">MUST</span> raise <code>422</code>; model <span class="kw mustnot">MUST NOT</span> load.</div>
+        <div class="tv-item"><span class="tv-id">T-C2-b</span>Load adapter whose <code>base_compat_tag ≠ substrate_id</code> → <span class="kw must">MUST</span> reject with <code>422</code>.</div>
+        <div class="tv-item"><span class="tv-id">T-C2-c</span>Request inclusion proof for a known shard → <span class="kw must">MUST</span> verify; proof for an absent shard <span class="kw must">MUST</span> fail.</div>
+        <div class="tv-item"><span class="tv-id">T-C2-d</span>On a <code>reproducible</code> NE, two runs with identical Engine Fingerprint + sampling → identical output (bridges to T-C1-c).</div>
+      </div>
+    </section>
+
+    <!-- C3 -->
+    <section id="c3">
+      <div class="eyebrow">Contract 3</div>
+      <h2><span class="h-code">C3</span>Witness</h2>
+      <p class="goal">Every inference emits one signed, hash-chained record. An engine that cannot be instrumented to witness cannot be a consensus node.</p>
+
+      <h3>Normative requirements</h3>
+      <ul class="req">
+        <li><span class="rid">C3.1</span>Per inference the NE (or its sidecar) <span class="kw must">MUST</span> append one Witness Record to a per-node hash chain: <code>this_hash = H(prev_hash ‖ canonical(record_body))</code>.</li>
+        <li><span class="rid">C3.2</span>The chain <span class="kw must">MUST</span> store <strong>commitments, not plaintext</strong>: <code>request_commitment</code> and <code>response_commitment</code> are hashes. Plaintext stays local; only commitments enter the chain.</li>
+        <li><span class="rid">C3.3</span>Records <span class="kw must">MUST</span> be signed with the node key (Ed25519); <code>node_id = H(pubkey)</code>; index is monotonic per node.</li>
+        <li><span class="rid">C3.4</span>The NE <span class="kw must">MUST</span> periodically anchor the local Merkle root of new records to the shared witness ledger, and <span class="kw should">SHOULD</span> anchor to an external timestamp authority (OpenTimestamps). Anchoring the root only batches many inferences into one write — killing chain-spam and cheap Sybil.</li>
+        <li><span class="rid">C3.5</span>Each record <span class="kw must">MUST</span> carry <code>provenance_hash = H(Provenance Descriptor)</code> so consensus can group comparable computations.</li>
+        <li><span class="rid">C3.6</span>Because cross-engine output is non-deterministic, consensus <span class="kw must">MUST</span> operate over <code>response_commitment</code> <strong>plus</strong> a semantic representation, independence-weighted — never bit-exact equality across engines.</li>
+        <li><span class="rid">C3.7</span>The chain <span class="kw must">MUST</span> be replay-verifiable: any mutation breaks a hash and is detectable by re-walking the chain.</li>
+      </ul>
+
+      <p class="code-cap">Schema — witness record &amp; receipt</p>
+<pre><span class="cm">// Witness Record (record_body is what gets hashed &amp; signed)</span>
+{
+  <span class="k">"index"</span>: 10427,
+  <span class="k">"prev_hash"</span>: <span class="s">"sha256:aa…"</span>,
+  <span class="k">"timestamp"</span>: <span class="s">"2026-07-03T12:00:00Z"</span>,
+  <span class="k">"node_id"</span>: <span class="s">"sha256:pub…"</span>,
+  <span class="k">"request_commitment"</span>: <span class="s">"sha256:…"</span>,
+  <span class="k">"response_commitment"</span>: <span class="s">"sha256:…"</span>,
+  <span class="k">"provenance_hash"</span>: <span class="s">"sha256:…"</span>,
+  <span class="k">"semantic_digest"</span>: <span class="s">"b64:…"</span>,        <span class="cm">// low-dim embedding for C3.6</span>
+  <span class="k">"this_hash"</span>: <span class="s">"sha256:bb…"</span>,         <span class="cm">// H(prev_hash ‖ canonical(body))</span>
+  <span class="k">"sig"</span>: <span class="s">"ed25519:…"</span>                 <span class="cm">// over this_hash</span>
+}
+
+<span class="cm">// Witness Receipt (returned inline per C1.6)</span>
+{ <span class="k">"index"</span>: 10427, <span class="k">"this_hash"</span>: <span class="s">"sha256:bb…"</span>,
+  <span class="k">"anchored"</span>: false, <span class="k">"anchor_eta"</span>: <span class="s">"batch@root"</span> }</pre>
+
+      <p class="code-cap">Reference pseudocode</p>
+<pre><span class="kw2">def</span> <span class="fn">emit_witness</span>(req, resp, prov, keypair, chain):
+    body = {
+      <span class="s">"index"</span>: chain.next_index(),
+      <span class="s">"prev_hash"</span>: chain.head_hash(),
+      <span class="s">"timestamp"</span>: now_utc(),
+      <span class="s">"node_id"</span>: node_id(keypair.pub),
+      <span class="s">"request_commitment"</span>: sha256(canonical(req)),
+      <span class="s">"response_commitment"</span>: sha256(canonical(resp)),
+      <span class="s">"provenance_hash"</span>: sha256(canonical(prov)),
+      <span class="s">"semantic_digest"</span>: embed(resp.output),
+    }
+    body[<span class="s">"this_hash"</span>] = sha256(chain.head_hash() + canonical(body))
+    rec = sign(body, keypair)          <span class="cm"># Ed25519 over this_hash</span>
+    chain.append(rec)                  <span class="cm"># fail-closed: raise 503 on failure</span>
+    <span class="kw2">return</span> WitnessReceipt(rec.index, body[<span class="s">"this_hash"</span>])
+
+<span class="kw2">def</span> <span class="fn">anchor_root</span>(chain, ledger, ots):
+    root = merkle_root(chain.since_last_anchor())
+    ledger.submit(node_id, root)       <span class="cm"># C3.4 shared ledger</span>
+    ots.stamp(root)                    <span class="cm"># external timestamp authority</span>
+
+<span class="kw2">def</span> <span class="fn">verify_chain</span>(chain):
+    h = GENESIS
+    <span class="kw2">for</span> rec <span class="kw2">in</span> chain:
+        body = strip(rec, <span class="s">"sig"</span>)
+        <span class="kw2">assert</span> rec.this_hash == sha256(h + canonical(body))
+        <span class="kw2">assert</span> verify_sig(rec)
+        h = rec.this_hash</pre>
+
+      <h3>Acceptance criteria</h3>
+      <div class="tv">
+        <div class="tv-item"><span class="tv-id">T-C3-a</span>Run N inferences → <code>verify_chain</code> passes; indices contiguous and monotonic.</div>
+        <div class="tv-item"><span class="tv-id">T-C3-b</span>Mutate any stored record → <code>verify_chain</code> <span class="kw must">MUST</span> fail at that index.</div>
+        <div class="tv-item"><span class="tv-id">T-C3-c</span>Only commitments present in chain — assert no plaintext request/response bytes appear in any record.</div>
+        <div class="tv-item"><span class="tv-id">T-C3-d</span>After anchor, inclusion proof against the anchored root <span class="kw must">MUST</span> verify; OTS proof upgrades to confirmed after the authority's cycle.</div>
+        <div class="tv-item"><span class="tv-id">T-C3-e</span>Two nodes, same substrate + prompt, different engines → <code>response_commitment</code> differs (expected), yet both group by identical <code>provenance_hash</code>-family and feed consensus via <code>semantic_digest</code>.</div>
+      </div>
+    </section>
+
+    <!-- SECTION 4 -->
+    <section id="s4">
+      <div class="eyebrow">Section 4</div>
+      <h2>Composition &amp; Certification</h2>
+      <p>An engine is <strong>certified</strong> for a profile once it passes the full test set. The <code>NodeDaemon</code> <span class="kw must">MUST</span> refuse to enroll a node whose <code>engine_fingerprint</code> is not in the registry for its declared role.</p>
+
+      <div class="checklist">
+        <div class="cl-row"><span class="cl-mark">✓</span><span class="cl-code">C1.1–C1.8</span><span>Interface &amp; fail-closed behavior</span></div>
+        <div class="cl-row"><span class="cl-mark">✓</span><span class="cl-code">C2.1–C2.6</span><span>Substrate / adapter identity &amp; inclusion proofs</span></div>
+        <div class="cl-row"><span class="cl-mark">✓</span><span class="cl-code">C3.1–C3.7</span><span>Witness chain, commitments, anchoring, consensus-readiness</span></div>
+      </div>
+
+<pre><span class="fn">certify</span>(engine, profile)
+   → run T-C1..T-C3
+   → sign result
+   → register in ApprovedEngineRegistry(engine_fingerprint, profile)</pre>
+    </section>
+
+    <!-- APP A -->
+    <section id="appA">
+      <div class="eyebrow">Appendix A</div>
+      <h2>Canonicalization</h2>
+      <p>All <code>canonical(...)</code> hashing <span class="kw must">MUST</span> use RFC&nbsp;8785 JSON Canonicalization Scheme (JCS): UTF-8, lexicographically sorted keys, no insignificant whitespace, canonical number forms. Hash is SHA-256 unless a substrate declares otherwise.</p>
+    </section>
+
+    <!-- APP B -->
+    <section id="appB">
+      <div class="eyebrow">Appendix B · Worked example</div>
+      <h2>DwarfStar → Profile B / B-spec</h2>
+      <p>DwarfStar has no adapter serving and no native witness log. It maps to <strong>Profile B and B-spec only</strong>, and only <strong>with a mandatory witness-sidecar</strong>. It is not disqualified from specialization — only from the hot-adapter mechanism of Profile A.</p>
+
+      <div class="worked">
+        <h4>C1 · Interface</h4>
+        <p>Wrap its OpenAI/Anthropic-compatible server behind a thin JII shim that injects and echoes <code>nonce</code>, <code>request_id</code>, and <code>champion_context</code>. <span class="verdict pass">FEASIBLE</span></p>
+
+        <h4>C2 · Substrate + Provenance</h4>
+        <p>It already loads a single content-addressed GGUF set → compute <code>substrate_id</code> over its shards; <code>determinism_level: attested</code> (Metal kernels, non-reproducible across hardware). For <strong>B-spec</strong>, a LoRA/DoRA merged offline into a new frozen GGUF is served as a distinct <code>substrate_id</code> — specialized knowledge inside, no hot adapters. <span class="verdict pass">CONFORMANT (B / B-spec)</span></p>
+
+        <h4>C3 · Witness</h4>
+        <p>The sidecar hooks pre- and post- its server API to emit, sign, and chain records, and to batch-anchor roots. DwarfStar <em>bare</em> is <span class="verdict fail">NON-CONFORMANT</span> — DwarfStar + sidecar is <span class="verdict pass">PROFILE-B CONFORMANT</span></p>
+
+        <h4>Profile A · Adapter serving</h4>
+        <p>DwarfStar has no in-forward-pass LoRA math, so an <code>adapter_id</code> cannot be routed to it hot. Multi-adapter batching (C2.3) is unavailable. <span class="verdict fail">DISQUALIFIED (A)</span></p>
+      </div>
+    </section>
+
+    <!-- APP C -->
+    <section id="appC">
+      <div class="eyebrow">Appendix C</div>
+      <h2>Where specialization lives</h2>
+      <p>Specialization occupies three distinct spaces. Conflating them is what made the original "DwarfStar can't specialize" claim wrong — it can, in two of the three.</p>
+      <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Space</th><th>Mechanism</th><th>Changes weights?</th><th>DwarfStar</th><th>Registry status</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Context</strong></td><td>System prompt, few-shot, RAG</td><td>No — conditions input</td><td class="yes">Yes</td><td>Per-request hash, not an adapter</td></tr>
+          <tr><td><strong>Activation</strong></td><td>Steering vectors (residual-stream directions)</td><td>No — shifts activations</td><td class="yes">Yes, native</td><td>One direction; not low-rank</td></tr>
+          <tr><td><strong>Weight</strong></td><td>LoRA / DoRA: <code>W·x → W·x + s·B·A·x</code></td><td>Yes — alters projection</td><td class="no">No (hot); Yes if baked</td><td>First-class <code>adapter_id</code> artifact</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <div class="callout">
+        <span class="co-k">The precise line</span>
+        <p>A node can specialize without vLLM — via context, steering, or a baked substrate. What DwarfStar cannot do is specialize <em>through the hot weight-adapter mechanism</em> that the architecture names as an <code>adapter_id</code>: a content-addressed, verified, swappable, batchable object. That mechanism is Profile A only.</p>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<footer>
+  <div class="om">Jai Guru Dev 🕉</div>
+  <div class="fx">JJ DAI · NECS v0.1 · Draft / Normative</div>
+</footer>
+
+<script>
+  // mobile TOC toggle
+  var toggle = document.getElementById('tocToggle');
+  var list = document.getElementById('tocList');
+  toggle.addEventListener('click', function(){
+    list.classList.toggle('open');
+    toggle.classList.toggle('open');
+  });
+  // close on link tap (mobile)
+  list.querySelectorAll('a').forEach(function(a){
+    a.addEventListener('click', function(){
+      if(window.innerWidth <= 900){ list.classList.remove('open'); toggle.classList.remove('open'); }
+    });
+  });
+
+  // scrollspy
+  var links = Array.prototype.slice.call(document.querySelectorAll('.toc-list a'));
+  var map = {};
+  links.forEach(function(a){ var id = a.getAttribute('href').slice(1); map[id] = a; });
+  var targets = Object.keys(map).map(function(id){ return document.getElementById(id); }).filter(Boolean);
+
+  var obs = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if(e.isIntersecting){
+        links.forEach(function(l){ l.classList.remove('active'); });
+        var active = map[e.target.id];
+        if(active) active.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-10% 0px -80% 0px', threshold: 0 });
+
+  targets.forEach(function(t){ obs.observe(t); });
+</script>
+
+</body>
+</html>

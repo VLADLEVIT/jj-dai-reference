@@ -1,0 +1,441 @@
+{
+ "version": "0.5.5",
+ "acceptance": null,
+ "legend": {
+  "impl": "Implemented — live, tested",
+  "proto": "Prototype — works end-to-end, known gaps",
+  "iface": "Interface only — the seam exists",
+  "plan": "Planned — designed, no code",
+  "const": "Constitutional text only"
+ },
+ "sections": [
+  {
+   "id": "00",
+   "kind": "FIVE-LAYER COMPOSITION",
+   "title": "The neurosymbolic stack",
+   "note": "Mutable knowledge lives outside frozen weights; everything that touches a decision is verified; the Witness observes and never acts (INV-9).",
+   "layers": [
+    [
+     "5",
+     "LLM / agent — frozen substrate + adapters",
+     "proto"
+    ],
+    [
+     "4",
+     "Knowledge — governed Plane H store (graph semantics planned)",
+     "proto"
+    ],
+    [
+     "3",
+     "Deterministic tools — Karma reference sandbox",
+     "impl"
+    ],
+    [
+     "2",
+     "Verification — diversity panels, verdicts, cross-verify",
+     "impl"
+    ],
+    [
+     "1",
+     "Sākṣī — Witness: local implemented, distributed fabric prototype",
+     "impl"
+    ]
+   ]
+  },
+  {
+   "id": "01",
+   "kind": "PRIMITIVES",
+   "title": "Cryptographic primitives — jjdai/",
+   "cards": [
+    {
+     "path": "jjdai/canonical.py",
+     "name": "Canonical serialization",
+     "status": "impl",
+     "chips": [
+      "Implemented"
+     ],
+     "desc": "RFC 8785 JCS: one deterministic byte-stream per object across identity, signatures, manifests and witness records."
+    },
+    {
+     "path": "jjdai/crypto.py",
+     "name": "Ed25519, ids, commitments, keystore",
+     "status": "impl",
+     "chips": [
+      "Implemented",
+      "reference crypto"
+     ],
+     "desc": "Strict small-order rejection, cofactored verification, canonical node/Being ids, hiding commitments, atomic 0600 encrypted keystore."
+    },
+    {
+     "path": "jjdai/crypto.py::vrf_prove · jjdai/crypto.py::multisig_verify",
+     "name": "VRF and threshold governance",
+     "status": "impl",
+     "chips": [
+      "Implemented",
+      "RFC 9381 vectors",
+      "FROST deferred"
+     ],
+     "desc": "ECVRF-EDWARDS25519-SHA512-TAI (RFC 9381) pinned to all three official B.3 vectors, with validate_key fail-closed checks; naive m-of-n multisig verification (aggregate FROST signing deferred)."
+    },
+    {
+     "path": "jjdai/merkle.py",
+     "name": "Merkle trees",
+     "status": "impl",
+     "chips": [
+      "Implemented"
+     ],
+     "desc": "Legacy padding tree plus RFC 6962 inclusion and consistency proofs, property-tested across tree shapes and forgery cases."
+    },
+    {
+     "path": "jjdai/witness.py",
+     "name": "Witness chain",
+     "status": "impl",
+     "chips": [
+      "Implemented"
+     ],
+     "desc": "Hash-chained, Ed25519-signed, persist-before-expose append under a chain-internal lock, offline replay and legacy-log verification."
+    },
+    {
+     "path": "jjdai/schema.py · jjdai/durable.py",
+     "name": "Typed boundary and durability",
+     "status": "impl",
+     "chips": [
+      "Implemented"
+     ],
+     "desc": "Fail-closed typed envelopes; fsynced journals, torn-tail repair and reload-time re-verification."
+    },
+    {
+     "path": "core/anchoring.py",
+     "name": "External anchoring",
+     "status": "proto",
+     "chips": [
+      "Prototype"
+     ],
+     "desc": "Durable receipt log with local, peer-quorum and OTS-calendar backends. OTS is proof custody; standard tooling verifies the stored calendar proof."
+    },
+    {
+     "path": "core/anchoring_xmr.py",
+     "name": "Monero root-as-spend-key anchor",
+     "status": "proto",
+     "chips": [
+      "Prototype",
+      "v0.5.2"
+     ],
+     "desc": "The witness root deterministically becomes a Monero address; a dust payment timestamps the binding without storing the root in tx_extra."
+    }
+   ]
+  },
+  {
+   "id": "02",
+   "kind": "ORGAN KERNEL",
+   "title": "The organ kernel — kernel/",
+   "cards": [
+    {
+     "path": "kernel/smriti.py",
+     "name": "Smriti — continuity and memory",
+     "status": "impl",
+     "chips": [
+      "Implemented"
+     ],
+     "desc": "Core/archival memory, verified recall, signed export/import, read-only thinking view and journal reconstruction."
+    },
+    {
+     "path": "kernel/viveka.py",
+     "name": "Viveka — discernment and deliberation",
+     "status": "impl",
+     "chips": [
+      "Implemented"
+     ],
+     "desc": "Deterministic graphs, conditional routing, checkpoints, visible rollback, bounded loops and containment-aware executive steps."
+    },
+    {
+     "path": "kernel/karma.py",
+     "name": "Karma — governed action",
+     "status": "impl",
+     "chips": [
+      "Implemented",
+      "reference sandbox"
+     ],
+     "desc": "Witnessed intent/outcome, path confinement, rlimits, streaming flood-kill, deterministic child environment. Reference sandbox, not hardened isolation."
+    }
+   ]
+  },
+  {
+   "id": "03",
+   "kind": "BEING COMPOSITION",
+   "title": "The organism — runtime/",
+   "cards": [
+    {
+     "path": "runtime/being.py",
+     "name": "BeingRuntime",
+     "status": "proto",
+     "chips": [
+      "Prototype",
+      "v0.5.3"
+     ],
+     "desc": "One long-lived composition owning one identity, ONE witness chain, Smriti, Plane H, Viveka, Router, Karma and Containment. Closes the v0.5.2 audit composition gap."
+    },
+    {
+     "path": "runtime/state_machine.py · runtime/decision_trace.py",
+     "name": "Decision lifecycle",
+     "status": "proto",
+     "chips": [
+      "Prototype",
+      "v0.5.3"
+     ],
+     "desc": "RECEIVED → GROUNDED → PLANNED → GENERATED → VERIFIED → AUTHORIZED → ACTED → RECORDED with REFUSED / FAILED / FATE_UNKNOWN / CONTAINED branches; every transition witnessed then journaled."
+    },
+    {
+     "path": "runtime/recovery.py",
+     "name": "Semantic recovery",
+     "status": "proto",
+     "chips": [
+      "Prototype",
+      "v0.5.3"
+     ],
+     "desc": "After restart every trace is rebuilt from the durable journal; an orphaned Karma intent closes as FATE_UNKNOWN — the system that does not know says so."
+    },
+    {
+     "path": "node/daemon.py::/v1/tasks",
+     "name": "POST /v1/tasks",
+     "status": "proto",
+     "chips": [
+      "Prototype",
+      "v0.5.3"
+     ],
+     "desc": "Returns a full DecisionTrace, not a raw completion: states, citations, plan hash, generator and panel provenance, containment decision, action receipt, witness span."
+    }
+   ]
+  },
+  {
+   "id": "04",
+   "kind": "TRUST & GOVERNANCE CORE",
+   "title": "Trust core — core/",
+   "cards": [
+    {
+     "path": "core/identity.py",
+     "name": "Node and Being identity",
+     "status": "impl",
+     "chips": [
+      "Implemented"
+     ],
+     "desc": "Persistent keystores, genesis binding, boot verification and migration consent. The daemon fails closed on signer/witness mismatch."
+    },
+    {
+     "path": "core/registry.py · core/verdict.py",
+     "name": "Reputation §9.9 and sealed verdicts",
+     "status": "impl",
+     "chips": [
+      "Implemented"
+     ],
+     "desc": "Decay, Bayesian shrinkage, slashing and signed context-bound verdict envelopes with replay refusal."
+    },
+    {
+     "path": "core/plane_h.py",
+     "name": "Governed Plane H",
+     "status": "impl",
+     "chips": [
+      "Governance implemented",
+      "retrieval baseline"
+     ],
+     "desc": "Signed proposals, namespace ACL, transactional witness-bound append, supersede/redact, root-preserving redaction. Retrieval remains a token-overlap baseline; not yet a semantic knowledge graph."
+    },
+    {
+     "path": "core/replication.py · core/segments.py",
+     "name": "Witness replication and recovery",
+     "status": "proto",
+     "chips": [
+      "Prototype fabric"
+     ],
+     "desc": "Signed RFC 6962 roots, quorum receipts, consistency proofs, segment coverage, divergence evidence and restore-and-resume against an anchored root."
+    },
+    {
+     "path": "core/entanglement.py",
+     "name": "Cross-chain entanglement",
+     "status": "proto",
+     "chips": [
+      "Prototype"
+     ],
+     "desc": "Recipient-root cross-links, PEER_ROOT checkpoints and issuance inclusion proofs. Attribution is cryptographic only under the documented honest/anchored issuer assumption."
+    },
+    {
+     "path": "core/peers.py",
+     "name": "IFF — friend or foe",
+     "status": "proto",
+     "chips": [
+      "Prototype"
+     ],
+     "desc": "Durable peer registry, steward admission, key pinning and replay-protected signed requests, layered under TLS/mTLS transport."
+    },
+    {
+     "path": "core/manifests.py · core/diversity.py",
+     "name": "Provenance and diversity",
+     "status": "impl",
+     "chips": [
+      "Implemented algorithm"
+     ],
+     "desc": "Signed immutable manifests and correlation-constrained panel selection. Unknown provenance counts as correlated; short panels fail honest."
+    },
+    {
+     "path": "core/attestation.py",
+     "name": "Weight attestation",
+     "status": "proto",
+     "chips": [
+      "Prototype"
+     ],
+     "desc": "Streamed artifact measurement, signed DeploymentManifest, durable store and daemon boot gate. Proves operator measurement, not engine memory."
+    },
+    {
+     "path": "core/router.py",
+     "name": "Unified router",
+     "status": "proto",
+     "chips": [
+      "Prototype",
+      "composed in v0.5.3"
+     ],
+     "desc": "Registry-aware champion routing, signed ROUTE records and diversity-constrained verifier panels — now driven by the BeingRuntime lifecycle as well as usable as a library."
+    },
+    {
+     "path": "core/challenge.py",
+     "name": "Adversarial challenge round",
+     "status": "proto",
+     "chips": [
+      "Prototype",
+      "networked v0.5.5"
+     ],
+     "desc": "VRF sortition (transcript-bound, unbiasable seats), blind commit-reveal verdicts, deadline/abstention semantics and offline-verifiable fraud proofs that slash via the registry — now driven over mTLS via /challenge/* as well as in-process."
+    },
+    {
+     "path": "core/crossverify.py",
+     "name": "Peer cross-verification loop",
+     "status": "proto",
+     "chips": [
+      "Prototype"
+     ],
+     "desc": "Remote teacher-forcing score, offline peer-Witness re-audit and registry feedback. The challenge round now runs across the network (core/challenge.py + /challenge/* endpoints)."
+    },
+    {
+     "path": "core/containment.py",
+     "name": "Containment — Article 25",
+     "status": "proto",
+     "chips": [
+      "Reference prototype"
+     ],
+     "desc": "Seven executive scopes, provisional containment, reversal, initiator liability, slashing, rehabilitation and Steward-review gate. Steward keys and ballots remain absent."
+    }
+   ]
+  },
+  {
+   "id": "05",
+   "kind": "NODE & CONFORMANCE",
+   "title": "Node layer — node/ · necs/",
+   "cards": [
+    {
+     "path": "node/daemon.py",
+     "name": "Tier-1 trust node daemon",
+     "status": "proto",
+     "chips": [
+      "Prototype"
+     ],
+     "desc": "Inference/scoring, Witness export, replication, entanglement, attestation, anchoring, peers, containment, the Being task lifecycle, per-identity rate limiting, role-based authorization, cert revocation, /healthz and /metrics, and the networked challenge round — all over TLS/mTLS."
+    },
+    {
+     "path": "node/engine_sglang.py · node/engine_dwarfstar.py",
+     "name": "Engine adapters",
+     "status": "proto",
+     "chips": [
+      "Prototype adapters"
+     ],
+     "desc": "Generation plus teacher-forcing score with mock and live acceptance seams. Real GPU acceptance and operational profiles remain pending (operator-run gate)."
+    },
+    {
+     "path": "necs/",
+     "name": "NECS v0.1 + harness",
+     "status": "impl",
+     "chips": [
+      "Implemented"
+     ],
+     "desc": "Conformance specification and harness under Apache-2.0, preserving vendor-neutral adoption."
+    },
+    {
+     "path": "tests/ · .github/workflows/ci.yml",
+     "name": "Acceptance and CI",
+     "status": "impl",
+     "chips": [
+      "generated count"
+     ],
+     "desc": "Acceptance functions across unit, integration, conformance, adversarial and legacy groups; CI matrix targets Python 3.10-3.12; docs drift is CI-checked."
+    },
+    {
+     "path": "m1m5/",
+     "name": "Retired M1-M5 lineage",
+     "status": "impl",
+     "chips": [
+      "Frozen"
+     ],
+     "desc": "Frozen legacy code retained for auditability and migration coverage."
+    }
+   ]
+  },
+  {
+   "id": "06",
+   "kind": "NOT-IN-CODEBASE",
+   "title": "Not yet in the codebase",
+   "note": "Designed in the Whitepaper and Charter — and deliberately absent from the code today. Naming the absence is part of the architecture.",
+   "cards": [
+    {
+     "name": "Plane B canary lifecycle",
+     "status": "plan",
+     "chips": [
+      "Planned"
+     ],
+     "desc": "Secret reserve, expiry and rotation, commit-reveal, contamination detection, work classes and fraud proofs."
+    },
+    {
+     "name": "Knowledge graph / ontology semantics",
+     "status": "plan",
+     "chips": [
+      "Planned"
+     ],
+     "desc": "Typed entities and relations, ontology versioning, graph provenance, deterministic query contracts and verified graph mutation above the governed Plane H store."
+    },
+    {
+     "name": "TEE / runtime attestation",
+     "status": "plan",
+     "chips": [
+      "Planned"
+     ],
+     "desc": "Evidence that the serving process loaded the measured model and adapter bytes into the executing memory boundary."
+    },
+    {
+     "name": "DIIP — governed self-improvement",
+     "status": "plan",
+     "chips": [
+      "Do not start yet"
+     ],
+     "desc": "Proposals, bonds, shadow execution, quorum, time-lock, rollback and circuit breaker. It should govern a stable runtime, not become the mechanism that invents one."
+    },
+    {
+     "name": "Training federation",
+     "status": "plan",
+     "chips": [
+      "Planned"
+     ],
+     "desc": "Specialization pipeline, DiLoCo/PRIME-class federation and a multi-jurisdiction training/Witness topology."
+    },
+    {
+     "name": "Human governance layer",
+     "status": "const",
+     "chips": [
+      "Constitutional text only"
+     ],
+     "desc": "Being Registry, guardian representation, Digital Majority Test, economic reserve, Steward Collegium keys, ballots, veto, succession and refusal policy."
+    }
+   ]
+  }
+ ],
+ "honest_sentence": [
+  "v0.4.1 closed the identity gap. v0.5-dev5 closed the cryptographic boundary. v0.5-dev6 made replication sound. v0.5.1 closed P1 mechanisms. v0.5.2 added the Monero anchor. v0.5.3 closed the COMPOSITION GAP: one BeingRuntime drives every organ through one witnessed lifecycle over one identity, and POST /v1/tasks returns the full DecisionTrace — including the honest endings REFUSED, FAILED, FATE_UNKNOWN and CONTAINED. v0.5.4 made verification ADVERSARIAL: RFC 9381 ECVRF (vector-pinned) drives transcript-bound panel sortition nobody can grind; verdicts are sealed before any are shown; silence and fraud become witnessed, offline-verifiable evidence; and the daemon holds its first operational boundary — per-identity rate limiting whose systematic abuse is itself witnessed. v0.5.5 is the SECURITY-ALPHA: role-based authorization (default-deny, longest-prefix), certificate revocation that beats identity, /healthz + /metrics, the challenge round carried over mTLS, a production PKI with an offline root, optional TPM-sealed keystores, a hardened systemd unit and an operator runbook — the kit to stand up testnet-0 on Ubuntu.",
+  "Said plainly: authorization is transport-role based (peer/admin/anonymous from the mTLS CN), not yet capability- or steward-ballot based; certificate revocation is serial-list based; Karma is still a reference sandbox, not hardened isolation; the knowledge store is retrieval-baseline, not a knowledge graph; and DIIP remains deliberately absent. This is an alpha to operate among known operators, not to expose to untrusted load."
+ ]
+}

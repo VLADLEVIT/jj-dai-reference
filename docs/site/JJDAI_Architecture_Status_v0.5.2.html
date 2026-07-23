@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JJ DAI — Codebase Architecture Status · v0.5.2</title>
+<meta name="description" content="What exists in the JJ DAI reference codebase, and what does not yet. Honest five-status classification, v0.5.2.">
+<meta name="theme-color" content="#04060c">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#05070d; --panel:#0b101c; --panel-2:#0e1524; --line:#1b2436;
+  --ink:#dfe6f2; --muted:#7d8aa5; --faint:#4b5872;
+  --impl:#3fbf8f; --proto:#d9a441; --iface:#6f8dd6;
+  --plan:#64748c; --const:#c084c9; --new:#e8657a;
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+body{
+  background:var(--bg); color:var(--ink);
+  font:400 16px/1.55 'IBM Plex Sans',system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1060px;margin:0 auto;padding:0 24px}
+
+/* ---------- header ---------- */
+header{padding:56px 0 34px;border-bottom:1px solid var(--line)}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.18em;color:var(--muted);text-transform:uppercase}
+h1{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:clamp(34px,5.4vw,56px);
+   line-height:1.04;letter-spacing:.01em;margin:14px 0 10px;text-transform:uppercase}
+h1 .thin{font-weight:500;color:var(--muted)}
+.sub{color:var(--muted);max-width:62ch}
+.badges{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px}
+.badge{font-family:var(--mono);font-size:12.5px;padding:7px 13px;border:1px solid var(--line);
+  border-radius:3px;background:var(--panel);color:var(--ink)}
+.badge b{color:var(--impl);font-weight:500}
+.badge.warn b{color:var(--proto)}
+
+/* ---------- legend ---------- */
+.legend{display:flex;flex-wrap:wrap;gap:8px 20px;padding:20px 0 4px}
+.lg{display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--muted)}
+.dot{width:11px;height:11px;border-radius:2px;flex:none}
+.dot.impl{background:var(--impl)} .dot.proto{background:var(--proto)}
+.dot.iface{background:var(--iface)}
+.dot.plan{background:transparent;border:1.5px dashed var(--plan)}
+.dot.const{background:var(--const)}
+
+/* ---------- witness-record sections (the signature) ---------- */
+section{padding:34px 0 10px}
+.rec{font-family:var(--mono);font-size:12.5px;color:var(--faint);
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+.rec .idx{color:var(--muted)}
+.rec .kind{color:var(--ink);letter-spacing:.14em}
+.rec .link{color:var(--faint)}
+.rec::before{content:"";width:14px;height:14px;flex:none;border:1px solid var(--line);
+  border-radius:2px;background:linear-gradient(135deg,var(--panel-2),var(--panel))}
+h2{font-family:'Rajdhani',sans-serif;font-weight:600;font-size:26px;letter-spacing:.02em;
+   text-transform:uppercase;margin-bottom:4px}
+.secnote{color:var(--muted);font-size:14.5px;max-width:72ch;margin-bottom:18px}
+.chainline{border-left:1px solid var(--line);margin-left:7px;padding-left:24px}
+
+/* ---------- module grid ---------- */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;margin-bottom:8px}
+.card{background:var(--panel);border:1px solid var(--line);border-left-width:3px;
+  border-radius:4px;padding:14px 15px 12px;position:relative}
+.card.impl{border-left-color:var(--impl)}
+.card.proto{border-left-color:var(--proto)}
+.card.iface{border-left-color:var(--iface)}
+.card.plan{border-style:solid solid solid dashed;border-left-color:var(--plan);background:transparent}
+.card.const{border-left-color:var(--const)}
+.path{font-family:var(--mono);font-size:12px;color:var(--muted);margin-bottom:5px;word-break:break-all}
+.cname{font-family:'Rajdhani',sans-serif;font-weight:600;font-size:18.5px;letter-spacing:.01em;margin-bottom:4px}
+.cdesc{font-size:13.5px;color:var(--muted);line-height:1.5}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.chip{font-family:var(--mono);font-size:11px;letter-spacing:.06em;padding:3px 8px;border-radius:2px;text-transform:uppercase}
+.chip.impl{background:rgba(63,191,143,.13);color:var(--impl)}
+.chip.proto{background:rgba(217,164,65,.13);color:var(--proto)}
+.chip.iface{background:rgba(111,141,214,.14);color:var(--iface)}
+.chip.plan{background:rgba(100,116,140,.14);color:#93a1bd}
+.chip.const{background:rgba(192,132,201,.14);color:var(--const)}
+.chip.new{background:rgba(232,101,122,.14);color:var(--new)}
+
+/* ---------- stack diagram ---------- */
+.stack{display:flex;flex-direction:column;gap:0;max-width:640px;margin:6px 0 14px}
+.layer{display:flex;align-items:center;gap:14px;background:var(--panel);
+  border:1px solid var(--line);padding:11px 16px}
+.layer+.layer{border-top:none}
+.layer .n{font-family:var(--mono);font-size:11.5px;color:var(--faint);width:16px;flex:none}
+.layer .t{font-family:'Rajdhani',sans-serif;font-weight:600;font-size:16.5px;letter-spacing:.02em;flex:1}
+.layer .s{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+.layer .s.impl{color:var(--impl)} .layer .s.proto{color:var(--proto)} .layer .s.plan{color:#93a1bd}
+.layer.witness{background:linear-gradient(180deg,#0d1626,#0b101c);border-color:#22314e}
+
+/* ---------- honest sentence ---------- */
+.honest{background:var(--panel-2);border:1px solid var(--line);border-radius:4px;
+  padding:20px 22px;margin:10px 0 6px;max-width:860px}
+.honest p{font-size:14.5px;color:var(--ink)}
+.honest p+p{margin-top:10px}
+.honest .hl{color:var(--impl)}
+.honest .cap{font-family:var(--mono);font-size:11.5px;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--muted);display:block;margin-bottom:10px}
+
+/* ---------- footer / anchor ---------- */
+footer{margin-top:46px;border-top:1px solid var(--line);padding:26px 0 54px}
+.anchor{font-family:var(--mono);font-size:12.5px;color:var(--faint);line-height:1.9}
+.anchor .k{color:var(--muted)}
+.motto{margin-top:14px;color:var(--muted);font-size:14px}
+a{color:var(--iface);text-decoration:none}
+a:hover,a:focus-visible{text-decoration:underline;outline:none}
+a:focus-visible{outline:2px solid var(--iface);outline-offset:2px}
+
+@media(max-width:560px){
+  .grid{grid-template-columns:1fr}
+  .chainline{padding-left:14px}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="eyebrow">jj-dai.org · reference codebase · dev branch</div>
+    <h1>Architecture Status <span class="thin">/ what exists, what does not yet</span></h1>
+    <p class="sub">Every component of the JJ DAI trust, governance and agent kernel, classified into
+    exactly one of five honest statuses. This page follows the code, not the ambition.</p>
+    <div class="badges">
+      <span class="badge">build <b>v0.5.2</b> · 17 Jul 2026</span>
+      <span class="badge">acceptance <b>68/68 green</b></span>
+      <span class="badge">stdlib-only core · Python ≥ 3.10</span>
+      <span class="badge warn">status <b>experimental fabric — NOT a security-alpha</b></span>
+    </div>
+    <div class="legend" role="list" aria-label="Status legend">
+      <span class="lg" role="listitem"><span class="dot impl"></span>Implemented — live, tested</span>
+      <span class="lg" role="listitem"><span class="dot proto"></span>Prototype — works end-to-end, known gaps</span>
+      <span class="lg" role="listitem"><span class="dot iface"></span>Interface only — the seam exists</span>
+      <span class="lg" role="listitem"><span class="dot plan"></span>Planned — designed, no code</span>
+      <span class="lg" role="listitem"><span class="dot const"></span>Constitutional text only</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+<!-- 00 STACK -->
+<section>
+  <div class="rec"><span class="idx">#00</span><span class="kind">KIND: FIVE-LAYER COMPOSITION</span><span class="link">prev: GENESIS</span></div>
+  <div class="chainline">
+    <h2>The neurosymbolic stack</h2>
+    <p class="secnote">Mutable knowledge lives outside frozen weights; everything that touches a decision is verified; the Witness observes and never acts (INV-9).</p>
+    <div class="stack">
+      <div class="layer"><span class="n">5</span><span class="t">LLM / agent — frozen substrate + adapters</span><span class="s proto">Prototype</span></div>
+      <div class="layer"><span class="n">4</span><span class="t">Knowledge graph / ontology — Plane H, governed RAG</span><span class="s impl">Implemented</span></div>
+      <div class="layer"><span class="n">3</span><span class="t">Deterministic tools — Karma sandbox</span><span class="s impl">Implemented</span></div>
+      <div class="layer"><span class="n">2</span><span class="t">Verification — diversity-constrained panels, verdicts, cross-verify</span><span class="s impl">Implemented</span></div>
+      <div class="layer witness"><span class="n">1</span><span class="t">Sākṣī — non-acting Witness plane, replicated &amp; recoverable</span><span class="s impl">Implemented</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- 01 PRIMITIVES -->
+<section>
+  <div class="rec"><span class="idx">#01</span><span class="kind">KIND: PRIMITIVES</span><span class="link">prev: #00</span></div>
+  <div class="chainline">
+    <h2>Cryptographic primitives — <code style="font-family:var(--mono);font-size:.72em">jjdai/</code></h2>
+    <p class="secnote">The shared layer everything signs with. Strict Ed25519 point validation (small-order rejection, cofactored verify) closed the dev-5 stop-ship.</p>
+    <div class="grid">
+      <div class="card impl"><div class="path">jjdai/canonical.py</div><div class="cname">Canonical serialization</div><div class="cdesc">RFC 8785 JCS — one byte-stream per object, everywhere.</div><div class="chips"><span class="chip impl">Implemented</span></div></div>
+      <div class="card impl"><div class="path">jjdai/crypto.py</div><div class="cname">Crypto &amp; identity derivation</div><div class="cdesc">SHA-256, strict Ed25519, encrypted keystore (0600, atomic), canonical node/being ids, hiding commitments.</div><div class="chips"><span class="chip impl">Implemented</span></div></div>
+      <div class="card impl"><div class="path">jjdai/merkle.py</div><div class="cname">Merkle trees</div><div class="cdesc">Legacy padding tree + RFC 6962 tree: inclusion AND consistency proofs, exhaustively property-tested.</div><div class="chips"><span class="chip impl">Implemented</span><span class="chip new">new</span></div></div>
+      <div class="card impl"><div class="path">jjdai/witness.py</div><div class="cname">Witness chain</div><div class="cdesc">Hash-chained, Ed25519-signed, atomic append (persist-then-expose), offline replay, legacy-log verification.</div><div class="chips"><span class="chip impl">Implemented</span></div></div>
+      <div class="card impl"><div class="path">jjdai/schema.py · durable.py</div><div class="cname">Typed boundary &amp; durability</div><div class="cdesc">Validated request envelopes; fsynced journals with torn-tail repair.</div><div class="chips"><span class="chip impl">Implemented</span></div></div>
+      <div class="card proto"><div class="path">core/anchoring.py</div><div class="cname">External anchoring</div><div class="cdesc">Durable receipt log; local, peer-quorum and OTS-calendar backends; one RFC 6962 root across all layers; ratchet skips bookkeeping. OTS = proof CUSTODY — the DEEP anchor.</div><div class="chips"><span class="chip proto">Prototype</span><span class="chip new">v0.5.1</span></div></div>
+      <div class="card proto"><div class="path">core/anchoring_xmr.py</div><div class="cname">Monero anchor — root as spend key</div><div class="cdesc">Nothing written on-chain: the root becomes the key, one piconero to the derived address is the timestamp. Legacy Keccak + CryptoNote derivation reproduce monero-wallet-cli byte-for-byte; the FAST external anchor (2-min blocks) with a private payer.</div><div class="chips"><span class="chip proto">Prototype</span><span class="chip new">v0.5.2</span></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- 02 KERNEL -->
+<section>
+  <div class="rec"><span class="idx">#02</span><span class="kind">KIND: ORGAN KERNEL</span><span class="link">prev: #01</span></div>
+  <div class="chainline">
+    <h2>The organ kernel — <code style="font-family:var(--mono);font-size:.72em">kernel/</code></h2>
+    <div class="grid">
+      <div class="card impl"><div class="path">kernel/smriti.py</div><div class="cname">Smriti — memory</div><div class="cdesc">Observes, indexes, verified recall. Reads and never writes the chain.</div><div class="chips"><span class="chip impl">Implemented</span></div></div>
+      <div class="card impl"><div class="path">kernel/viveka.py</div><div class="cname">Viveka — discernment</div><div class="cdesc">State comparison, drift detection, verdict logic.</div><div class="chips"><span class="chip impl">Implemented</span></div></div>
+      <div class="card impl"><div class="path">kernel/karma.py</div><div class="cname">Karma — action</div><div class="cdesc">Witnessed intent/outcome; governed sandbox: path confinement, rlimits, streaming flood-kill, deterministic child env. Reference profile (wasm/microvm planned).</div><div class="chips"><span class="chip impl">Implemented</span></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- 03 TRUST CORE -->
+<section>
+  <div class="rec"><span class="idx">#03</span><span class="kind">KIND: TRUST &amp; GOVERNANCE CORE</span><span class="link">prev: #02</span></div>
+  <div class="chainline">
+    <h2>Trust core — <code style="font-family:var(--mono);font-size:.72em">core/</code></h2>
+    <div class="grid">
+      <div class="card impl"><div class="path">core/identity.py</div><div class="cname">Node &amp; Being identity</div><div class="cdesc">Persistent keystores, boot verification, migration consent. The daemon's signer IS the persistent identity; boot fails closed on witness mismatch.</div><div class="chips"><span class="chip impl">Implemented</span></div></div>
+      <div class="card impl"><div class="path">core/registry.py · verdict.py</div><div class="cname">Reputation §9.9 &amp; verdicts</div><div class="cdesc">Decay, Bayesian shrinkage, slashing, stake gates; signed context-bound verdict envelopes.</div><div class="chips"><span class="chip impl">Implemented</span></div></div>
+      <div class="card impl"><div class="path">core/plane_h.py</div><div class="cname">Governed Plane H</div><div class="cdesc">Signed proposals → ACL → transactional append + Merkle + witness. Supersede/redact; root-preserving redaction.</div><div class="chips"><span class="chip impl">Implemented</span></div></div>
+      <div class="card proto"><div class="path">core/replication.py</div><div class="cname">Root replication</div><div class="cdesc">RFC 6962 signed roots, quorum receipts, CT-style signed consistency proofs; equivocation AND false-prefix claims become durable self-proving evidence.</div><div class="chips"><span class="chip proto">Prototype</span><span class="chip new">new</span></div></div>
+      <div class="card proto"><div class="path">core/segments.py</div><div class="cname">Segment replication + recovery</div><div class="cdesc">The Witness can be RESTORED, not only avenged: signed record segments, coverage maps, restore-and-resume against a quorum-anchored root. Gaps are named; local commitment salts are unrecoverable by design.</div><div class="chips"><span class="chip proto">Prototype</span><span class="chip new">new</span></div></div>
+      <div class="card proto"><div class="path">core/entanglement.py</div><div class="cname">Salt entanglement + cross-link</div><div class="cdesc">Witnessed issuance embeds the recipient's signed root; PEER_ROOT checkpoints; issuance inclusion proofs. Rewrite attribution is cryptographic under an honest/anchored issuer (m-of-n), evidential without.</div><div class="chips"><span class="chip proto">Prototype</span><span class="chip new">new</span></div></div>
+      <div class="card proto"><div class="path">core/peers.py</div><div class="cname">IFF — friend or foe</div><div class="cdesc">Durable peer registry, steward admission, key pinning, signed requests with replay cache — now LAYERED UNDER TLS/mTLS transport.</div><div class="chips"><span class="chip proto">Prototype</span></div></div>
+      <div class="card impl"><div class="path">core/manifests.py · diversity.py</div><div class="cname">Provenance &amp; diversity</div><div class="cdesc">Signed immutable manifests; correlation-constrained panels WIRED into router verification with the generator's provenance passed explicitly. Unknown provenance counts as CORRELATED; short panels fail honest.</div><div class="chips"><span class="chip impl">Implemented</span><span class="chip new">v0.5.1</span></div></div>
+      <div class="card proto"><div class="path">core/attestation.py</div><div class="cname">Weight attestation</div><div class="cdesc">Streamed measurement of real weight files; content vs declared binding classes; first-person signed DeploymentManifest, boot-gated and witnessed. Proves the operator's measurement — TEE runtime attestation is the remaining seam.</div><div class="chips"><span class="chip proto">Prototype</span><span class="chip new">v0.5.1</span></div></div>
+      <div class="card proto"><div class="path">core/router.py · crossverify.py</div><div class="cname">Router &amp; cross-verification</div><div class="cdesc">Registry-aware routing, signed decisions, diversity-constrained verifier panels (unanimous fail-closed, worst margin feeds §9.9); legacy self-verification labels itself. Not yet a challenge network.</div><div class="chips"><span class="chip proto">Prototype</span><span class="chip new">v0.5.1</span></div></div>
+      <div class="card proto"><div class="path">core/containment.py</div><div class="cname">Containment — Article 25</div><div class="cdesc">7 executive scopes, reversal, slashing, rehabilitation, Steward-review gate. Reference; Steward keys/ballots not implemented.</div><div class="chips"><span class="chip proto">Prototype</span></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- 04 NODE -->
+<section>
+  <div class="rec"><span class="idx">#04</span><span class="kind">KIND: NODE &amp; CONFORMANCE</span><span class="link">prev: #03</span></div>
+  <div class="chainline">
+    <h2>Node layer — <code style="font-family:var(--mono);font-size:.72em">node/ · necs/</code></h2>
+    <div class="grid">
+      <div class="card proto"><div class="path">node/daemon.py</div><div class="cname">Tier-1 node daemon</div><div class="cdesc">JII envelope, fail-closed witness + containment gates, full replication/entanglement surface, attestation boot gate, external anchoring — all over TLS/mTLS (fail-closed client certs; dev CA generator included).</div><div class="chips"><span class="chip proto">Prototype</span><span class="chip new">v0.5.1</span></div></div>
+      <div class="card proto"><div class="path">node/engine_sglang.py · engine_dwarfstar.py</div><div class="cname">Engine adapters</div><div class="cdesc">Generate + teacher-forcing score (generator/verifier asymmetry). Mock + live acceptance; GPU acceptance pending.</div><div class="chips"><span class="chip proto">Prototype</span></div></div>
+      <div class="card impl"><div class="path">necs/</div><div class="cname">NECS v0.1 + harness</div><div class="cdesc">Conformance spec and harness. Apache-2.0 — spec adoption stays copyleft-free.</div><div class="chips"><span class="chip impl">Implemented</span></div></div>
+      <div class="card impl"><div class="path">m1m5/</div><div class="cname">Retired M1–M5 lineage</div><div class="cdesc">Frozen; legacy logs stay auditable forever (Manifesto Art. VII).</div><div class="chips"><span class="chip impl">Frozen</span></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- 05 NOT PRESENT -->
+<section>
+  <div class="rec"><span class="idx">#05</span><span class="kind">KIND: NOT-IN-CODEBASE</span><span class="link">prev: #04</span></div>
+  <div class="chainline">
+    <h2>Not yet in the codebase</h2>
+    <p class="secnote">Designed in the Whitepaper and Charter — and deliberately absent from the code today. Naming the absence is part of the architecture.</p>
+    <div class="grid">
+      <div class="card plan"><div class="cname">DIIP — governed self-improvement</div><div class="cdesc">Proposals, bonds, shadow execution, quorum, time-lock, rollback, circuit breaker.</div><div class="chips"><span class="chip plan">Planned</span></div></div>
+      <div class="card plan"><div class="cname">Plane B canary lifecycle</div><div class="cdesc">Secret reserve, rotation, commit-reveal, contamination detection, fraud proofs. Storage primitives exist in m1m5.</div><div class="chips"><span class="chip plan">Planned</span></div></div>
+      <div class="card plan"><div class="cname">TEE / runtime attestation</div><div class="cdesc">Proof that the engine loaded the measured bytes into memory. Weight attestation stops at the operator's signed measurement.</div><div class="chips"><span class="chip plan">Planned</span></div></div>
+      <div class="card plan"><div class="cname">Rate limiting &amp; DoS controls</div><div class="cdesc">The daemon still trusts the network to be polite. It should not have to.</div><div class="chips"><span class="chip plan">Planned</span></div></div>
+      <div class="card plan"><div class="cname">Training federation</div><div class="cdesc">Specialization pipeline; DiLoCo/PRIME-class federation; multi-jurisdiction witness network.</div><div class="chips"><span class="chip plan">Planned</span></div></div>
+      <div class="card const"><div class="cname">Human governance layer</div><div class="cdesc">Being Registry, guardian representation, Digital Majority Test, economic reserve, Steward Collegium keys/ballots/veto/succession, refusal policy.</div><div class="chips"><span class="chip const">Constitutional text only</span></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- 06 HONEST -->
+<section>
+  <div class="rec"><span class="idx">#06</span><span class="kind">KIND: COMPOSITION STATUS</span><span class="link">prev: #05</span></div>
+  <div class="chainline">
+    <h2>The honest sentence</h2>
+    <div class="honest">
+      <span class="cap">what changed · what must not be overclaimed</span>
+      <p>v0.4.1 closed the identity gap. v0.5-dev5 closed the cryptographic boundary. v0.5-dev6 made
+      replication sound. <span class="hl">v0.5.1 closes P1:</span> weights are attested and boot-gated,
+      verification runs through diversity-constrained panels with the generator's provenance passed
+      explicitly, roots anchor beyond the trust domain, and every network path can run mTLS.</p>
+      <p>Still true, and said plainly: without TEE, attestation proves the operator's measurement — not
+      what the engine loaded into memory; OTS custody is not local Bitcoin verification; attribution
+      assumes an honest, anchored issuer chain; recovery restores only what was replicated, never the
+      local-only commitment salts. A reference node is not a production peer.</p>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="anchor">
+      <div><span class="k">record</span> #07 · KIND: ANCHOR · prev: #06</div>
+      <div><span class="k">source</span> docs/JJDAI_Code_Architecture_Map_v0.5.md @ v0.5.2 · CHANGELOG drop 8</div>
+      <div><span class="k">site</span> <a href="https://jj-dai.org">jj-dai.org</a> · <span class="k">license</span> AGPL-3.0-only core / Apache-2.0 NECS</div>
+    </div>
+    <p class="motto">truth is discovered, not decreed · Jai Guru Dev</p>
+  </div>
+</footer>
+
+</body>
+</html>

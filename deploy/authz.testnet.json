@@ -1,0 +1,20 @@
+{
+  "_comment": "JJ DAI testnet-0 default authorization policy (v0.5.5). Longest matching prefix wins; unmatched paths fall to default:deny. Edit admin_cns to match the CNs of your admin client certs (deploy/gen_pki.py admin --cn ...).",
+  "default": "deny",
+  "admin_cns": ["ops-ua", "ops-kr", "ops-ee"],
+  "rules": [
+    {"prefix": "/healthz",            "allow": ["anonymous", "peer", "admin"]},
+    {"prefix": "/capabilities",       "allow": ["anonymous", "peer", "admin"]},
+    {"prefix": "/metrics",            "allow": ["peer", "admin"]},
+    {"prefix": "/witness/",           "allow": ["peer", "admin"]},
+    {"prefix": "/replicate/",         "allow": ["peer", "admin"]},
+    {"prefix": "/v1/messages",        "allow": ["peer", "admin"]},
+    {"prefix": "/v1/tasks",           "allow": ["peer", "admin"]},
+    {"prefix": "/challenge/seat",     "allow": ["peer", "admin"]},
+    {"prefix": "/challenge/commit",   "allow": ["peer", "admin"]},
+    {"prefix": "/challenge/reveal",   "allow": ["peer", "admin"]},
+    {"prefix": "/challenge/open",     "allow": ["admin"]},
+    {"prefix": "/challenge/resolve",  "allow": ["admin"]},
+    {"prefix": "/admin/",             "allow": ["admin"]}
+  ]
+}

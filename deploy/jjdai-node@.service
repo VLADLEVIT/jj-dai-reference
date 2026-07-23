@@ -1,0 +1,76 @@
+[Unit]
+# JJ DAI Tier-1 trust node — hardened systemd unit (v0.5.5, testnet-0)
+Description=JJ DAI trust node (%i)
+Documentation=https://jj-dai.org
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=jjdai
+Group=jjdai
+WorkingDirectory=/opt/jjdai
+
+# The passphrase enters the environment WITHOUT touching disk. With TPM
+# sealing it is unsealed on this host in a trusted boot state; without a
+# TPM, fall back to an 0600 EnvironmentFile owned by jjdai (documented in
+# RUNBOOK.md). Never bake the passphrase into this unit.
+ExecStartPre=/bin/sh -c 'test -n "$JJDAI_KEYSTORE_PASSPHRASE" || (echo "no keystore passphrase in environment; see RUNBOOK.md" >&2; exit 1)'
+EnvironmentFile=/etc/jjdai/%i.env
+
+ExecStart=/usr/bin/python3 -m node.daemon \
+    --host 0.0.0.0 --port ${JJDAI_PORT} \
+    --name %i --fingerprint ${JJDAI_FINGERPRINT} \
+    --node-keystore /var/lib/jjdai/%i.keystore \
+    --log /var/lib/jjdai/%i.jsonl \
+    --tls-cert /etc/jjdai/pki/%i.crt \
+    --tls-key /etc/jjdai/pki/%i.key \
+    --tls-ca /etc/jjdai/pki/ca.crt \
+    --tls-require-client-cert \
+    --peer-ca /etc/jjdai/pki/ca.crt \
+    --client-cert /etc/jjdai/pki/%i.crt \
+    --client-key /etc/jjdai/pki/%i.key \
+    --authz-policy /etc/jjdai/authz.json \
+    --revoked-serials @/etc/jjdai/pki/revoked.txt \
+    --rate-limit ${JJDAI_RATE_LIMIT} \
+    --being-profile production \
+    --being-provenance /etc/jjdai/provenance.json \
+    --being-workspace /var/lib/jjdai/%i.ws \
+    --being-journals /var/lib/jjdai/%i.being \
+    --anchor-backends ${JJDAI_ANCHORS} \
+    --peers ${JJDAI_PEERS}
+
+Restart=on-failure
+RestartSec=5
+# The Witness is persist-before-expose and recovery is journaled: a
+# crash-restart resumes meaning, so aggressive restart is safe.
+WatchdogSec=60
+
+# ---- hardening: the hand the OS gives this process is small ----------
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+# Only these paths are writable; everything else is read-only to the node
+ReadWritePaths=/var/lib/jjdai
+StateDirectory=jjdai
+# TPM access only if sealing is in use (comment out otherwise):
+# DeviceAllow=/dev/tpmrm0 rw
+
+[Install]
+WantedBy=multi-user.target

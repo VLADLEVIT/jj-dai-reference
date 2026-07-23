@@ -1,0 +1,11 @@
+[PRE-TAG STEP — P0-7 residual]
+
+Insert here the canonical, verbatim text of the GNU Affero General
+Public License, version 3 (19 November 2007), from:
+
+    https://www.gnu.org/licenses/agpl-3.0.txt
+
+Do NOT retype or reformat it; the license text must be byte-exact.
+This placeholder must be replaced BEFORE the first public tag.
+(On GitHub: "Add file -> Choose a license template -> GNU AGPLv3"
+produces the canonical text automatically.)

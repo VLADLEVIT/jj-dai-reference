@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jjdai"
+version = "0.5.5"
+description = "JJ DAI reference trust, governance and agent kernel (stdlib-only)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "AGPL-3.0-only"}
+# NECS specification and harness (necs/) are Apache-2.0 — see LICENSE.
+
+[tool.setuptools]
+# LIBRARY scope by design: the importable trust kernel only. The node
+# daemon (node/), the NECS harness (necs/) and scripts/ are NOT packaged —
+# they are run from a checkout, not installed. A runnable distribution is a
+# separate deliverable (see README §4).
+packages = ["jjdai", "core", "kernel"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

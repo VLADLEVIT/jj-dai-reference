@@ -2,7 +2,7 @@
 
 ## Reporting a vulnerability
 
-Report vulnerabilities privately to **security@jj-dai.org**. Do not open
+Report vulnerabilities privately to **vladlevlevit@gmail.com**. Do not open
 public issues for flaws in identity, witness, sandbox, containment or
 governance paths. We aim to acknowledge within 72 hours.
 

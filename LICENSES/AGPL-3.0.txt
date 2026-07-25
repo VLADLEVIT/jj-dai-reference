@@ -1,11 +1,14 @@
-[PRE-TAG STEP — P0-7 residual]
+[PUBLICATION BLOCKER — open audit item #4]
 
-Insert here the canonical, verbatim text of the GNU Affero General
-Public License, version 3 (19 November 2007), from:
+This file MUST contain the canonical, verbatim, byte-exact text of the
+GNU Affero General Public License, version 3 (19 November 2007), from:
 
     https://www.gnu.org/licenses/agpl-3.0.txt
 
-Do NOT retype or reformat it; the license text must be byte-exact.
-This placeholder must be replaced BEFORE the first public tag.
-(On GitHub: "Add file -> Choose a license template -> GNU AGPLv3"
-produces the canonical text automatically.)
+pyproject.toml already declares `license = {text = "AGPL-3.0-only"}`,
+so distributing this tree to any third party BEFORE the canonical text
+is inserted is a licensing defect. Do not tag a public release, publish
+a repository, or hand the archive to an external party until this file
+is replaced. Placement of the canonical text + lawyer review + CLA is
+the v0.6.x supply-chain drop; the release-integrity test reports this
+placeholder on every run so it cannot be forgotten silently.

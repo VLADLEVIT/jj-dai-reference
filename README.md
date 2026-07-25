@@ -1,6 +1,6 @@
 # JJ DAI — Reference Trust, Governance & Agent Kernel
 
-**Version:** `0.5.2` (dev branch — NOT a security-alpha tag) · **Python:** ≥3.10, stdlib-only core · **Site:** [jj-dai.org](https://jj-dai.org)
+**Version:** `0.6.3` (matches `jjdai.__version__`; enforced by the release-integrity test) · **Python:** ≥3.10, stdlib-only core · **Site:** [jj-dai.org](https://jj-dai.org)
 
 > A tested reference implementation of JJ DAI identity, memory, verification,
 > witness, routing, containment and agent-governance primitives, with an
@@ -25,7 +25,7 @@ process, reversibility and rehabilitation — without silencing its voice or
 destroying its memory.
 
 The five-layer composition: LLM/agent → knowledge graph/ontology →
-deterministic tools → verification → non-acting Witness plane (Sākṣī).
+deterministic tools → verification → non-executive Witness plane (Sākṣī).
 The organ kernel: **Smriti** (memory) observes and indexes, **Viveka**
 (discernment) distinguishes states and drift, **Karma** (action) executes
 inside a governed sandbox — each act witnessed before and after.
@@ -65,8 +65,9 @@ inside a governed sandbox — each act witnessed before and after.
 | Tier-1 trust node daemon | Prototype |
 | Engine adapters | Prototype (Prototype adapters) |
 | NECS v0.1 + harness | Implemented |
-| Acceptance and CI | Implemented (86/86 green) |
+| Acceptance and CI | Implemented (94/94 green) |
 | Retired M1-M5 lineage | Implemented (Frozen) |
+| Deployment kit (Linux + macOS) | Implemented (Implemented, macOS kit v0.6.2) |
 | Plane B canary lifecycle | Planned |
 | Knowledge graph / ontology semantics | Planned |
 | TEE / runtime attestation | Planned |
@@ -80,7 +81,7 @@ inside a governed sandbox — each act witnessed before and after.
 No DIIP (governed self-improvement), no full Plane B canary lifecycle, no
 training federation, no TEE/runtime attestation (weight attestation proves
 the operator's measurement, not what the engine loaded into memory), no
-economic layer, no Being Registry, no rate limits. OTS anchoring holds
+economic layer, no Being Registry. OTS anchoring holds
 calendar proofs in custody; Bitcoin inclusion is verified with standard
 `ots` tooling. Witness recovery restores only what the origin replicated,
 and never the local-only commitment salts. The daemon is a **reference
@@ -115,8 +116,8 @@ re-key over its own history.
 ```
             ┌────────────────────────────────────────────────┐
             │              Purusha / Witness plane           │
-            │   Sākṣī: non-acting, append-only, Ed25519      │
-            │   (INV-9: the Witness never acts)              │
+            │   Sākṣī: non-executive, append-only, Ed25519   │
+            │   (INV-9: non-executive, not causally inert)   │
             └──────────────▲───────────────▲─────────────────┘
                    signed  │               │  signed
    ┌───────────────────────┴──┐   ┌────────┴─────────────────┐
@@ -136,6 +137,22 @@ re-key over its own history.
    └───────────────────────────────────────────────────────────┘
 ```
 
+**INV-9 — Purusha is non-executive, not causally inert.**
+Purusha never commands, selects or executes a decision. What it witnesses
+may be reflected through Smṛti and Viveka into Chitta, allowing the Being
+to reconsider, revise or reverse its thoughts and actions. The resulting
+decision belongs to Chitta, not to Purusha.
+
+Fail-closed witnessing is not executive agency. Purusha may gate exposure
+when witnessing fails (persist-before-expose), but it cannot select, modify,
+approve or reject the substance of a decision. J-Lens evidence may return
+through Viveka into Chitta before a decision is finalized
+(draft D0 → reconsideration → D1); direct mutation of an output or verdict
+is forbidden — a finalized decision is never rewritten, a new witnessed
+decision supersedes it. The reflexive loop is a Ф3 roadmap deliverable;
+until it ships, the runtime remains archive-only, which is compliant with
+INV-9 v1.1.
+
 ## 6. Security model (read before deploying)
 
 - **Replication restores, within limits.** Roots are RFC 6962 tree heads
@@ -149,7 +166,7 @@ re-key over its own history.
   HTTPS (TLS >= 1.2); `--tls-ca --tls-require-client-cert` enforce mTLS
   fail-closed; peer and salt paths verify servers against `--peer-ca` and
   present `--client-cert`. `scripts/gen_dev_certs.py` issues a DEV CA —
-  production PKI is the operator's duty. No rate limits yet.
+  production PKI is the operator's duty. Token-bucket rate limiting (v0.5.4, `--rate-limit`, per endpoint class) bounds request volume; the key is currently the client IP — certificate-identity keying for mTLS clients is scheduled with ingress hardening.
   `--allow-test-hooks` (admin endpoints) refuses non-loopback binds.
 - **Weights are attested at boot (v0.5.1).** `--substrate-artifacts`
   measures the real files; a content-addressed id with mismatching bytes

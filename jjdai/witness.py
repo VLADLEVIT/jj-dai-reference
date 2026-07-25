@@ -15,6 +15,12 @@ the chain — so the log carries provenance without leaking content.
 Integrity model (M2):
   * verify_chain() catches tamper / reorder (a broken link or bad signature)
   * the external anchor catches truncation / consistent rewrite (a moved root)
+
+INV-9 (v1.1): non-executive, not causally inert. The Witness never commands,
+selects or executes a decision. Fail-closed witnessing is not executive
+agency: the chain may gate exposure when witnessing fails
+(persist-before-expose), but it cannot select, modify, approve or reject
+the substance of a decision.
 """
 
 import os

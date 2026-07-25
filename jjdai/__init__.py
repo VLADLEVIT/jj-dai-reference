@@ -14,4 +14,4 @@ harness bind to these modules.
 from . import canonical, crypto, merkle, witness   # noqa: F401
 
 __all__ = ["canonical", "crypto", "merkle", "witness"]
-__version__ = "0.5.5"
+__version__ = "0.6.3"

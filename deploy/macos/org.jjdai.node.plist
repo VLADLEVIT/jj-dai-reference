@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  JJ DAI Tier-1 trust node — launchd daemon template (v0.6.2, testnet-0,
+  roadmap Ф0: macOS deployment kit).
+
+  launchd has no systemd-style instance templating: bootstrap_node_macos.sh
+  substitutes __NODE_NAME__ and installs the result as
+  /Library/LaunchDaemons/org.jjdai.node.__NODE_NAME__.plist (root:wheel 0644).
+
+  The keystore passphrase is NEVER present in this file. The launcher
+  retrieves it from the System keychain (deploy/macos/keychain_seal.py)
+  and exports it into the daemon environment only.
+
+  Hardening honesty (degraded profile, stated not hidden): launchd offers
+  no seccomp filter, no MemoryDenyWriteExecute, no ProtectSystem=strict.
+  The isolation boundary on a Mac node is the dedicated _jjdai role
+  account, filesystem permissions, SIP, and the Keychain ACL — see
+  RUNBOOK-macOS.md §6 for what this host is NOT.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>org.jjdai.node.__NODE_NAME__</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/jjdai/deploy/macos/jjdai_node_launcher.sh</string>
+    <string>__NODE_NAME__</string>
+  </array>
+
+  <key>UserName</key>
+  <string>_jjdai</string>
+  <key>GroupName</key>
+  <string>_jjdai</string>
+
+  <key>WorkingDirectory</key>
+  <string>/opt/jjdai</string>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <!-- Persist-before-expose Witness + journaled recovery: a crash-restart
+       resumes meaning, so aggressive KeepAlive is safe (mirrors
+       Restart=on-failure / RestartSec=5 in the systemd unit). -->
+  <key>KeepAlive</key>
+  <dict>
+    <key>SuccessfulExit</key>
+    <false/>
+  </dict>
+  <key>ThrottleInterval</key>
+  <integer>5</integer>
+
+  <!-- The Mac node also carries inference (DeepSeek4Flash + DwarfStar):
+       do not let launchd background-throttle the trust plane. -->
+  <key>ProcessType</key>
+  <string>Interactive</string>
+
+  <key>StandardOutPath</key>
+  <string>/var/lib/jjdai/log/__NODE_NAME__.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/var/lib/jjdai/log/__NODE_NAME__.err.log</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>JJDAI_NODE_ENV</key>
+    <string>/etc/jjdai/__NODE_NAME__.env</string>
+    <!-- No passphrase here. Ever. -->
+  </dict>
+</dict>
+</plist>

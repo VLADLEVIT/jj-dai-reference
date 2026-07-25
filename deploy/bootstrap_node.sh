@@ -29,12 +29,17 @@ RATE_LIMIT="${RATE_LIMIT:-infer=30/60,task=10/60,write=60/60,read=120/60}"
 echo "==> creating jjdai user + directories"
 id -u jjdai >/dev/null 2>&1 || useradd --system --home /opt/jjdai \
     --shell /usr/sbin/nologin jjdai
-install -d -o jjdai -g jjdai -m 0755 /opt/jjdai /var/lib/jjdai
+install -d -o root -g root  -m 0755 /opt/jjdai
+install -d -o jjdai -g jjdai -m 0755 /var/lib/jjdai
 install -d -o root  -g jjdai -m 0750 /etc/jjdai /etc/jjdai/pki
 
-echo "==> installing code to /opt/jjdai"
+echo "==> installing code to /opt/jjdai (root-owned: the daemon must NOT"
+echo "    be able to modify its own executable code — audit item #2)"
 cp -r "$CHECKOUT"/. /opt/jjdai/
-chown -R jjdai:jjdai /opt/jjdai
+chown -R root:root /opt/jjdai
+find /opt/jjdai -type d -exec chmod 0755 {} \;
+find /opt/jjdai -type f -exec chmod 0644 {} \;
+chmod 0755 /opt/jjdai/deploy/*.sh /opt/jjdai/deploy/macos/*.sh 2>/dev/null || true
 
 echo "==> installing PKI material (leaf key stays 0640 root:jjdai)"
 install -o root -g jjdai -m 0644 "$PKI/ca.crt"            /etc/jjdai/pki/ca.crt

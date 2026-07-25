@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "jjdai"
-version = "0.5.5"
+version = "0.6.3"
 description = "JJ DAI reference trust, governance and agent kernel (stdlib-only)"
 readme = "README.md"
 requires-python = ">=3.10"

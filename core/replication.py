@@ -13,7 +13,8 @@ Closes the "single-disk witness is not inextinguishable" gap:
       -> reconciliation         (reconcile: lag / divergence report)
 
 Design constraints honored:
-  * INV-9 — the Witness plane never acts. Replication is performed by the
+  * INV-9 (v1.1) — the Witness plane is non-executive, not causally inert:
+    it never commands, selects or executes. Replication is performed by the
     NODE; the chain only receives records ABOUT achieved quorum.
   * Stdlib-only; all envelopes are JCS-canonical and Ed25519-signed with
     domain separation; everything is verifiable OFFLINE from the bundle.

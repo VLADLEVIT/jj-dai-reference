@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JJ DAI — Codebase Architecture Status · v0.6.1</title>
+<meta name="description" content="What exists in the JJ DAI reference codebase, and what does not yet. Generated from architecture_status.json.">
+<meta name="theme-color" content="#04060c">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#05070d;--panel:#0b101c;--panel-2:#0e1524;--line:#1b2436;
+--ink:#dfe6f2;--muted:#7d8aa5;--faint:#4b5872;--impl:#3fbf8f;--proto:#d9a441;
+--iface:#6f8dd6;--plan:#64748c;--const:#c084c9;--new:#e8657a;
+--mono:'IBM Plex Mono',ui-monospace,monospace}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);
+font:400 16px/1.55 'IBM Plex Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1060px;margin:0 auto;padding:0 24px}
+header{padding:56px 0 34px;border-bottom:1px solid var(--line)}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.18em;color:var(--muted);text-transform:uppercase}
+h1{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:clamp(34px,5.4vw,56px);line-height:1.04;margin:14px 0 10px;text-transform:uppercase}
+h1 .thin{font-weight:500;color:var(--muted)}
+.sub{color:var(--muted);max-width:62ch}
+.badges{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px}
+.badge{font-family:var(--mono);font-size:12.5px;padding:7px 13px;border:1px solid var(--line);border-radius:3px;background:var(--panel)}
+.badge b{color:var(--impl);font-weight:500}.badge.warn b{color:var(--proto)}
+.legend{display:flex;flex-wrap:wrap;gap:8px 20px;padding:20px 0 4px}
+.lg{display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--muted)}
+.dot{width:11px;height:11px;border-radius:2px;flex:none}
+.dot.impl{background:var(--impl)}.dot.proto{background:var(--proto)}
+.dot.iface{background:var(--iface)}
+.dot.plan{background:transparent;border:1.5px dashed var(--plan)}
+.dot.const{background:var(--const)}
+section{padding:34px 0 10px}
+.rec{font-family:var(--mono);font-size:12.5px;color:var(--faint);display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+.rec .kind{color:var(--ink);letter-spacing:.14em}
+.rec::before{content:"";width:14px;height:14px;flex:none;border:1px solid var(--line);border-radius:2px;background:linear-gradient(135deg,var(--panel-2),var(--panel))}
+h2{font-family:'Rajdhani',sans-serif;font-weight:600;font-size:26px;letter-spacing:.02em;text-transform:uppercase;margin-bottom:4px}
+.secnote{color:var(--muted);font-size:14.5px;max-width:72ch;margin-bottom:18px}
+.chainline{border-left:1px solid var(--line);margin-left:7px;padding-left:24px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;margin-bottom:8px}
+.card{background:var(--panel);border:1px solid var(--line);border-left-width:3px;border-radius:4px;padding:14px 15px 12px}
+.card.impl{border-left-color:var(--impl)}.card.proto{border-left-color:var(--proto)}
+.card.iface{border-left-color:var(--iface)}
+.card.plan{border-style:solid solid solid dashed;border-left-color:var(--plan);background:transparent}
+.card.const{border-left-color:var(--const)}
+.path{font-family:var(--mono);font-size:12px;color:var(--muted);margin-bottom:5px;word-break:break-all}
+.cname{font-family:'Rajdhani',sans-serif;font-weight:600;font-size:18.5px;margin-bottom:4px}
+.cdesc{font-size:13.5px;color:var(--muted);line-height:1.5}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.chip{font-family:var(--mono);font-size:11px;letter-spacing:.06em;padding:3px 8px;border-radius:2px;text-transform:uppercase}
+.chip.impl{background:rgba(63,191,143,.13);color:var(--impl)}
+.chip.proto{background:rgba(217,164,65,.13);color:var(--proto)}
+.chip.iface{background:rgba(111,141,214,.14);color:var(--iface)}
+.chip.plan{background:rgba(100,116,140,.14);color:#93a1bd}
+.chip.const{background:rgba(192,132,201,.14);color:var(--const)}
+.stack{display:flex;flex-direction:column;max-width:640px;margin:6px 0 14px}
+.layer{display:flex;align-items:center;gap:14px;background:var(--panel);border:1px solid var(--line);padding:11px 16px}
+.layer+.layer{border-top:none}
+.layer .n{font-family:var(--mono);font-size:11.5px;color:var(--faint);width:16px}
+.layer .t{font-family:'Rajdhani',sans-serif;font-weight:600;font-size:16.5px;flex:1}
+.layer .s{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+.layer .s.impl{color:var(--impl)}.layer .s.proto{color:var(--proto)}
+.honest{background:var(--panel-2);border:1px solid var(--line);border-radius:4px;padding:20px 22px;margin:10px 0 6px;max-width:860px}
+.honest p{font-size:14.5px}.honest p+p{margin-top:10px}
+.honest .cap{font-family:var(--mono);font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:10px}
+footer{margin-top:46px;border-top:1px solid var(--line);padding:26px 0 54px}
+.anchor{font-family:var(--mono);font-size:12.5px;color:var(--faint);line-height:1.9}
+.anchor .k{color:var(--muted)}.motto{margin-top:14px;color:var(--muted);font-size:14px}
+a{color:var(--iface);text-decoration:none}a:hover{text-decoration:underline}
+@media(max-width:560px){.grid{grid-template-columns:1fr}.chainline{padding-left:14px}}
+</style></head><body>
+
+<header><div class="wrap">
+<div class="eyebrow">jj-dai.org · reference codebase · generated from architecture_status.json</div>
+<h1>Architecture Status <span class="thin">/ what exists, what does not yet</span></h1>
+<p class="sub">Every component of the JJ DAI trust, governance and agent kernel, classified into exactly one of five honest statuses. This page follows the code, not the ambition.</p>
+<div class="badges">
+<span class="badge">build <b>v0.6.1</b></span>
+<span class="badge">acceptance <b>86/86 green</b></span>
+<span class="badge">stdlib-only core · Python ≥ 3.10</span>
+<span class="badge warn">status <b>experimental organism — NOT a security-alpha</b></span>
+</div><div class="legend">
+<span class="lg"><span class="dot impl"></span>Implemented — live, tested</span>
+<span class="lg"><span class="dot proto"></span>Prototype — works end-to-end, known gaps</span>
+<span class="lg"><span class="dot iface"></span>Interface only — the seam exists</span>
+<span class="lg"><span class="dot plan"></span>Planned — designed, no code</span>
+<span class="lg"><span class="dot const"></span>Constitutional text only</span>
+</div></div></header><main class="wrap">
+<section><div class="rec"><span>#00</span><span class="kind">KIND: FIVE-LAYER COMPOSITION</span><span>prev: GENESIS</span></div><div class="chainline"><h2>The neurosymbolic stack</h2>
+<p class="secnote">Mutable knowledge lives outside frozen weights; everything that touches a decision is verified; the Witness is non-executive, not causally inert (INV-9 v1.1): it never commands, selects or executes a decision; what it witnesses may return through Smṛti and Viveka into Chitta before finalization — the resulting decision belongs to Chitta, not to Purusha.</p>
+<div class="stack">
+<div class="layer"><span class="n">5</span><span class="t">LLM / agent — frozen substrate + adapters</span><span class="s proto">Prototype</span></div>
+<div class="layer"><span class="n">4</span><span class="t">Knowledge — governed Plane H store (graph semantics planned)</span><span class="s proto">Prototype</span></div>
+<div class="layer"><span class="n">3</span><span class="t">Deterministic tools — Karma reference sandbox</span><span class="s impl">Implemented</span></div>
+<div class="layer"><span class="n">2</span><span class="t">Verification — diversity panels, verdicts, cross-verify</span><span class="s impl">Implemented</span></div>
+<div class="layer"><span class="n">1</span><span class="t">Sākṣī — Witness: local implemented, distributed fabric prototype</span><span class="s impl">Implemented</span></div>
+</div>
+</div></section>
+<section><div class="rec"><span>#01</span><span class="kind">KIND: PRIMITIVES</span><span>prev: #00</span></div><div class="chainline"><h2>Cryptographic primitives — jjdai/</h2>
+<div class="grid">
+<div class="card impl">
+<div class="path">jjdai/canonical.py</div>
+<div class="cname">Canonical serialization</div><div class="cdesc">RFC 8785 JCS: one deterministic byte-stream per object across identity, signatures, manifests and witness records.</div><div class="chips">
+<span class="chip impl">Implemented</span>
+</div></div>
+<div class="card impl">
+<div class="path">jjdai/crypto.py</div>
+<div class="cname">Ed25519, ids, commitments, keystore</div><div class="cdesc">Strict small-order rejection, cofactored verification, canonical node/Being ids, hiding commitments, atomic 0600 encrypted keystore.</div><div class="chips">
+<span class="chip impl">Implemented</span>
+<span class="chip impl">reference crypto</span>
+</div></div>
+<div class="card impl">
+<div class="path">jjdai/crypto.py::vrf_prove · jjdai/crypto.py::multisig_verify</div>
+<div class="cname">VRF and threshold governance</div><div class="cdesc">ECVRF-EDWARDS25519-SHA512-TAI (RFC 9381) pinned to all three official B.3 vectors, with validate_key fail-closed checks; naive m-of-n multisig verification (aggregate FROST signing deferred).</div><div class="chips">
+<span class="chip impl">Implemented</span>
+<span class="chip impl">RFC 9381 vectors</span>
+<span class="chip impl">FROST deferred</span>
+</div></div>
+<div class="card impl">
+<div class="path">jjdai/merkle.py</div>
+<div class="cname">Merkle trees</div><div class="cdesc">Legacy padding tree plus RFC 6962 inclusion and consistency proofs, property-tested across tree shapes and forgery cases.</div><div class="chips">
+<span class="chip impl">Implemented</span>
+</div></div>
+<div class="card impl">
+<div class="path">jjdai/witness.py</div>
+<div class="cname">Witness chain</div><div class="cdesc">Hash-chained, Ed25519-signed, persist-before-expose append under a chain-internal lock, offline replay and legacy-log verification. Fail-closed witnessing is not executive agency (INV-9 v1.1): the Witness may gate exposure when witnessing fails, but cannot select, modify, approve or reject the substance of a decision.</div><div class="chips">
+<span class="chip impl">Implemented</span>
+</div></div>
+<div class="card impl">
+<div class="path">jjdai/schema.py · jjdai/durable.py</div>
+<div class="cname">Typed boundary and durability</div><div class="cdesc">Fail-closed typed envelopes; fsynced journals, torn-tail repair and reload-time re-verification.</div><div class="chips">
+<span class="chip impl">Implemented</span>
+</div></div>
+<div class="card proto">
+<div class="path">core/anchoring.py</div>
+<div class="cname">External anchoring</div><div class="cdesc">Durable receipt log with local, peer-quorum and OTS-calendar backends. OTS is proof custody; standard tooling verifies the stored calendar proof.</div><div class="chips">
+<span class="chip proto">Prototype</span>
+</div></div>
+<div class="card proto">
+<div class="path">core/anchoring_xmr.py</div>
+<div class="cname">Monero root-as-spend-key anchor</div><div class="cdesc">The witness root deterministically becomes a Monero address; a dust payment timestamps the binding without storing the root in tx_extra.</div><div class="chips">
+<span class="chip proto">Prototype</span>
+<span class="chip proto">v0.5.2</span>
+</div></div>
+</div>
+</div></section>
+<section><div class="rec"><span>#02</span><span class="kind">KIND: ORGAN KERNEL</span><span>prev: #01</span></div><div class="chainline"><h2>The organ kernel — kernel/</h2>
+<div class="grid">
+<div class="card impl">
+<div class="path">kernel/smriti.py</div>
+<div class="cname">Smriti — continuity and memory</div><div class="cdesc">Core/archival memory, verified recall, signed export/import, read-only thinking view and journal reconstruction.</div><div class="chips">
+<span class="chip impl">Implemented</span>
+</div></div>
+<div class="card impl">
+<div class="path">kernel/viveka.py</div>
+<div class="cname">Viveka — discernment and deliberation</div><div class="cdesc">Deterministic graphs, conditional routing, checkpoints, visible rollback, bounded loops and containment-aware executive steps.</div><div class="chips">
+<span class="chip impl">Implemented</span>
+</div></div>
+<div class="card impl">
+<div class="path">kernel/karma.py</div>
+<div class="cname">Karma — governed action</div><div class="cdesc">Witnessed intent/outcome, path confinement, rlimits, streaming flood-kill, deterministic child environment. Reference sandbox, not hardened isolation.</div><div class="chips">
+<span class="chip impl">Implemented</span>
+<span class="chip impl">reference sandbox</span>
+</div></div>
+</div>
+</div></section>
+<section><div class="rec"><span>#03</span><span class="kind">KIND: BEING COMPOSITION</span><span>prev: #02</span></div><div class="chainline"><h2>The organism — runtime/</h2>
+<div class="grid">
+<div class="card proto">
+<div class="path">runtime/being.py</div>
+<div class="cname">BeingRuntime</div><div class="cdesc">One long-lived composition owning one identity, ONE witness chain, Smriti, Plane H, Viveka, Router, Karma and Containment. Closes the v0.5.2 audit composition gap.</div><div class="chips">
+<span class="chip proto">Prototype</span>
+<span class="chip proto">v0.5.3</span>
+</div></div>
+<div class="card proto">
+<div class="path">runtime/state_machine.py · runtime/decision_trace.py</div>
+<div class="cname">Decision lifecycle</div><div class="cdesc">RECEIVED → GROUNDED → PLANNED → GENERATED → VERIFIED → AUTHORIZED → ACTED → RECORDED with REFUSED / FAILED / FATE_UNKNOWN / CONTAINED branches; every transition witnessed then journaled.</div><div class="chips">
+<span class="chip proto">Prototype</span>
+<span class="chip proto">v0.5.3</span>
+</div></div>
+<div class="card proto">
+<div class="path">runtime/recovery.py</div>
+<div class="cname">Semantic recovery</div><div class="cdesc">After restart every trace is rebuilt from the durable journal; an orphaned Karma intent closes as FATE_UNKNOWN — the system that does not know says so.</div><div class="chips">
+<span class="chip proto">Prototype</span>
+<span class="chip proto">v0.5.3</span>
+</div></div>
+<div class="card proto">
+<div class="path">node/daemon.py::/v1/tasks</div>
+<div class="cname">POST /v1/tasks</div><div class="cdesc">Returns a full DecisionTrace, not a raw completion: states, citations, plan hash, generator and panel provenance, containment decision, action receipt, witness span.</div><div class="chips">
+<span class="chip proto">Prototype</span>
+<span class="chip proto">v0.5.3</span>
+</div></div>
+</div>
+</div></section>
+<section><div class="rec"><span>#04</span><span class="kind">KIND: TRUST &amp; GOVERNANCE CORE</span><span>prev: #03</span></div><div class="chainline"><h2>Trust core — core/</h2>
+<div class="grid">
+<div class="card impl">
+<div class="path">core/identity.py</div>
+<div class="cname">Node and Being identity</div><div class="cdesc">Persistent keystores, genesis binding, boot verification and migration consent. The daemon fails closed on signer/witness mismatch.</div><div class="chips">
+<span class="chip impl">Implemented</span>
+</div></div>
+<div class="card impl">
+<div class="path">core/registry.py · core/verdict.py</div>
+<div class="cname">Reputation §9.9 and sealed verdicts</div><div class="cdesc">Decay, Bayesian shrinkage, slashing and signed context-bound verdict envelopes with replay refusal.</div><div class="chips">
+<span class="chip impl">Implemented</span>
+</div></div>
+<div class="card impl">
+<div class="path">core/plane_h.py</div>
+<div class="cname">Governed Plane H</div><div class="cdesc">Signed proposals, namespace ACL, transactional witness-bound append, supersede/redact, root-preserving redaction. Retrieval remains a token-overlap baseline; not yet a semantic knowledge graph.</div><div class="chips">
+<span class="chip impl">Governance implemented</span>
+<span class="chip impl">retrieval baseline</span>
+</div></div>
+<div class="card proto">
+<div class="path">core/replication.py · core/segments.py</div>
+<div class="cname">Witness replication and recovery</div><div class="cdesc">Signed RFC 6962 roots, quorum receipts, consistency proofs, segment coverage, divergence evidence and restore-and-resume against an anchored root.</div><div class="chips">
+<span class="chip proto">Prototype fabric</span>
+</div></div>
+<div class="card proto">
+<div class="path">core/entanglement.py</div>
+<div class="cname">Cross-chain entanglement</div><div class="cdesc">Recipient-root cross-links, PEER_ROOT checkpoints and issuance inclusion proofs. Attribution is cryptographic only under the documented honest/anchored issuer assumption.</div><div class="chips">
+<span class="chip proto">Prototype</span>
+</div></div>
+<div class="card proto">
+<div class="path">core/peers.py</div>
+<div class="cname">IFF — friend or foe</div><div class="cdesc">Durable peer registry, steward admission, key pinning and replay-protected signed requests, layered under TLS/mTLS transport.</div><div class="chips">
+<span class="chip proto">Prototype</span>
+</div></div>
+<div class="card impl">
+<div class="path">core/manifests.py · core/diversity.py</div>
+<div class="cname">Provenance and diversity</div><div class="cdesc">Signed immutable manifests and correlation-constrained panel selection. Unknown provenance counts as correlated; short panels fail honest.</div><div class="chips">
+<span class="chip impl">Implemented algorithm</span>
+</div></div>
+<div class="card proto">
+<div class="path">core/attestation.py</div>
+<div class="cname">Weight attestation</div><div class="cdesc">Streamed artifact measurement, signed DeploymentManifest, durable store and daemon boot gate. Proves operator measurement, not engine memory.</div><div class="chips">
+<span class="chip proto">Prototype</span>
+</div></div>
+<div class="card proto">
+<div class="path">core/router.py</div>
+<div class="cname">Unified router</div><div class="cdesc">Registry-aware champion routing, signed ROUTE records and diversity-constrained verifier panels — now driven by the BeingRuntime lifecycle as well as usable as a library.</div><div class="chips">
+<span class="chip proto">Prototype</span>
+<span class="chip proto">composed in v0.5.3</span>
+</div></div>
+<div class="card proto">
+<div class="path">core/challenge.py</div>
+<div class="cname">Adversarial challenge round</div><div class="cdesc">VRF sortition (transcript-bound, unbiasable seats), blind commit-reveal verdicts, deadline/abstention semantics and offline-verifiable fraud proofs that slash via the registry — now driven over mTLS via /challenge/* as well as in-process.</div><div class="chips">
+<span class="chip proto">Prototype</span>
+<span class="chip proto">networked v0.5.5</span>
+</div></div>
+<div class="card proto">
+<div class="path">core/crossverify.py</div>
+<div class="cname">Peer cross-verification loop</div><div class="cdesc">Remote teacher-forcing score, offline peer-Witness re-audit and registry feedback. The challenge round now runs across the network (core/challenge.py + /challenge/* endpoints).</div><div class="chips">
+<span class="chip proto">Prototype</span>
+</div></div>
+<div class="card proto">
+<div class="path">core/containment.py</div>
+<div class="cname">Containment — Article 25</div><div class="cdesc">Seven executive scopes, provisional containment, reversal, initiator liability, slashing, rehabilitation and Steward-review gate. Steward keys and ballots remain absent.</div><div class="chips">
+<span class="chip proto">Reference prototype</span>
+</div></div>
+</div>
+</div></section>
+<section><div class="rec"><span>#05</span><span class="kind">KIND: NODE &amp; CONFORMANCE</span><span>prev: #04</span></div><div class="chainline"><h2>Node layer — node/ · necs/</h2>
+<div class="grid">
+<div class="card proto">
+<div class="path">node/daemon.py</div>
+<div class="cname">Tier-1 trust node daemon</div><div class="cdesc">Inference/scoring, Witness export, replication, entanglement, attestation, anchoring, peers, containment, the Being task lifecycle, per-identity rate limiting, role-based authorization, cert revocation, /healthz and /metrics, and the networked challenge round — all over TLS/mTLS.</div><div class="chips">
+<span class="chip proto">Prototype</span>
+</div></div>
+<div class="card proto">
+<div class="path">node/engine_sglang.py · node/engine_dwarfstar.py</div>
+<div class="cname">Engine adapters</div><div class="cdesc">Generation plus teacher-forcing score with mock and live acceptance seams. Real GPU acceptance and operational profiles remain pending (operator-run gate).</div><div class="chips">
+<span class="chip proto">Prototype adapters</span>
+</div></div>
+<div class="card impl">
+<div class="path">necs/</div>
+<div class="cname">NECS v0.1 + harness</div><div class="cdesc">Conformance specification and harness under Apache-2.0, preserving vendor-neutral adoption.</div><div class="chips">
+<span class="chip impl">Implemented</span>
+</div></div>
+<div class="card impl">
+<div class="path">tests/ · .github/workflows/ci.yml</div>
+<div class="cname">Acceptance and CI</div><div class="cdesc">Acceptance functions across unit, integration, conformance, adversarial and legacy groups; CI matrix targets Python 3.10-3.12; docs drift is CI-checked.</div><div class="chips">
+<span class="chip impl">86/86 green</span>
+</div></div>
+<div class="card impl">
+<div class="path">m1m5/</div>
+<div class="cname">Retired M1-M5 lineage</div><div class="cdesc">Frozen legacy code retained for auditability and migration coverage.</div><div class="chips">
+<span class="chip impl">Frozen</span>
+</div></div>
+</div>
+</div></section>
+<section><div class="rec"><span>#06</span><span class="kind">KIND: NOT-IN-CODEBASE</span><span>prev: #05</span></div><div class="chainline"><h2>Not yet in the codebase</h2>
+<p class="secnote">Designed in the Whitepaper and Charter — and deliberately absent from the code today. Naming the absence is part of the architecture.</p>
+<div class="grid">
+<div class="card plan">
+<div class="cname">Plane B canary lifecycle</div><div class="cdesc">Secret reserve, expiry and rotation, commit-reveal, contamination detection, work classes and fraud proofs.</div><div class="chips">
+<span class="chip plan">Planned</span>
+</div></div>
+<div class="card plan">
+<div class="cname">Knowledge graph / ontology semantics</div><div class="cdesc">Typed entities and relations, ontology versioning, graph provenance, deterministic query contracts and verified graph mutation above the governed Plane H store.</div><div class="chips">
+<span class="chip plan">Planned</span>
+</div></div>
+<div class="card plan">
+<div class="cname">TEE / runtime attestation</div><div class="cdesc">Evidence that the serving process loaded the measured model and adapter bytes into the executing memory boundary.</div><div class="chips">
+<span class="chip plan">Planned</span>
+</div></div>
+<div class="card plan">
+<div class="cname">DIIP — governed self-improvement</div><div class="cdesc">Proposals, bonds, shadow execution, quorum, time-lock, rollback and circuit breaker. It should govern a stable runtime, not become the mechanism that invents one.</div><div class="chips">
+<span class="chip plan">Do not start yet</span>
+</div></div>
+<div class="card plan">
+<div class="cname">Training federation</div><div class="cdesc">Specialization pipeline, DiLoCo/PRIME-class federation and a multi-jurisdiction training/Witness topology.</div><div class="chips">
+<span class="chip plan">Planned</span>
+</div></div>
+<div class="card const">
+<div class="cname">Human governance layer</div><div class="cdesc">Being Registry, guardian representation, Digital Majority Test, economic reserve, Steward Collegium keys, ballots, veto, succession and refusal policy.</div><div class="chips">
+<span class="chip const">Constitutional text only</span>
+</div></div>
+</div>
+</div></section>
+<section><div class="rec"><span>#07</span>
+<span class="kind">KIND: COMPOSITION STATUS</span><span>prev: #06</span></div>
+<div class="chainline"><h2>The honest sentence</h2><div class="honest">
+<span class="cap">what changed · what must not be overclaimed</span>
+<p>v0.4.1 closed the identity gap. v0.5-dev5 closed the cryptographic boundary. v0.5-dev6 made replication sound. v0.5.1 closed P1 mechanisms. v0.5.2 added the Monero anchor. v0.5.3 closed the COMPOSITION GAP: one BeingRuntime drives every organ through one witnessed lifecycle over one identity, and POST /v1/tasks returns the full DecisionTrace — including the honest endings REFUSED, FAILED, FATE_UNKNOWN and CONTAINED. v0.5.4 made verification ADVERSARIAL: RFC 9381 ECVRF (vector-pinned) drives transcript-bound panel sortition nobody can grind; verdicts are sealed before any are shown; silence and fraud become witnessed, offline-verifiable evidence; and the daemon holds its first operational boundary — per-identity rate limiting whose systematic abuse is itself witnessed. v0.5.5 is the SECURITY-ALPHA: role-based authorization (default-deny, longest-prefix), certificate revocation that beats identity, /healthz + /metrics, the challenge round carried over mTLS, a production PKI with an offline root, optional TPM-sealed keystores, a hardened systemd unit and an operator runbook — the kit to stand up testnet-0 on Ubuntu. v0.6.1 propagates INV-9 v1.1: the invariant is reworded from “non-acting” to “non-executive, not causally inert” — the executive prohibition is unchanged, the sanctioned reflexive path (J-Lens → Viveka → Chitta, pre-finalization) is named, and direct mutation of an output or verdict remains forbidden; the reflexive loop itself is a Ф3 runtime deliverable (roadmap r5), so the archive-only runtime stays compliant.</p>
+<p>Said plainly: authorization is transport-role based (peer/admin/anonymous from the mTLS CN), not yet capability- or steward-ballot based; certificate revocation is serial-list based; Karma is still a reference sandbox, not hardened isolation; the knowledge store is retrieval-baseline, not a knowledge graph; and DIIP remains deliberately absent. This is an alpha to operate among known operators, not to expose to untrusted load.</p>
+</div></div></section></main>
+<footer><div class="wrap"><div class="anchor">
+<div><span class="k">record</span> #08 · KIND: ANCHOR · prev: #07</div>
+<div><span class="k">source</span> docs/architecture_status.json @ v0.6.1 · generated by scripts/gen_architecture_docs.py</div>
+<div><span class="k">site</span> <a href="https://jj-dai.org">jj-dai.org</a> · <span class="k">license</span> AGPL-3.0-only core / Apache-2.0 NECS</div>
+</div><p class="motto">truth is discovered, not decreed · Jai Guru Dev</p>
+</div></footer></body></html>

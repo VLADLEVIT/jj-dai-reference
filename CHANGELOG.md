@@ -1,3 +1,12 @@
+# JJ DAI — CHANGELOG
+
+Chronological, oldest first: the LATEST release is the LAST entry
+in this file (its header must match `jjdai.__version__` — enforced
+by the release-integrity test). Historical entries below are kept
+verbatim as the project's memory.
+
+---
+
 # JJ DAI v0.4.1-dev — P0 hardening (work in progress)
 
 Scope: fixes only, per the v0.4 external review. No new codebase growth.
@@ -790,3 +799,143 @@ buildable on Ubuntu 24. Next on the roadmap: hardened Karma isolation
 (wasm/microvm), Plane B canary lifecycle, then the knowledge-graph
 semantics above Plane H — and DIIP only once the runtime it would govern
 is stable.
+
+# JJ DAI v0.6.1 — INV-9 v1.1 propagation
+
+INV-9 wording clarified (non-executive, not causally inert); executive
+prohibition unchanged; reflexive loop (J-Lens → Viveka → Chitta,
+pre-finalization) sanctioned; direct output mutation remains forbidden.
+Runtime deliverable: Ф3 (roadmap r5).
+
+No behavioral change is implied in this build: the reflexive loop is a
+Ф3 deliverable, and until it ships the runtime remains archive-only —
+which is compliant with INV-9 v1.1. No enforcement code path was
+touched; the invariant ID and its position in the invariant table are
+unchanged. Charter Core invariants I–VIII are untouched (INV-9 is a
+codebase invariant, not a Charter article).
+
+Propagated per `INV-9_v1_1_propagation.md` to: `README.md` (five-layer
+line, architecture diagram, canonical EN text + fail-closed and
+reflexive clauses in §5), `docs/architecture_status.json` → regenerated
+`docs/JJDAI_Code_Architecture_Map_v0.5.md` and site status page
+(fail-closed clause added where persist-before-expose is described),
+docstrings in `jjdai/witness.py`, `core/replication.py`,
+`core/segments.py`, `node/daemon.py`.
+
+**Status: acceptance re-run on v0.6.1 (no code paths changed).**
+
+# JJ DAI v0.6.2 — macOS deployment kit (roadmap Ф0)
+
+The Ф0 code deliverable: the testnet-0 deployment kit is ported to
+macOS for the Apple Silicon node (MacBook Pro 128 GB / 2 TB) that will
+carry DeepSeek4Flash + DwarfStar inference.
+
+**`deploy/macos/org.jjdai.node.plist`.** A launchd daemon template
+(bootstrap substitutes the node name): runs as the hidden `_jjdai` role
+account, `KeepAlive` on failure with a 5 s throttle (safe — the Witness
+is persist-before-expose), `ProcessType Interactive` so the trust plane
+is never background-throttled on an inference host, logs under
+`/var/lib/jjdai/log/`. The keystore passphrase is never present in the
+plist.
+
+**`deploy/macos/keychain_seal.py`.** The macOS counterpart of
+`tpm_seal.py`: seals `JJDAI_KEYSTORE_PASSPHRASE` into the System
+keychain (LaunchDaemons run pre-login) with an ACL restricted to
+`/usr/bin/security`, refuses to overwrite an existing item, and refuses
+non-macOS hosts with a clear message. Explicitly the roadmap's
+**macOS Keychain degraded profile (non-SE-resident)** — stated, not hidden: the CLI
+cannot create Secure-Enclave-resident keys; the protection boundary is
+the OS, not the boot state; the chosen profile is recorded in the ops
+log and fixed in the witness at bootstrap.
+
+**`deploy/macos/jjdai_node_launcher.sh`.** Keychain unseal → daemon
+environment → exec, with the SAME daemon flag set as the systemd unit;
+fails closed on a missing or empty passphrase.
+
+**`deploy/macos/bootstrap_node_macos.sh`.** Mirror of
+`bootstrap_node.sh`: `_jjdai` role account via dscl, dirs, PKI install,
+env file, plist render + `plutil -lint`, and the 24/7 power profile
+(`pmset sleep 0 / powernap 0 / standby 0 / disablesleep 1`) so a laptop
+chassis behaves like a server. Never overwrites an existing keystore.
+
+**`deploy/RUNBOOK-macOS.md`.** Operator runbook for the Mac node:
+systemd→launchd command map, Keychain sealing and its honest limits,
+the un-skippable keystore backup, clamshell/UPS discipline, the ≥72 h
+no-sleep-gap Ф1 gate, and §6 "What this host is NOT" (no
+seccomp/MDWE/ProtectSystem parity; inference-plane separation is a Ф1
+deliverable). Main RUNBOOK bumped to v0.6.2 with a cross-link and a
+third passphrase option.
+
+**SECURITY.md (Ф0).** Triage/report template (component, class, impact,
+repro, P0–P3 severity ladder, disclosure preference); P0 wired to the
+Emergency Security Procedure (Ф2); macOS degraded profile added to the
+documented non-goals.
+
+**Tests — `tests/unit/test_macos_kit.py`.** M-KIT (kit completeness),
+M-PLIST (template renders and parses via stdlib plistlib; no secret in
+the plist), M-FLAGS (launcher uses only real daemon flags AND matches
+the systemd unit flag-for-flag — the kits cannot drift silently),
+M-SEC (no embedded secrets, `bash -n` clean, fail-closed launcher,
+honest non-macOS refusal).
+
+Remaining Ф0 code items tracked for the next drops: Karma
+wasm/microvm isolation start, Prometheus alert rules, canonical AGPL
+finalization. Organizational Ф0 (Audit 0, root ceremony, operator
+agreements, SLO owners) proceeds outside the codebase.
+
+# JJ DAI v0.6.3 — audit response: deployment blockers + release integrity
+
+Answers the external audit of v0.6.2 (two deployment blockers, doc
+drift, kit hygiene). Daemon code intentionally untouched.
+
+**Blocker #1 — systemd watchdog.** `WatchdogSec=60` removed from
+`jjdai-node@.service`: the daemon has no `sd_notify(WATCHDOG=1)`, so
+systemd would have killed a healthy node every interval, making the Ф1
+"72 h green" gate unpassable. A stdlib NOTIFY_SOCKET heartbeat and
+`WatchdogSec` return together in the observability drop.
+
+**Blocker #2 — code ownership.** The daemon must never own its own
+executable code. Both bootstraps now install `/opt/jjdai` as root-owned
+(`root:root` on Linux, `root:wheel` on macOS; dirs 0755, files 0644,
+launcher scripts 0755), leaving `/etc/jjdai` root:group and
+`/var/lib/jjdai` daemon-owned. Ownership model documented in both
+RUNBOOKs.
+
+**macOS bootstrap hygiene (audit §5).** NODE_NAME validated
+(`[a-z0-9-]`, no leading/trailing dash); UID/GID 399 collision guard
+via `dscl -search`; group created before user; `_jjdai` no longer owns
+`/opt/jjdai`.
+
+**Profile renamed (audit §5).** "degraded/secure-enclave profile" was
+ambiguous; it is now the **macOS Keychain degraded profile
+(non-SE-resident)** everywhere (kit, RUNBOOKs, SECURITY, status JSON).
+A true **Secure Enclave-backed profile** is reserved as a separate
+future attestation profile. RUNBOOK-macOS gains an **M-LIVE** checklist
+naming the operational evidence the unit tests do NOT prove (pre-login
+unseal, cold reboot, ACL under the service account, FileVault/OS
+update, 72 h no-sleep) for the Ф0 target-host acceptance run.
+
+**Doc drift (audit §3).** README version line synced to
+`jjdai.__version__` (was 0.5.2); both stale "no rate limits" claims
+replaced with the accurate statement (token-bucket per endpoint class
+since v0.5.4, currently IP-keyed); SECURITY.md contradiction removed
+and the challenge round correctly described as networked over mTLS;
+CHANGELOG gains a file-level header stating chronological order.
+
+**New CI — `tests/unit/test_release_integrity.py`.** R-VER (README /
+pyproject / SECURITY / last CHANGELOG header == `jjdai.__version__`),
+R-PHRASES (outgrown claims forbidden in README/SECURITY), R-ACCEPT
+(acceptance badge == actually collected tests), R-LICENSE (AGPL
+placeholder must be loudly marked as a publication blocker until the
+canonical text lands).
+
+**AGPL (audit §4) — still open, now loud.** The canonical byte-exact
+text could not be inserted in this environment (no network); the
+placeholder is rewritten as an explicit PUBLICATION BLOCKER and
+reported by R-LICENSE on every run. Insert the canonical text before
+any distribution.
+
+**Scheduled next (per audit):** Karma isolation seam + ingress
+hardening (body caps, timeouts, concurrency semaphore,
+certificate-identity rate-limit keying); then /readyz split, Prometheus
+rules, sd_notify watchdog, Mac sleep/reboot alerts.

@@ -1,4 +1,9 @@
-# JJ DAI testnet-0 — Operator Runbook (v0.5.5)
+# JJ DAI testnet-0 — Operator Runbook (v0.6.3)
+
+> **macOS node?** This runbook targets Ubuntu 24. The Mac node (launchd,
+> Keychain sealing, 24/7 power on a laptop chassis) is covered by
+> `deploy/RUNBOOK-macOS.md`; PKI, authz, anchoring and incident response
+> are shared and live here.
 
 This is the operational companion to the reference codebase. It assumes
 Ubuntu 24.04 with `systemd`, `python3` (≥3.10), and `openssl`. Nothing
@@ -55,17 +60,28 @@ Copy the checkout + that node's PKI material to the host, then:
          ANCHORS="local,ots,xmr" \
          deploy/bootstrap_node.sh /path/to/checkout /path/to/pki
 
-This creates the `jjdai` system user, lays out `/opt/jjdai`,
+This creates the `jjdai` system user and lays out the ownership model
+(audit item #2 — the daemon must never own its own executable code):
+
+    /opt/jjdai       root:root      code, read-only for the daemon
+    /etc/jjdai       root:jjdai     policies and PKI
+    /var/lib/jjdai   jjdai:jjdai    witness, journals, replicas, workspace
+
+It lays out `/opt/jjdai`,
 `/var/lib/jjdai`, `/etc/jjdai`, installs the hardened
 `jjdai-node@.service`, and writes `/etc/jjdai/<node>.env`.
 
-### Keystore passphrase — two options
+### Keystore passphrase — three options
 
-* **TPM-sealed (preferred).** On a TPM 2.0 host:
+* **TPM-sealed (preferred, Ubuntu).** On a TPM 2.0 host:
 
       sudo apt install tpm2-tools
       sudo python3 deploy/tpm_seal.py seal --out /var/lib/jjdai/sealed
       # then in <node>.env, the unit unseals at boot; nothing plaintext on disk
+
+* **System keychain (macOS node).** `deploy/macos/keychain_seal.py seal
+  --node <name>` — the documented macOS Keychain degraded profile (non-SE-resident); see
+  `RUNBOOK-macOS.md` §2 for what it does and does not protect.
 
 * **Env file (fallback).** Append `JJDAI_KEYSTORE_PASSPHRASE=...` to
   `/etc/jjdai/<node>.env` (0640, root:jjdai). Record that you did this.

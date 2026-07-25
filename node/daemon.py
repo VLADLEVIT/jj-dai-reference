@@ -496,8 +496,8 @@ class Node:
     def push_to_peers(self) -> dict:
         """Push own signed root to all peers, collect acks, assemble a
         quorum receipt, and append an ANCHOR_QUORUM record once per count.
-        The push is an act of the NODE (INV-9: the Witness itself never
-        acts); the chain only records the achieved quorum."""
+        The push is an act of the NODE (INV-9 v1.1: the Witness itself is
+        non-executive); the chain only records the achieved quorum."""
         import urllib.request
         env = self.signed_root()
         count, root = env["body"]["count"], env["body"]["root"]

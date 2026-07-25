@@ -44,7 +44,10 @@ Restart=on-failure
 RestartSec=5
 # The Witness is persist-before-expose and recovery is journaled: a
 # crash-restart resumes meaning, so aggressive restart is safe.
-WatchdogSec=60
+# WatchdogSec intentionally NOT set: the daemon does not implement
+# sd_notify(WATCHDOG=1) yet, and an unanswered watchdog would make systemd
+# kill a healthy node every interval. A stdlib NOTIFY_SOCKET heartbeat and
+# WatchdogSec return together in the observability drop (audit item #1).
 
 # ---- hardening: the hand the OS gives this process is small ----------
 NoNewPrivileges=true

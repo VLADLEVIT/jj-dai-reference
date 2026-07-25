@@ -33,8 +33,9 @@ Trust model (honest statement):
     Recovering against a root supplied by the same single peer that supplies
     the segments proves only internal consistency of that peer's story.
 
-INV-9 intact: replication and recovery are acts of the NODE. The Witness
-plane itself never acts; the recovered chain is what it always was — a log.
+INV-9 (v1.1) intact: replication and recovery are acts of the NODE. The
+Witness plane itself is non-executive — it never commands, selects or
+executes; the recovered chain is what it always was — a log.
 """
 from __future__ import annotations
 

@@ -14,7 +14,7 @@
 
 ## 1. What is JJ DAI
 
-JJ DAI is an architecture for a decentralized 3-layer network of persistent-memory-owning and self-evolving AI agents built on the principle that everything touching a decision is verified. 
+JJ DAI is an architecture for a decentralized 3-tier network of persistent-memory-owning and self-evolving AI agents built on the principle that everything touching a decision is verified. 
 
 Mutable knowledge lives outside frozen model weights (RAG, Plane H); every inference, memory write,
 routing decision and containment act is bound to cryptographic evidence and

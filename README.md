@@ -1,6 +1,6 @@
 # JJ DAI — Reference Trust, Governance & Agent Kernel
 
-**Version:** `0.6.3` (matches `jjdai.__version__`; enforced by the release-integrity test) · **Python:** ≥3.10, stdlib-only core · **Site:** [jj-dai.org](https://jj-dai.org)
+**Version:** `0.6.5` (matches `jjdai.__version__`; enforced by the release-integrity test) · **Python:** ≥3.10, stdlib-only core · **Site:** [jj-dai.org](https://jj-dai.org)
 
 > A tested reference implementation of JJ DAI identity, memory, verification,
 > witness, routing, containment and agent-governance primitives, with an

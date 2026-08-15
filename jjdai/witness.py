@@ -46,8 +46,134 @@ KINDS = ("INFER", "SANDBOX", "GROUNDING", "REGISTRY", "CONTAINMENT", "MEMORY",
                             # task (runtime.state_machine — the organism)
          "CHALLENGE",       # v0.5.4: adversarial round events (open/seat/
                             # commit/reveal/fraud/resolve — core.challenge)
-         "RATE_LIMIT")      # v0.5.4: systematic-abuse evidence from the
+         "RATE_LIMIT",      # v0.5.4: systematic-abuse evidence from the
                             # daemon rate limiter (one per offender/window)
+         # ------------------------------------------------------------ #
+         # v0.6.5 — RESERVED for cross-cutting track IV (Cognitive
+         # Continuity, ADR-015). DECLARED NOW, IMPLEMENTED IN Ф2–Ф3.
+         #
+         # The reason they are declared before anything emits them: witness
+         # records are JCS-canonicalized and hash-chained, so a value that
+         # has entered the chain cannot be added or renamed afterwards
+         # without breaking every hash after it. Before genesis testnet-0
+         # this costs one line; after genesis it is a schema migration.
+         # Same discipline that closes the guardian-terminology window.
+         "SESSION_OPEN",    # an execution session opens on a backend
+                            # instance + ModelArtifactManifest (SessionID is
+                            # subordinate to BeingIdentity — a session
+                            # ending is NOT a discontinuity of the being)
+         "SESSION_CLOSE",   # that session ends; a mandatory anchor point
+         "LEDGER_ANCHOR",   # a Merkle root of a local cognitive-ledger
+                            # segment crosses into the witness plane. The
+                            # events themselves never do: an unanchored
+                            # segment must not cross a trust boundary, and
+                            # thought-level granularity would both bloat the
+                            # chain and leak internal hypotheses
+         "SNAPSHOT")        # the mandatory boundary of a phase transition
+                            # (bhoktritva: a being must be able to compare
+                            # itself before and after)
+
+#: Kinds nothing may emit yet. Reserving a NAME is cheap and pre-genesis;
+#: emitting a record whose semantics are not yet defined is not.
+RESERVED_KINDS = ("SESSION_OPEN", "SESSION_CLOSE", "LEDGER_ANCHOR",
+                  "SNAPSHOT")
+
+#: Cognitive IR schema version carried by records that reference IR events.
+#: Declared now for the same reason as the kinds above.
+IR_SCHEMA_VERSION = "1"
+
+
+# --------------------------------------------------------------------------- #
+# What may cross into the plane (v0.6.5)
+# --------------------------------------------------------------------------- #
+#
+# `request` and `response` enter the chain as COMMITMENTS and `provenance` as
+# a hash, so being-chosen bytes already never reach a peer. `semantic_digest`
+# is the exception: it is placed in the hashed body verbatim, which makes it
+# the one field through which content could cross — and the witness plane is
+# an append-only, replicated, undeletable store, i.e. an ideal dead-drop.
+#
+# So the field is constrained by VOCABULARY rather than by convention: enum
+# words, integers, and hex digests. Not because today's callers misuse it —
+# they don't — but because "no caller does that" is a habit, and a habit is
+# not an invariant. Sākṣī records ABOUT a being, never anything authored BY
+# one; this is that rule read at the storage layer.
+
+import re as _re
+
+_HEXISH = _re.compile(r"^[0-9a-f]{8,128}$")
+_TOKEN = _re.compile(r"^[A-Za-z0-9_.:@/+-]{1,128}$")
+#: A fixed-width numeric vector, e.g. the eight-bucket semantic histogram.
+#: Allowed by NAME rather than by loosening the token charset: adding "," to
+#: the general alphabet would readmit arbitrary prose one comma at a time.
+_NUMVEC = _re.compile(r"^\d{1,6}(,\d{1,6}){0,31}$")
+MAX_DIGEST_PARTS = 16
+
+
+class PlaneSchemaError(ValueError):
+    """A value was offered to the witness plane that is not expressible in
+    its vocabulary. Fail closed: refuse the write rather than replicate
+    something nobody can bound."""
+
+
+def _check_scalar(field: str, value):
+    if isinstance(value, (bool, int, float)):
+        return
+    if not isinstance(value, str):
+        raise PlaneSchemaError(
+            f"{field}: {type(value).__name__} is not expressible in the "
+            f"witness vocabulary (enum tokens, integers, hex digests)")
+    for part in value.split(":"):
+        if (part == "" or _HEXISH.match(part) or _TOKEN.match(part)
+                or _NUMVEC.match(part)):
+            continue
+        raise PlaneSchemaError(
+            f"{field}: segment {part!r} is free-form content. The witness "
+            f"plane replicates and never deletes; free text there is both a "
+            f"covert channel and an unbounded write. Pass a digest of it "
+            f"instead — H(x), not x.")
+    if len(value.split(":")) > MAX_DIGEST_PARTS:
+        raise PlaneSchemaError(
+            f"{field}: {len(value.split(':'))} segments exceeds the "
+            f"{MAX_DIGEST_PARTS}-part bound")
+
+
+MAX_PLANE_DEPTH = 4
+MAX_PLANE_NODES = 96
+
+
+def check_plane_value(field: str, value, _depth: int = 0, _seen: list = None):
+    """Enforce the vocabulary recursively.
+
+    STRUCTURE is allowed — nested mappings are how a node describes several
+    substrates or several receivers, and that shape is authored by the node's
+    own schema, not by anything under evaluation. LEAVES are constrained:
+    enum tokens, integers, hex digests. Depth and node count are bounded too,
+    because an unbounded structure is an unbounded write into a store that
+    never deletes.
+    """
+    if value is None:
+        return
+    seen = _seen if _seen is not None else [0]
+    seen[0] += 1
+    if seen[0] > MAX_PLANE_NODES:
+        raise PlaneSchemaError(
+            f"{field}: more than {MAX_PLANE_NODES} values in one record — "
+            f"the plane replicates and never deletes, so the size of a write "
+            f"is bounded on purpose")
+    if _depth > MAX_PLANE_DEPTH:
+        raise PlaneSchemaError(
+            f"{field}: nesting deeper than {MAX_PLANE_DEPTH}")
+    if isinstance(value, dict):
+        for k, v in value.items():
+            _check_scalar(f"{field}.{k}", k)
+            check_plane_value(f"{field}.{k}", v, _depth + 1, seen)
+        return
+    if isinstance(value, (list, tuple)):
+        for i, item in enumerate(value):
+            check_plane_value(f"{field}[{i}]", item, _depth + 1, seen)
+        return
+    _check_scalar(field, value)
 
 
 # --------------------------------------------------------------------------- #
@@ -114,9 +240,18 @@ class WitnessChain:
 
     def append(self, kind, *, request=None, response=None, provenance=None,
                semantic_digest=None, timestamp="1970-01-01T00:00:00Z",
-               entanglement=None) -> dict:
+               entanglement=None, session_id=None,
+               ir_schema_version=None) -> dict:
         if kind not in KINDS:
             raise ValueError(f"unknown record kind {kind!r}")
+        if kind in RESERVED_KINDS:
+            raise ValueError(
+                f"record kind {kind!r} is RESERVED in v0.6.5: the name is "
+                f"declared so it can enter the canonical enum before genesis, "
+                f"but nothing may emit it until its semantics land in Ф2–Ф3 "
+                f"(ADR-015). Emitting a record whose meaning is undefined is "
+                f"worse than not having the name.")
+        check_plane_value("semantic_digest", semantic_digest)
         idx = self.next_index()
         body = {
             "index": idx,
@@ -129,6 +264,13 @@ class WitnessChain:
             "provenance_hash": H_hex(canonical(provenance)) if provenance is not None else None,
             "semantic_digest": semantic_digest,
         }
+        if session_id is not None:
+            # v0.6.5: reserved field. Declared now (nullable, omitted when
+            # absent) so DecisionTrace can carry it in Ф3 without a schema
+            # migration of the chain.
+            body["session_id"] = session_id
+        if ir_schema_version is not None:
+            body["ir_schema_version"] = ir_schema_version
         if entanglement is not None:
             # v0.5 P1: externally witnessed anteriority anchor. Included in
             # the hashed body — a beacon cannot be swapped after signing.

@@ -1,0 +1,15 @@
+{
+  "schema": "jjdai.model-profile/v1",
+  "family": "DeepSeek",
+  "architecture": "deepseek-v4-moe",
+  "tokenizer": "deepseek-bpe-128k",
+  "chat_template": "deepseek-chat-v4",
+  "attention": "mla",
+  "precisions": ["bf16", "fp8", "int8", "int4"],
+  "moe_routing": {"experts": 256, "active": 8, "shared": 1},
+  "required_operators": ["rmsnorm", "rope", "mla_attention", "moe_gate",
+                         "swiglu"],
+  "context_window": 65536,
+  "aliases": ["DeepSeek4Flash", "DeepSeek4Pro"],
+  "notes": "Golden path family of phase Ф1 (DeepSeek4Flash + DwarfStar). Pro runs in shadow only and is not admitted to the decision path."
+}

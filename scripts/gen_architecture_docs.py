@@ -42,11 +42,21 @@ def load() -> dict:
         return json.load(f)
 
 
+#: Groups the default run does NOT collect (see scripts/run_acceptance.py).
+#: They must not inflate the published badge, or the number stops meaning
+#: "what a clean checkout proves on any host".
+OPT_IN_GROUPS = ("live",)
+
+
 def count_acceptance() -> int:
     """Count acceptance test functions the same way run_acceptance collects
-    them (def test_* at top level of tests/**/test_*.py)."""
+    them by default (def test_* at top level of tests/**/test_*.py, opt-in
+    groups excluded)."""
     n = 0
     for dirpath, _dirs, files in os.walk(os.path.join(ROOT, "tests")):
+        rel = os.path.relpath(dirpath, os.path.join(ROOT, "tests"))
+        if rel.split(os.sep)[0] in OPT_IN_GROUPS:
+            continue
         for fn in files:
             if fn.startswith("test_") and fn.endswith(".py"):
                 src = io.open(os.path.join(dirpath, fn),

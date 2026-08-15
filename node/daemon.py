@@ -40,6 +40,8 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import queue
+import socket
 import ssl
 import sys
 import threading
@@ -98,40 +100,12 @@ def semantic_digest(text: str) -> str:
 # Engine seam
 # --------------------------------------------------------------------------- #
 
-class HashEngine:
-    """Deterministic reference engine (Profile B). Same input -> same bytes,
-    so the node can honestly declare determinism_level='reproducible'.
-
-    PRODUCTION SEAM: replace with DwarfStarEngine — an adapter that forwards
-    `messages`+`sampling` to the local DwarfStar /v1 endpoint and declares
-    determinism_level='attested'. The daemon's envelope/witness logic does
-    not change."""
-
-    determinism_level = "reproducible"
-    backend = "cpu"
-
-    def __init__(self, fingerprint: str):
-        self.fingerprint = fingerprint
-
-    def generate(self, messages: list, sampling: dict,
-                 adapter_ids: list = ()) -> str:
-        prompt = canonical(messages).decode()
-        tag = "+".join(adapter_ids)
-        return "out:" + H_hex((prompt + tag + self.fingerprint).encode())[:24]
-
-    def score(self, messages: list, tokens: list, sampling: dict,
-              adapter_ids: list = ()) -> dict:
-        """Reference verifier: the genuine completion is exactly what this
-        engine would generate; anything else is unreachable."""
-        genuine = self.generate(messages, sampling, adapter_ids).split()
-        reachable = [i < len(genuine) and t == genuine[i]
-                     for i, t in enumerate(tokens)]
-        ok = all(reachable) and bool(tokens)
-        return {"ok": ok, "reachable": reachable,
-                "min_margin": 1.0 if ok else 0.0,
-                "verifier_fp": self.fingerprint,
-                "determinism": self.determinism_level,
-                "note": "" if ok else "token mismatch"}
+# HashEngine moved to jjdai/adapters/backends/hash.py in v0.6.5: it was
+# never node-specific — it is the reference driver the conformance suite
+# measures the others against. Re-exported here so existing importers and
+# tests keep working; the daemon itself now asks the registry by name.
+from jjdai.adapters.backends.hash import HashEngine        # noqa: E402,F401
+from jjdai.adapters.registry import create as create_backend  # noqa: E402,F401
 
 
 # --------------------------------------------------------------------------- #
@@ -163,6 +137,10 @@ class Node:
                  being_journal_dir: str = None,
                  being_provenance: dict = None,
                  rate_limits: dict = None,
+                 max_body_bytes: int = 1024 * 1024,
+                 max_concurrency: int = 64,
+                 request_timeout_s: float = 15.0,
+                 isolation_profiles: list = None,
                  authz: "AuthzPolicy" = None,
                  revoked_serials: set = None,
                  challenge_windows: tuple = None,
@@ -322,6 +300,19 @@ class Node:
                 self.chain, registry=None,
                 fraud_log_path=fraud_log_path,
                 commit_window=cw, reveal_window=rw)
+        # ---- ingress hardening (v0.6.4) --------------------------------- #
+        # Three caps that must exist BEFORE the network is opened to anyone
+        # who is not us: a ceiling on what one request may hand us, a ceiling
+        # on how many requests may be in flight, and a clock on every
+        # connection. Without them a single slow or fat client is a denial of
+        # service against the witness contour, and no amount of authorization
+        # helps — the cost is paid before authorization is even reached.
+        self.max_body_bytes = int(max_body_bytes)
+        self.max_concurrency = int(max_concurrency)
+        self.request_timeout_s = float(request_timeout_s)
+        self.ingress_sem = threading.BoundedSemaphore(self.max_concurrency)
+        self.isolation_profiles = list(isolation_profiles or ["reference"])
+
         # ---- rate limiter (v0.5.4) -------------------------------------- #
         self.rate_limiter = RateLimiter(rate_limits, chain=self.chain) \
             if rate_limits else None
@@ -331,6 +322,8 @@ class Node:
         self.started_at = time.time()
         self.metrics = {"requests_total": 0, "denied_authz_total": 0,
                         "rate_limited_total": 0, "revoked_rejected_total": 0,
+                        "body_too_large_total": 0, "bad_framing_total": 0,
+                        "overloaded_total": 0, "refusal_dropped_total": 0,
                         "tasks_total": 0, "challenge_rounds_total": 0}
         if self.challenge is None:
             self.challenge = ChallengeRound(
@@ -700,6 +693,10 @@ class Node:
             "being_runtime": (self.being.profile if self.being else None),
             "authz": (self.authz.default if self.authz else None),
             "rate_limited": self.rate_limiter is not None,
+            "ingress": {"max_body_bytes": self.max_body_bytes,
+                        "max_concurrency": self.max_concurrency,
+                        "request_timeout_s": self.request_timeout_s},
+            "isolation": self.isolation_status(),
             "revoked_serials": len(self.revoked_serials),
             "challenge": bool(self.challenge),
             "attested_substrates": sorted(
@@ -707,6 +704,22 @@ class Node:
                 .get("substrates", {})) if self.deployment else [],
             "require_attestation": self.require_attestation,
         }
+
+    def isolation_status(self) -> dict:
+        """What this node DECLARES it can execute inside (v0.6.4).
+
+        This is the honest form of a fallback. A node missing a profile's
+        runtime does not quietly execute in a weaker box and write a note
+        about it; it says so here, and work needing that boundary is not
+        routed to it. Moves to /readyz when the liveness/readiness split
+        lands in v0.6.6.
+        """
+        from kernel.isolation import profile_status
+        st = profile_status(self.isolation_profiles)
+        return {"declared": list(self.isolation_profiles),
+                "ready": sorted(k for k, v in st.items()
+                                if v.get("available")),
+                "profiles": st}
 
     # ---- JII handler (NECS C1.3–C1.8) ----
     def handle(self, request: dict) -> tuple[int, dict]:
@@ -904,9 +917,124 @@ class RateLimiter:
                             "key_hash": semantic_digest(key),
                             "cls": cls, "limit": limit, "window_s": window,
                             "rejected": st[2],
-                            "note": "systematic over-budget traffic; one "
-                                    "record per offender per window"})
+                            # v0.6.5: a CODE, not a sentence. The plane takes
+                            # enum tokens, integers and digests; prose in an
+                            # append-only replicated store is a covert
+                            # channel and an unbounded write. The explanation
+                            # lives in the docs for this code, once, instead
+                            # of in every record forever.
+                            "reason_code": "systematic_over_budget"})
             return False, retry
+
+
+class BoundedThreadingHTTPServer(ThreadingHTTPServer):
+    """Thread-per-connection with a REAL ceiling (v0.6.4, audit response).
+
+    The first cut of this drop took the admission slot inside the handler —
+    that is, INSIDE the worker thread, which by then already existed. It
+    bounded how many requests were processed at once and did nothing about
+    how many threads were created, so a client opening connections and
+    saying nothing still cost one thread each until the connection clock
+    expired. The mechanism claimed a property it did not have.
+
+    Admission therefore sits in process_request, which runs on the accept
+    loop BEFORE ThreadingMixIn spawns anything. Over the ceiling the socket
+    gets a 503 and is closed on the accept thread itself: no worker, no
+    stack, no bookkeeping. The slot is released in shutdown_request, which
+    the mixin calls exactly once per dispatched connection.
+    """
+
+    daemon_threads = True
+
+    #: Refusals are handed to ONE long-lived worker with a bounded queue.
+    #: Not to the accept loop, because answering politely means draining
+    #: whatever the peer is still sending — closing a socket with unread
+    #: inbound data makes the kernel send RST and the 503 is lost, so the
+    #: caller cannot tell "overloaded, retry" from "node is dead". And not
+    #: to a thread per refusal, which would hand the attacker back exactly
+    #: the thread growth this class exists to prevent. One worker, bounded
+    #: queue, and past the queue we close hard: politeness degrades under
+    #: extreme load, the ceiling does not.
+    REFUSE_QUEUE = 64
+    REFUSE_DRAIN_BYTES = 64 * 1024
+
+    def __init__(self, addr, handler_cls, *, node):
+        self.node = node
+        self._refuse_q = queue.Queue(maxsize=self.REFUSE_QUEUE)
+        self._refuse_worker = threading.Thread(
+            target=self._refuse_loop, daemon=True, name="ingress-refusal")
+        self._refuse_worker.start()
+        super().__init__(addr, handler_cls)
+
+    def _refuse_loop(self):
+        while True:
+            request = self._refuse_q.get()
+            try:
+                self._refuse(request)
+            except Exception:                      # never kill the worker
+                pass
+            finally:
+                try:
+                    ThreadingHTTPServer.shutdown_request(self, request)
+                except Exception:
+                    pass
+
+    def _refuse(self, request):
+        payload = json.dumps({
+            "error": "503 OVERLOADED",
+            "max_concurrency": self.node.max_concurrency,
+            "detail": "this node is at its connection ceiling; retry",
+        }).encode()
+        head = (b"HTTP/1.1 503 Service Unavailable\r\n"
+                b"Content-Type: application/json\r\n"
+                b"Content-Length: " + str(len(payload)).encode() + b"\r\n"
+                b"Retry-After: 1\r\nConnection: close\r\n\r\n")
+        try:
+            # A short clock, because the refusal runs on the ACCEPT LOOP: a
+            # stalled or half-open peer must never make the refusal itself
+            # the thing that blocks new connections.
+            request.settimeout(min(2.0, self.node.request_timeout_s))
+            request.sendall(head + payload)
+            # Half-close the write side, then drain a bounded amount of
+            # whatever the peer is still sending. Without the drain, close()
+            # over unread inbound data resets the connection and takes the
+            # answer with it. The drain is bounded in both bytes and time so
+            # a slow peer cannot turn the refusal into the new bottleneck.
+            request.shutdown(socket.SHUT_WR)
+            drained = 0
+            while drained < self.REFUSE_DRAIN_BYTES:
+                chunk = request.recv(8192)
+                if not chunk:
+                    break
+                drained += len(chunk)
+        except OSError:
+            pass
+
+    def process_request(self, request, client_address):
+        if not self.node.ingress_sem.acquire(blocking=False):
+            self.node.metrics["overloaded_total"] += 1
+            self.node.metrics["requests_total"] += 1
+            try:
+                self._refuse_q.put_nowait(request)
+            except queue.Full:
+                # past the queue, close hard rather than grow anything
+                self.node.metrics["refusal_dropped_total"] += 1
+                super().shutdown_request(request)
+            return
+        try:
+            super().process_request(request, client_address)
+        except BaseException:
+            self.node.ingress_sem.release()
+            raise
+
+    def shutdown_request(self, request):
+        try:
+            super().shutdown_request(request)
+        finally:
+            try:
+                self.node.ingress_sem.release()
+            except ValueError:
+                pass          # never let bookkeeping kill the accept loop
 
 
 def make_handler(node: Node):
@@ -922,6 +1050,12 @@ def make_handler(node: Node):
                 self.send_header(hk, hv)
             self.end_headers()
             self.wfile.write(body)
+
+        # v0.6.4: a clock on every connection. socketserver applies this to
+        # the accepted socket, so a client that opens a connection and then
+        # stalls mid-header or mid-body releases the thread instead of
+        # holding it indefinitely (the cheapest denial of service there is).
+        timeout = node.request_timeout_s
 
         _RL_CLASSES = (("/v1/messages", "infer"), ("/v1/tasks", "task"),
                        ("/replicate/", "write"), ("/witness/anchor", "write"))
@@ -974,7 +1108,19 @@ def make_handler(node: Node):
                 if self.path.startswith(prefix):
                     cls = c
                     break
-            key = self.client_address[0]
+            # v0.6.4: the budget belongs to an IDENTITY, not to an address.
+            # Keying by client IP charged everyone behind one NAT to a single
+            # bucket and let one holder of a certificate reset their own
+            # budget by moving address. The mTLS chain is already verified at
+            # this point, so CN+serial is the strongest key available; the
+            # address is used only where no client certificate was presented
+            # (plain-HTTP dev runs), and it is namespaced so the two key
+            # spaces can never collide.
+            cn, serial = self._peer_identity()
+            if cn or serial:
+                key = f"cert:{cn or '-'}:{serial or '-'}"
+            else:
+                key = f"ip:{self.client_address[0]}"
             ok, retry = node.rate_limiter.check(key, cls)
             if ok:
                 return True
@@ -986,9 +1132,69 @@ def make_handler(node: Node):
                        headers={"Retry-After": str(max(1, int(retry + 0.999)))})
             return False
 
+        def _ingress_gate(self) -> bool:
+            """True = proceed; False = already answered 400/411/413.
+
+            Runs BEFORE authorization and before any byte of the body is
+            read, because an unbounded read is paid for by the server
+            regardless of whether the sender turns out to be allowed."""
+            te = (self.headers.get("Transfer-Encoding") or "").lower()
+            if "chunked" in te:
+                node.metrics["bad_framing_total"] += 1
+                self._send(411, {"error": "411 LENGTH_REQUIRED",
+                                 "detail": "chunked transfer-encoding is not "
+                                           "accepted: a body whose length is "
+                                           "not declared cannot be capped "
+                                           "before it is read"})
+                return False
+            raw = self.headers.get("Content-Length")
+            if raw is None:
+                self._body_len = 0
+                return True
+            try:
+                n = int(str(raw).strip())
+            except (TypeError, ValueError):
+                node.metrics["bad_framing_total"] += 1
+                self._send(400, {"error": "400 BAD_FRAMING",
+                                 "detail": "Content-Length is not an integer"})
+                return False
+            if n < 0:
+                node.metrics["bad_framing_total"] += 1
+                self._send(400, {"error": "400 BAD_FRAMING",
+                                 "detail": "negative Content-Length"})
+                return False
+            if n > node.max_body_bytes:
+                node.metrics["body_too_large_total"] += 1
+                self._send(413, {"error": "413 BODY_TOO_LARGE",
+                                 "limit_bytes": node.max_body_bytes,
+                                 "declared_bytes": n,
+                                 "detail": "request body exceeds this node's "
+                                           "ingress cap"})
+                return False
+            self._body_len = n
+            return True
+
         def _read_json(self):
-            n = int(self.headers.get("Content-Length", 0))
-            raw = self.rfile.read(n) if n else b"{}"
+            """Read at most the length the gate validated, in bounded chunks.
+
+            The gate always runs first on the POST path; the fallback below
+            keeps this method safe on its own terms, so a future caller that
+            forgets the gate still cannot hand the parser an unbounded body."""
+            n = getattr(self, "_body_len", None)
+            if n is None:
+                try:
+                    n = int(str(self.headers.get("Content-Length", 0)).strip())
+                except (TypeError, ValueError):
+                    return None
+                n = max(0, min(n, node.max_body_bytes))
+            chunks, remaining = [], n
+            while remaining > 0:
+                chunk = self.rfile.read(min(remaining, 65536))
+                if not chunk:
+                    break                      # client hung up mid-body
+                chunks.append(chunk)
+                remaining -= len(chunk)
+            raw = b"".join(chunks) or b"{}"
             try:
                 return json.loads(raw.decode())
             except (json.JSONDecodeError, UnicodeDecodeError):
@@ -1002,10 +1208,16 @@ def make_handler(node: Node):
             if not self._authz_gate():
                 return
             if self.path == "/healthz":
+                iso = node.isolation_status()
                 return self._send(200, {"ok": True,
                     "uptime_s": round(time.time() - node.started_at, 1),
                     "node_id": node.chain.node_id,
-                    "records": len(node.chain.records)})
+                    "records": len(node.chain.records),
+                    # Liveness only, by design (the /readyz split is v0.6.6).
+                    # The isolation declaration rides here in the meantime so
+                    # a peer can see which boundaries this node can honour.
+                    "isolation_declared": iso["declared"],
+                    "isolation_ready": iso["ready"]})
             if self.path == "/metrics":
                 # Prometheus text exposition — the operational eye on a node
                 lines = ["# JJ DAI node metrics (v0.5.5)"]
@@ -1118,6 +1330,8 @@ def make_handler(node: Node):
 
         def do_POST(self):
             node.metrics["requests_total"] += 1
+            if not self._ingress_gate():
+                return
             if not self._rate_gate():
                 node.metrics["rate_limited_total"] += 1
                 return
@@ -1332,6 +1546,23 @@ def main(argv=None):
     ap.add_argument("--entangle-max-age", type=float, default=300.0,
                     help="beacon freshness window in seconds")
     # ---- TLS / mTLS (v0.5.1) -------------------------------------------- #
+    ap.add_argument("--max-body-bytes", type=int, default=1024 * 1024,
+                    help="ingress cap on a single request body (default 1 "
+                         "MiB). Over the cap the node answers 413 before "
+                         "reading the body.")
+    ap.add_argument("--max-concurrency", type=int, default=64,
+                    help="maximum requests in flight (default 64). Over the "
+                         "ceiling the node answers 503 and closes rather "
+                         "than queueing.")
+    ap.add_argument("--request-timeout-s", type=float, default=15.0,
+                    help="per-connection clock in seconds (default 15). A "
+                         "stalled client releases its thread.")
+    ap.add_argument("--isolation-profiles", default="reference",
+                    help="comma list of isolation profiles this node "
+                         "declares (reference, wasm-wasi). A declared "
+                         "profile whose runtime is absent is reported "
+                         "unavailable and its work is refused, never "
+                         "downgraded.")
     ap.add_argument("--tls-cert", default=None,
                     help="server certificate (PEM). With --tls-key, the "
                          "daemon serves HTTPS (TLS >= 1.2)")
@@ -1450,13 +1681,13 @@ def main(argv=None):
         return 2
 
     if args.engine == "sglang":
-        from engine_sglang import SGLangEngine
+        from jjdai.adapters.backends.sglang import SGLangEngine
         engine = SGLangEngine(
             args.engine_url, fingerprint=args.fingerprint,
             adapter_paths=json.loads(args.adapter_paths),
             determinism_level=args.engine_determinism or "attested")
     elif args.engine == "dwarfstar":
-        from engine_dwarfstar import DwarfStarEngine
+        from jjdai.adapters.backends.dwarfstar import DwarfStarEngine
         engine = DwarfStarEngine(
             args.engine_url, fingerprint=args.fingerprint,
             determinism_level=args.engine_determinism or "attested")
@@ -1625,6 +1856,12 @@ def main(argv=None):
                     being_journal_dir=being_jd if args.being_profile else None,
                     being_provenance=being_prov,
                     rate_limits=rate_limits,
+                    max_body_bytes=args.max_body_bytes,
+                    max_concurrency=args.max_concurrency,
+                    request_timeout_s=args.request_timeout_s,
+                    isolation_profiles=[x.strip() for x in
+                                        args.isolation_profiles.split(",")
+                                        if x.strip()],
                     authz=authz, revoked_serials=revoked,
                     challenge_windows=(
                         tuple(float(x) for x in
@@ -1670,7 +1907,8 @@ def main(argv=None):
         print(f"[{args.name}] WARNING: EPHEMERAL identity (dev mode) — this "
               f"node's key will not survive a restart. Use --node-keystore "
               f"for any run whose witness log matters.", file=sys.stderr)
-    srv = ThreadingHTTPServer((args.host, args.port), make_handler(node))
+    srv = BoundedThreadingHTTPServer((args.host, args.port),
+                                     make_handler(node), node=node)
     scheme = "http"
     if server_ssl is not None:
         srv.socket = server_ssl.wrap_socket(srv.socket, server_side=True)

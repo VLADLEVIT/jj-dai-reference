@@ -1,0 +1,5 @@
+{
+  "schema": "jjdai.toolset/v1",
+  "note": "The FIXED toolset of the wasm-wasi isolation profile. Arbitrary execution does not exist in this profile: a tool runs only if it is named here AND its module hashes to the pinned digest. Adding a tool is a deliberate widening of the being's hand and is witnessed as such. Populate on the node; this build ships the mechanism, not the modules.",
+  "tools": {}
+}

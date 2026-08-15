@@ -1,5 +1,5 @@
 {
- "version": "0.6.3",
+ "version": "0.6.5",
  "acceptance": null,
  "legend": {
   "impl": "Implemented — live, tested",
@@ -157,6 +157,17 @@
       "reference sandbox"
      ],
      "desc": "Witnessed intent/outcome, path confinement, rlimits, streaming flood-kill, deterministic child environment. Reference sandbox, not hardened isolation."
+    },
+    {
+     "path": "kernel/isolation.py",
+     "name": "Isolation profiles — the boundary seam",
+     "status": "impl",
+     "chips": [
+      "Implemented",
+      "per-tool readiness",
+      "fails closed"
+     ],
+     "desc": "Named execution boundaries for Karma. reference is the v0.6.3 process fence (path confinement, rlimits, env scrub, streaming output cap). wasm-wasi runs a fixed toolset of precompiled WASI modules pinned by digest inside that same fence, with exactly one directory preopened and no arbitrary argv; wasmtime is a declared host binary, not a Python dependency. Readiness is computed per tool against real modules and pinned digests, so a declared capability is an executable one; a declared profile whose runtime is absent REFUSES the action and is reported unavailable in capabilities — never silently downgraded. microvm is reserved and unimplemented by design."
     }
    ]
   },
@@ -332,6 +343,15 @@
    "cards": [
     {
      "path": "node/daemon.py",
+     "name": "Ingress hardening — caps before authorization",
+     "status": "impl",
+     "chips": [
+      "Implemented"
+     ],
+     "desc": "Body ceiling enforced before the body is read (413), chunked framing refused (411) because an undeclared length cannot be capped, malformed Content-Length answered 400 instead of raising in the handler thread, a per-connection clock, and a connection ceiling admitted ON THE ACCEPT LOOP so stalled connections cannot grow worker threads; refusals go to one bounded worker that drains before closing, so the 503 survives. Rate-limit budgets are keyed by certificate identity, with a namespaced address key only where no client certificate was presented."
+    },
+    {
+     "path": "node/daemon.py",
      "name": "Tier-1 trust node daemon",
      "status": "proto",
      "chips": [
@@ -340,13 +360,14 @@
      "desc": "Inference/scoring, Witness export, replication, entanglement, attestation, anchoring, peers, containment, the Being task lifecycle, per-identity rate limiting, role-based authorization, cert revocation, /healthz and /metrics, and the networked challenge round — all over TLS/mTLS."
     },
     {
-     "path": "node/engine_sglang.py · node/engine_dwarfstar.py",
-     "name": "Engine adapters",
-     "status": "proto",
+     "path": "jjdai/adapters/",
+     "name": "Adapter layer — EngineBackend Protocol v1",
+     "status": "impl",
      "chips": [
-      "Prototype adapters"
+      "Implemented",
+      "protocol v1 declared whole"
      ],
-     "desc": "Generation plus teacher-forcing score with mock and live acceptance seams. Real GPU acceptance and operational profiles remain pending (operator-run gate)."
+     "desc": "Backend drivers (hash reference, DwarfStar, SGLang; vLLM, llama.cpp, MLX and the pre-silicon ASIC runtime declared and refusing by type), declarative model-family profiles, typed fail-closed errors and a registry that admits nothing which does not satisfy the contract. Capability is DERIVED from what a driver actually overrides, never hand-declared, so a manifest cannot drift from the code. Generation and scoring behaviour is unchanged by the move."
     },
     {
      "path": "necs/",
@@ -445,7 +466,7 @@
   }
  ],
  "honest_sentence": [
-  "v0.4.1 closed the identity gap. v0.5-dev5 closed the cryptographic boundary. v0.5-dev6 made replication sound. v0.5.1 closed P1 mechanisms. v0.5.2 added the Monero anchor. v0.5.3 closed the COMPOSITION GAP: one BeingRuntime drives every organ through one witnessed lifecycle over one identity, and POST /v1/tasks returns the full DecisionTrace — including the honest endings REFUSED, FAILED, FATE_UNKNOWN and CONTAINED. v0.5.4 made verification ADVERSARIAL: RFC 9381 ECVRF (vector-pinned) drives transcript-bound panel sortition nobody can grind; verdicts are sealed before any are shown; silence and fraud become witnessed, offline-verifiable evidence; and the daemon holds its first operational boundary — per-identity rate limiting whose systematic abuse is itself witnessed. v0.5.5 is the SECURITY-ALPHA: role-based authorization (default-deny, longest-prefix), certificate revocation that beats identity, /healthz + /metrics, the challenge round carried over mTLS, a production PKI with an offline root, optional TPM-sealed keystores, a hardened systemd unit and an operator runbook — the kit to stand up testnet-0 on Ubuntu. v0.6.1 propagates INV-9 v1.1: the invariant is reworded from “non-acting” to “non-executive, not causally inert” — the executive prohibition is unchanged, the sanctioned reflexive path (J-Lens → Viveka → Chitta, pre-finalization) is named, and direct mutation of an output or verdict remains forbidden; the reflexive loop itself is a Ф3 runtime deliverable (roadmap r5), so the archive-only runtime stays compliant. v0.6.2 ports the deployment kit to macOS (roadmap Ф0): a launchd daemon template, Keychain sealing of the keystore passphrase under the explicitly documented macOS Keychain degraded profile (non-SE-resident); a true Secure Enclave-backed profile is reserved as a separate future attestation profile, a bootstrap that enforces the 24/7 power discipline of a laptop-chassis server, RUNBOOK-macOS, and an SECURITY.md triage template — with unit acceptance pinning flag parity between the systemd and launchd paths so the two kits cannot drift apart silently. v0.6.3 answers the external audit of v0.6.2: the systemd watchdog that would have killed a healthy node every 60 s is removed until sd_notify lands; /opt/jjdai is root-owned on both platforms so the daemon can no longer rewrite its own code; the macOS profile is renamed to “macOS Keychain degraded profile (non-SE-resident)” with a true Secure Enclave-backed profile reserved for the future and an M-LIVE operational-evidence checklist added; hand-written docs are pinned to the code by a release-integrity test (versions, outgrown claims, acceptance count, AGPL placeholder loudness). Known-and-scheduled: per-identity rate-limit keying, ingress body/concurrency limits, /readyz, and the canonical AGPL text remain open, tracked items.",
-  "Said plainly: authorization is transport-role based (peer/admin/anonymous from the mTLS CN), not yet capability- or steward-ballot based; certificate revocation is serial-list based; Karma is still a reference sandbox, not hardened isolation; the knowledge store is retrieval-baseline, not a knowledge graph; and DIIP remains deliberately absent. This is an alpha to operate among known operators, not to expose to untrusted load."
+  "v0.4.1 closed the identity gap. v0.5-dev5 closed the cryptographic boundary. v0.5-dev6 made replication sound. v0.5.1 closed P1 mechanisms. v0.5.2 added the Monero anchor. v0.5.3 closed the COMPOSITION GAP: one BeingRuntime drives every organ through one witnessed lifecycle over one identity, and POST /v1/tasks returns the full DecisionTrace — including the honest endings REFUSED, FAILED, FATE_UNKNOWN and CONTAINED. v0.5.4 made verification ADVERSARIAL: RFC 9381 ECVRF (vector-pinned) drives transcript-bound panel sortition nobody can grind; verdicts are sealed before any are shown; silence and fraud become witnessed, offline-verifiable evidence; and the daemon holds its first operational boundary — per-identity rate limiting whose systematic abuse is itself witnessed. v0.5.5 is the SECURITY-ALPHA: role-based authorization (default-deny, longest-prefix), certificate revocation that beats identity, /healthz + /metrics, the challenge round carried over mTLS, a production PKI with an offline root, optional TPM-sealed keystores, a hardened systemd unit and an operator runbook — the kit to stand up testnet-0 on Ubuntu. v0.6.1 propagates INV-9 v1.1: the invariant is reworded from “non-acting” to “non-executive, not causally inert” — the executive prohibition is unchanged, the sanctioned reflexive path (J-Lens → Viveka → Chitta, pre-finalization) is named, and direct mutation of an output or verdict remains forbidden; the reflexive loop itself is a Ф3 runtime deliverable (roadmap r5), so the archive-only runtime stays compliant. v0.6.2 ports the deployment kit to macOS (roadmap Ф0): a launchd daemon template, Keychain sealing of the keystore passphrase under the explicitly documented macOS Keychain degraded profile (non-SE-resident); a true Secure Enclave-backed profile is reserved as a separate future attestation profile, a bootstrap that enforces the 24/7 power discipline of a laptop-chassis server, RUNBOOK-macOS, and an SECURITY.md triage template — with unit acceptance pinning flag parity between the systemd and launchd paths so the two kits cannot drift apart silently. v0.6.3 answers the external audit of v0.6.2: the systemd watchdog that would have killed a healthy node every 60 s is removed until sd_notify lands; /opt/jjdai is root-owned on both platforms so the daemon can no longer rewrite its own code; the macOS profile is renamed to “macOS Keychain degraded profile (non-SE-resident)” with a true Secure Enclave-backed profile reserved for the future and an M-LIVE operational-evidence checklist added; hand-written docs are pinned to the code by a release-integrity test (versions, outgrown claims, acceptance count, AGPL placeholder loudness). v0.6.4 opens the Ф0 isolation and ingress work. Karma gains an ISOLATION-PROFILE SEAM: the reference sandbox becomes a named profile, and a second profile, wasm-wasi, executes a FIXED SET of precompiled WASI modules pinned by digest — an allow-list boundary enforced by the runtime instead of a deny-list subtracted from the kernel, at the deliberate cost of arbitrary argv. The seam FAILS CLOSED: a declared profile whose runtime is absent refuses the action and says so in capabilities, and is never downgraded to a weaker profile — a record written after the fact restores no boundary, and by INV-9 the witness cannot intervene. Refusal and execution are witnessed alike; the difference between them is whether the hand moved. Ingress gains the three caps that must exist before the network is opened to anyone who is not us: a body ceiling enforced before the body is read, a non-blocking concurrency ceiling answering 503 rather than queueing work the node has not agreed to hold, and a per-connection clock. The rate-limit budget moves from the client ADDRESS to the certificate IDENTITY, so one certificate holder can no longer reset their own budget by changing address and a whole NAT is no longer charged to one bucket. The drop was re-cut after external review: the concurrency ceiling now admits on the accept loop, before a worker thread exists, because taking the slot inside the handler bounded request PROCESSING and not thread CREATION — and the check written for it tested the semaphore rather than the claim. Refusals are handled by one bounded worker that drains before closing, so an overloaded node still answers 503 instead of resetting the connection and leaving the caller unable to tell overload from death. wasm-wasi readiness is now computed per tool against real modules and digests, so a declared capability is an executable one. A live opt-in group proves the boundary against a real runtime and fails loudly without one. Known-and-scheduled: /readyz and the liveness split, sd_notify with the watchdog return, Prometheus alert rules, the adapters restructure, and the canonical AGPL text remain open, tracked items. v0.6.5 lifts the engine seam into jjdai/adapters/: EngineBackend Protocol v1 is declared WHOLE, so an unimplemented method exists and raises a typed NotSupported instead of being absent — a hole invites every caller to grow its own probe and its own silent fallback, and a silent fallback is how a node comes to believe it has a capability it does not have. Capability is DERIVED from what a driver actually overrides rather than hand-declared, so a manifest cannot drift from the code. Model families arrive as declarative profiles validated against a versioned schema that refuses unknown keys, and a ModelArtifactManifest carries profile → JCS → hash → signature. Separately, the witness plane gains a VOCABULARY: enum tokens, integers and digests cross into it, prose does not — an append-only replicated store that accepts free text is both a covert channel and an unbounded write, so refusal reasons became versioned codes. The record kinds of cross-cutting track IV (SESSION_OPEN, SESSION_CLOSE, LEDGER_ANCHOR, SNAPSHOT) and the nullable session_id / ir_schema_version fields are RESERVED in the canonical enum before genesis and refuse to be emitted until their semantics land in Ф2–Ф3.",
+  "Said plainly: authorization is transport-role based (peer/admin/anonymous from the mTLS CN), not yet capability- or steward-ballot based; certificate revocation is serial-list based; Karma now carries an isolation-profile seam with a wasm-wasi profile beside the reference sandbox, but this build ships the mechanism and no compiled toolset, so in practice execution is still the reference fence, and microvm is reserved and deliberately unimplemented; the knowledge store is retrieval-baseline, not a knowledge graph; and DIIP remains deliberately absent. This is an alpha to operate among known operators, not to expose to untrusted load."
  ]
 }

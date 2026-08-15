@@ -62,7 +62,11 @@ class DwarfStarError(RuntimeError):
     maps this to 503 (fail-closed: no engine, no inference)."""
 
 
-class DwarfStarEngine:
+from jjdai.adapters.protocol import BaseEngineBackend  # noqa: E402
+from jjdai.adapters.registry import register          # noqa: E402
+
+
+class DwarfStarEngine(BaseEngineBackend):
     """NECS engine seam bound to a DwarfStar /v1 server. Profile B strict."""
 
     profile = "B"
@@ -239,3 +243,6 @@ class DwarfStarEngine:
                 "determinism": self.determinism_level,
                 "note": "" if all_ok else
                         f"unreachable token at pos {reachable.index(False)}"}
+
+
+register("dwarfstar", DwarfStarEngine)

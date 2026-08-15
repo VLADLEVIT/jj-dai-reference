@@ -939,3 +939,293 @@ any distribution.
 hardening (body caps, timeouts, concurrency semaphore,
 certificate-identity rate-limit keying); then /readyz split, Prometheus
 rules, sd_notify watchdog, Mac sleep/reboot alerts.
+
+# JJ DAI v0.6.4 — Karma isolation seam + ingress hardening
+
+Roadmap Ф0, drop v0.6.4 (r6.6.2 ordering). Two boundaries that had to
+exist before testnet-0 carries traffic from anyone who is not us: the
+boundary an action executes *inside*, and the boundary a request must
+cross to reach the node at all.
+
+## 1. Isolation profiles — `kernel/isolation.py`
+
+Karma had exactly one way to execute: a real OS process fenced by path
+confinement, rlimits, an environment scrub and a wall clock. That fence
+is honest, but it is a DENY-LIST — the child holds the kernel's full
+system-call surface and we subtract from it. Anything we did not think
+to subtract remains.
+
+`reference` — the v0.6.3 sandbox, unchanged, now a *named* profile.
+It stays the default and the baseline every node can run.
+
+`wasm-wasi` — execution inside a WebAssembly module under WASI. The
+module cannot EXPRESS a system call it was not granted: no filesystem
+beyond the directories the host preopens (exactly one — the workspace),
+no sockets, no fork, no exec. An allow-list enforced by the runtime
+rather than subtracted from the kernel.
+
+Stated plainly, because it is the cost of the profile and not a gap in
+the implementation: **arbitrary shell does not exist here.** The profile
+executes a FIXED SET of precompiled tools, each pinned by digest in
+`deploy/wasm-toolset/toolset.json`, and the digest is verified on every
+execution. A narrower action surface is the point.
+
+`microvm` — reserved in the registry, deliberately unimplemented.
+Declaring a profile we cannot enforce would be exactly the silent
+downgrade this module exists to prevent.
+
+**Fail closed.** A declared profile whose runtime is absent REFUSES the
+action. It is never downgraded to a weaker profile. A downgrade would
+let a node believe it is acting inside a boundary it is not inside, and
+the witness plane cannot save it: by INV-9 the witness observes and does
+not intervene, so a record written after the fact restores nothing.
+
+**Both paths are witnessed.** Refusal and execution alike emit intent
+and outcome; the outcome of a refusal carries the refusal class and the
+profile. The record does not make the refusal safe — not acting does
+that. The record makes it accountable, which is the witness plane's only
+job.
+
+**Declared, not discovered.** `capabilities()` and `/healthz` report
+which profiles this node can honour, so work needing a boundary is never
+routed to a node that cannot provide it. Refusing the work is the honest
+form of a fallback; doing the work in a weaker box is not. The
+declaration moves to `/readyz` when the liveness split lands (v0.6.6).
+
+**Dependency posture.** `wasmtime` is invoked as a SYSTEM BINARY through
+the existing fence, not as a Python binding: the codebase stays
+stdlib-only and the runtime becomes a declared host requirement entering
+the SBOM through the ordinary supply-chain stream (v0.6.7).
+
+New flag: `--isolation-profiles` (default `reference`).
+
+## 2. Ingress hardening — `node/daemon.py`
+
+Four defects, each paid for *before* authorization was ever reached.
+
+**Body ceiling.** `Content-Length` was read as an integer and the body
+read in full. Now the framing gate runs before the first byte of body:
+over the cap → `413`, non-integer or negative → `400`, and chunked
+encoding → `411`, because a length that is not declared cannot be capped
+before it is read. The reader then consumes at most the validated
+length, in bounded chunks, so a lying `Content-Length` cannot smuggle a
+larger body past the parser.
+
+**Concurrency ceiling.** A thread-per-connection server with no ceiling
+converts a burst into memory exhaustion, and the witness contour shares
+the process. Admission is now bounded and non-blocking: over the
+ceiling the node answers `503` and closes rather than queueing work it
+has not agreed to hold. Refusing early is a service to the caller too —
+a fast "come back" beats a slow nothing.
+
+**Connection clock.** Every connection now carries a timeout, so a
+client that opens and then stalls mid-header or mid-body releases its
+thread instead of holding it indefinitely — the cheapest denial of
+service there is.
+
+**The budget belongs to an identity, not to an address.** Rate limiting
+was keyed by client IP. That charged everyone behind one NAT to a single
+bucket, and let one certificate holder reset their own budget by moving
+address. The mTLS chain is already verified at that point, so the key is
+now `cert:<CN>:<serial>`; a namespaced `ip:` key is used only where no
+client certificate was presented, and the two key spaces cannot collide.
+
+New flags: `--max-body-bytes` (1 MiB), `--max-concurrency` (64),
+`--request-timeout-s` (15). New metrics: `body_too_large_total`,
+`bad_framing_total`, `overloaded_total`.
+
+## Audit response (same drop, before tagging)
+
+The external review of the first cut found one real blocker and three
+smaller items. All four are closed here.
+
+**P0 — the concurrency ceiling did not bound threads.** The admission
+slot was taken inside the handler, which is to say inside a worker
+thread that already existed. It bounded how many requests were
+*processed* at once and did nothing about how many threads were
+*created*: `ThreadingMixIn` spawns in `process_request`, before the
+handler runs at all. Forty stalled connections against a ceiling of one
+produced forty-two threads. The mechanism claimed a property it did not
+have, and — worse — the acceptance check for it tested the semaphore's
+semantics rather than the claim, so it passed.
+
+Admission now sits in `BoundedThreadingHTTPServer.process_request`, on
+the accept loop, before anything is spawned. Over the ceiling the socket
+receives a 503 and a half-close on the accept thread itself: no worker,
+no stack. The half-close is deliberate — a bare close with the peer
+still sending resets the connection, and a caller that gets a reset
+cannot tell "overloaded, retry" from "node is dead", which is the
+distinction the 503 exists to carry. `--max-concurrency` now bounds
+connections rather than in-flight requests.
+
+G-6 is replaced: one hundred stalled connections against a ceiling of
+four, asserting the worker-thread count never exceeds it — with a long
+connection clock on purpose, so that timeout expiry cannot be what saves
+the test.
+
+**P1 — declared readiness was not executable readiness.** The wasm
+profile checked that a runtime and a manifest existed, not that the
+modules the manifest names exist and match their digests. A manifest
+naming a ghost module reported READY and then refused at execution —
+precisely the failure the declaration exists to prevent, since the
+network routes work on the strength of it. Readiness is now computed per
+tool: `toolset_status()` resolves and hashes every declared module,
+`capabilities()` publishes `toolset_ready` and `toolset_broken`, and the
+profile is ready when at least one tool can actually run. One drifted
+entry no longer takes the whole boundary dark, and host conditions
+(missing runtime) stay distinct from tool conditions (missing module,
+drifted digest) so a refusal names the right cause.
+
+**P1 — the boundary was proven only against a shim.** The hermetic suite
+proves the mapping and the refusals; it cannot prove the boundary. A new
+opt-in group `tests/live/` exercises the profile against a real
+`wasmtime`: workspace reachable, external filesystem unreachable, no
+network capability granted, no host binary launchable, and digest
+tampering fail-closed. It is excluded from the default run and from the
+published badge, and it FAILS LOUDLY without a runtime rather than
+skipping quietly — a check that skips itself is not evidence. Required
+by the Ф0 gate on each target host.
+
+**P2 — a hand-written badge had drifted** (`68/68` in the README while
+the generated one said `109/109`), and `kernel/isolation.py` described
+the toolset manifest as "signed-in-place" when nothing signs or verifies
+it. The badge is corrected and R-ACCEPT now checks hand-written badges
+too, not only generated surfaces. The overclaim is replaced by what is
+actually true, plus what is owed: by ADR-015 adding an executable tool is
+an L2 capability mutation belonging in a Profile Gauntlet; until that
+gate exists the toolset digest travels in `capabilities()` so a change is
+at least visible even though it is not yet governed.
+
+## Acceptance
+
+94 → 111 in the default groups, plus five opt-in live checks. Each new
+check is written to fail against v0.6.3, and G-6 and I-9 are written to
+fail against the first cut of this drop: I-1…I-9
+(`tests/unit/test_isolation_profiles.py`), G-1…G-8
+(`tests/adversarial/test_ingress_hardening.py`), L-1…L-5
+(`tests/live/test_wasm_live.py`, opt-in). The wasm runtime is stood in
+for by a shim in the hermetic groups, so a clean checkout proves the
+seam on any host.
+
+## Still open after this drop
+
+`/readyz` and the liveness split, `sd_notify` with the `WatchdogSec`
+return, Prometheus alert rules, the `jjdai/adapters/` restructure, and
+the canonical AGPL text (PUBLICATION BLOCKER). The wasm toolset ships as
+mechanism only: no node in this build carries compiled modules, so in
+practice execution is still the reference fence.
+
+# JJ DAI v0.6.5 — adapter layer, and a vocabulary for the witness plane
+
+Roadmap Ф0, drop v0.6.5. Two pieces of work that look unrelated and are
+not: both are about closing a window that shuts at genesis. Serialized
+shapes — the adapter contract, the record enum, the field set of a
+witness record — are cheap to fix now and become schema migrations
+afterwards.
+
+## 1. `jjdai/adapters/` — the engine seam becomes a package
+
+The architectural decision this encodes: **JJ DAI does not integrate each
+LLM with its own adapter.** Engines integrate through one stable backend
+protocol, model families arrive as declarative profiles, and a single
+conformance suite proves compatibility. That is what keeps the daemon
+from becoming a switch over vendor names.
+
+Three terms that used to share the word "adapter" now have separate
+names — **backend driver** (our code, connecting to an engine), **model
+profile** (a declarative description of a family), **weight adapter**
+(LoRA/DoRA over a checkpoint, the same word §8 of the ASIC spec uses).
+
+**EngineBackend Protocol v1 is declared WHOLE, today.** The prototype
+seam was enough for the current code and not for production serving or an
+ASIC runtime. The temptation is to add methods as they are implemented —
+but if a method is simply absent, every caller grows its own `hasattr`
+probe and its own quiet fallback, and a quiet fallback is exactly how a
+node ends up believing it has a capability it does not have. So the whole
+v1 method set exists on every driver, and what is unimplemented raises
+the typed `NotSupported`. Fail closed, the same posture the isolation
+profiles took in v0.6.4.
+
+**Capability is derived, never declared.** `capability_manifest()`
+reports what a driver actually overrides. A hand-written capability list
+is a claim, and claims drift from code; a derived one cannot.
+
+Drivers: `hash` (the deterministic reference, moved out of `daemon.py` —
+it was never node-specific), `dwarfstar` and `sglang` (moved from
+`node/`), and `vllm`, `llama_cpp`, `mlx`, `asic` declared and refusing by
+type so the registry, the conformance suite and the compatibility matrix
+have real objects to interrogate rather than names in a document.
+
+**Model profiles and ModelArtifactManifest.** A profile is written for
+humans and is therefore *not* a cryptographic object of truth. The chain
+is: profile → validation against a versioned schema → JCS → manifest →
+hash → signature → witness record. Validation is strict and unknown keys
+are refused: a field this build ignores is a claim nobody checks, and the
+manifest would sign the disagreement.
+
+`--engine` selection now goes through the registry, and the registry
+admits nothing that fails the contract. Adding a driver never edits the
+daemon. **Inference behaviour is unchanged by the move**, and A-4 checks
+exactly that.
+
+## 2. A vocabulary for the witness plane
+
+An honest correction first, because the problem was narrower than it was
+described when this work was scoped. `request` and `response` already
+entered the chain as hiding COMMITMENTS and `provenance` as a hash, so
+being-chosen bytes never reached a peer. `semantic_digest` is the one
+field placed in the hashed body verbatim — and that is the one this drop
+closes.
+
+The plane now takes a **vocabulary**: enum tokens, integers, hex digests,
+and one named exception for the fixed numeric histogram. Nested
+node-authored structure is allowed, because that shape is authored by our
+own schema; leaves are constrained, and depth and value count are
+bounded. Prose is refused with the remedy named — pass `H(x)`, not `x`.
+
+Not because today's callers misused the field. They didn't. But "no
+caller does that" is a habit, and a habit is not an invariant. An
+append-only, replicated, undeletable store that accepts free text is both
+a covert channel and an unbounded write.
+
+**Refusal reasons became codes.** The challenge round carried sentences
+like "no valid reveals — the round refuses to invent a verdict" into the
+chain; the rate limiter carried an explanatory note with every abuse
+record. Both are now versioned codes with an optional evidence hash,
+which is what the roadmap already required of refusal reasons in general.
+The sentences still exist — they go to the caller and the local log,
+where they neither replicate nor persist forever.
+
+## 3. Reserved before genesis (cross-cutting track IV)
+
+Declared now, emittable only in Ф2–Ф3:
+
+- record kinds `SESSION_OPEN`, `SESSION_CLOSE`, `LEDGER_ANCHOR`,
+  `SNAPSHOT`;
+- nullable fields `session_id` and `ir_schema_version`, omitted entirely
+  when absent so a record that does not use them is byte-identical to a
+  v0.6.4 record.
+
+Emitting a reserved kind refuses: reserving a NAME is cheap, emitting a
+record whose semantics are undefined is not. The reasoning is the same
+one that closes the guardian-terminology window — witness records are
+JCS-canonicalized and hash-chained, so a value that has entered the chain
+cannot be added or renamed afterwards without breaking every hash after
+it. One line before genesis; a schema migration after.
+
+## Acceptance
+
+111 → 127. Sixteen new checks: A-1…A-9
+(`tests/unit/test_adapter_layer.py`) and W-1…W-7
+(`tests/unit/test_plane_schema.py`), plus the five opt-in live checks
+from v0.6.4.
+
+## Still open after this drop
+
+`/readyz` and the liveness split, `sd_notify` with the `WatchdogSec`
+return, Prometheus alert rules (v0.6.6), and the canonical AGPL text
+(PUBLICATION BLOCKER, v0.6.7). The dead-drop analysis leaves a bounded
+metadata channel — record counts, kinds, timing — which this drop does
+not address. And the deeper form of the same rule, where the runtime
+keeps the local chain and the witness plane does the anchoring so no
+organ of a being calls `append` at all, remains Ф3 work under ADR-015.

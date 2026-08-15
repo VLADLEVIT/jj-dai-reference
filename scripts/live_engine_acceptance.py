@@ -48,10 +48,10 @@ from runtime import BeingRuntime                                   # noqa: E402
 
 def _engine(kind: str, url: str):
     if kind == "sglang":
-        from engine_sglang import SglangEngine
+        from jjdai.adapters.backends.sglang import SglangEngine
         return SglangEngine(url)
     if kind == "dwarfstar":
-        from engine_dwarfstar import DwarfStarEngine
+        from jjdai.adapters.backends.dwarfstar import DwarfStarEngine
         return DwarfStarEngine(url)
     raise SystemExit(f"unknown engine {kind!r}")
 

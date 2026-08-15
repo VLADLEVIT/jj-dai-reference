@@ -14,9 +14,9 @@
 
 ## 1. What is JJ DAI
 
-JJ DAI is an architecture for a decentralized 3-tier network of persistent-memory-owning and self-evolving AI agents built on the principle that everything touching a decision is verified. 
-
-Mutable knowledge lives outside frozen model weights (RAG, Plane H); every inference, memory write,
+JJ DAI is an architecture for verifiable AI agents built on one principle:
+**everything touching a decision is verified.** Mutable knowledge lives
+outside frozen model weights (RAG, Plane H); every inference, memory write,
 routing decision and containment act is bound to cryptographic evidence and
 recorded in an Ed25519-signed, hash-chained witness log; inference and
 verification are performed by separate roles (generator/verifier asymmetry);
@@ -46,6 +46,7 @@ inside a governed sandbox — each act witnessed before and after.
 | Smriti — continuity and memory | Implemented |
 | Viveka — discernment and deliberation | Implemented |
 | Karma — governed action | Implemented (Implemented, reference sandbox) |
+| Isolation profiles — the boundary seam | Implemented (Implemented, per-tool readiness, fails closed) |
 | BeingRuntime | Prototype (Prototype, v0.5.3) |
 | Decision lifecycle | Prototype (Prototype, v0.5.3) |
 | Semantic recovery | Prototype (Prototype, v0.5.3) |
@@ -62,10 +63,11 @@ inside a governed sandbox — each act witnessed before and after.
 | Adversarial challenge round | Prototype (Prototype, networked v0.5.5) |
 | Peer cross-verification loop | Prototype |
 | Containment — Article 25 | Prototype (Reference prototype) |
+| Ingress hardening — caps before authorization | Implemented |
 | Tier-1 trust node daemon | Prototype |
-| Engine adapters | Prototype (Prototype adapters) |
+| Adapter layer — EngineBackend Protocol v1 | Implemented (Implemented, protocol v1 declared whole) |
 | NECS v0.1 + harness | Implemented |
-| Acceptance and CI | Implemented (94/94 green) |
+| Acceptance and CI | Implemented (127/127 green) |
 | Retired M1-M5 lineage | Implemented (Frozen) |
 | Deployment kit (Linux + macOS) | Implemented (Implemented, macOS kit v0.6.2) |
 | Plane B canary lifecycle | Planned |
@@ -85,13 +87,24 @@ economic layer, no Being Registry. OTS anchoring holds
 calendar proofs in custody; Bitcoin inclusion is verified with standard
 `ots` tooling. Witness recovery restores only what the origin replicated,
 and never the local-only commitment salts. The daemon is a **reference
-node**, not a production peer. See
+node**, not a production peer.
+
+Two things this release declares without yet carrying (both stated in the
+CHANGELOG, both deliberate): the `wasm-wasi` isolation profile ships as
+**mechanism only** — no compiled toolset modules travel in this build, so
+in practice execution is still the `reference` fence — and of the seven
+registered backend drivers only `hash`, `sglang` and `dwarfstar` execute;
+`vllm`, `llama_cpp`, `mlx` and `asic` exist so the registry, the
+conformance suite and the compatibility matrix have real objects to
+interrogate, and they refuse by type (`NotSupported`) rather than by
+absence. `microvm` is a reserved profile name with no implementation
+behind it, and selecting it refuses. See
 `docs/JJDAI_Code_Architecture_Map_v0.5.md` for the full classification.
 
 ## 4. Quick start
 
 ```bash
-git clone https://github.com/VLADLEVIT/jjdai-reference && cd jjdai-reference
+git clone https://github.com/VLADLEVIT/jj-dai-reference && cd jj-dai-reference
 
 # run the acceptance suite (pytest, or the stdlib runner where pytest is absent)
 python -m pytest tests/ -q
@@ -103,13 +116,24 @@ python node/daemon.py --port 8471 \
     --node-keystore ./node-a.keystore \
     --log ./witness-a.jsonl
 
-# talk to it
+# talk to it — capabilities carries the engine seam and the isolation
+# profiles this node will actually honour; /healthz carries the same
+# declaration until the liveness split moves it to /readyz (v0.6.6)
 curl -s localhost:8471/capabilities | python -m json.tool
+curl -s localhost:8471/healthz | python -m json.tool
 ```
 
 Without `--node-keystore` the daemon runs with an **ephemeral dev identity**
 and will refuse to start over any existing witness log — a node must never
 re-key over its own history.
+
+Ingress ceilings and the execution boundary are flags, and their defaults
+are the safe ones: `--max-body-bytes` (1 MiB), `--max-concurrency` (64
+connections), `--request-timeout-s` (15), `--isolation-profiles`
+(`reference`). A profile named here whose runtime is absent makes the node
+REFUSE the action rather than fall back to a weaker one, so declaring
+`wasm-wasi` on a host without `wasmtime` is a loud failure, not a quiet
+downgrade.
 
 ## 5. Architecture
 
@@ -132,10 +156,28 @@ re-key over its own history.
    └──────────▲───────────────────────────────────────────────┘
               │ JII envelope (NECS C1)
    ┌──────────┴───────────────────────────────────────────────┐
-   │  Node daemon · engine seam: HashEngine | SGLang | DwarfStar│
-   │  frozen substrate + adapters · RAG (Plane H) outside weights│
+   │  Node daemon · engine seam: jjdai/adapters/               │
+   │  EngineBackend Protocol v1 · registry · model profiles    │
+   │  frozen substrate + weight adapters · RAG (Plane H)       │
+   │  outside the weights                                      │
    └───────────────────────────────────────────────────────────┘
 ```
+
+**The engine seam is one protocol, not one adapter per model (v0.6.5).**
+Engines integrate through `jjdai/adapters/` — a single `EngineBackend`
+protocol, a registry that admits nothing failing the contract, declarative
+model profiles, and one conformance suite. Protocol v1 is declared WHOLE:
+every driver carries the entire v1 method set, and what a driver has not
+implemented raises the typed `NotSupported`. An absent method would grow a
+`hasattr` probe and a quiet fallback in every caller, and a quiet fallback
+is how a node comes to believe it has a capability it does not have.
+Capability is *derived* from what a driver actually overrides
+(`capability_manifest()`), never hand-declared, because a hand-written list
+is a claim and claims drift from code. Three terms that used to share the
+word "adapter" now have separate names: **backend driver** (our code,
+connecting to an engine), **model profile** (a declarative description of a
+family), **weight adapter** (LoRA/DoRA over a checkpoint). Adding a driver
+never edits the daemon.
 
 **INV-9 — Purusha is non-executive, not causally inert.**
 Purusha never commands, selects or executes a decision. What it witnesses
@@ -166,8 +208,28 @@ INV-9 v1.1.
   HTTPS (TLS >= 1.2); `--tls-ca --tls-require-client-cert` enforce mTLS
   fail-closed; peer and salt paths verify servers against `--peer-ca` and
   present `--client-cert`. `scripts/gen_dev_certs.py` issues a DEV CA —
-  production PKI is the operator's duty. Token-bucket rate limiting (v0.5.4, `--rate-limit`, per endpoint class) bounds request volume; the key is currently the client IP — certificate-identity keying for mTLS clients is scheduled with ingress hardening.
-  `--allow-test-hooks` (admin endpoints) refuses non-loopback binds.
+  production PKI is the operator's duty. Token-bucket rate limiting (v0.5.4,
+  `--rate-limit`, per endpoint class) bounds request volume, and since
+  v0.6.4 **the budget belongs to an identity, not to an address**: the key
+  is `cert:<CN>:<serial>` from the already-verified mTLS chain, with a
+  namespaced `ip:` key only where no client certificate was presented (the
+  two key spaces cannot collide). IP keying charged everyone behind one NAT
+  to a single bucket and let one certificate holder reset their own budget
+  by moving address. `--allow-test-hooks` (admin endpoints) refuses
+  non-loopback binds.
+- **Ingress is capped before authorization is reached (v0.6.4).** The
+  framing gate runs before the first byte of body: over `--max-body-bytes`
+  → `413`, non-integer or negative `Content-Length` → `400`, chunked
+  encoding → `411` (a length that is not declared cannot be capped before
+  it is read), and the reader then consumes at most the validated length so
+  a lying header cannot smuggle a larger body past the parser. Admission is
+  bounded on the ACCEPT LOOP, not in the handler — over `--max-concurrency`
+  the socket gets a `503` and a half-close before any worker thread is
+  spawned, deliberately not a bare close, since a reset cannot tell
+  "overloaded, retry" from "node is dead". Every connection carries
+  `--request-timeout-s`, so a client that stalls mid-header releases its
+  thread. New metrics: `body_too_large_total`, `bad_framing_total`,
+  `overloaded_total`.
 - **Weights are attested at boot (v0.5.1).** `--substrate-artifacts`
   measures the real files; a content-addressed id with mismatching bytes
   refuses the boot; `--require-attestation` refuses unattested substrates;
@@ -185,11 +247,44 @@ INV-9 v1.1.
 - **Identity fails closed.** A signer mismatch against an existing witness
   log aborts boot; keystore passphrases are taken from the environment,
   never the CLI.
-- **Karma sandbox** confines paths (realpath), applies rlimits, streams
-  output with a flood budget (process-group kill on `OUTPUT_LIMIT_EXCEEDED`),
-  and scrubs/hardens the child environment. It is a *reference* sandbox, not
-  a hardened isolation boundary — production profiles (wasm-wasi, microvm,
-  OCI) are roadmap.
+- **The witness plane takes a vocabulary, not prose (v0.6.5).** `request`
+  and `response` already entered the chain as hiding commitments and
+  `provenance` as a hash; `semantic_digest` was the one field placed in the
+  hashed body verbatim, and it is now constrained to enum tokens, integers
+  and hex digests (with one named exception for the fixed numeric
+  histogram), bounded in depth and value count. Prose is refused with the
+  remedy named — pass `H(x)`, not `x`. Refusal reasons that used to travel
+  as sentences (the challenge round, the rate limiter) are versioned codes
+  with an optional evidence hash; the sentences still reach the caller and
+  the local log, where they neither replicate nor persist forever. Not
+  because a caller misused the field, but because an append-only,
+  replicated, undeletable store that accepts free text is both a covert
+  channel and an unbounded write. Record kinds `SESSION_OPEN`,
+  `SESSION_CLOSE`, `LEDGER_ANCHOR`, `SNAPSHOT` and the nullable
+  `session_id` / `ir_schema_version` fields are RESERVED before genesis and
+  refuse on emission — a value that has entered a JCS-canonicalized,
+  hash-chained log cannot be added or renamed afterwards without breaking
+  every hash after it.
+- **Karma executes inside a NAMED isolation profile (v0.6.4).** The
+  `reference` profile is the v0.6.3 sandbox unchanged and still the default:
+  it confines paths (realpath), applies rlimits, streams output with a flood
+  budget (process-group kill on `OUTPUT_LIMIT_EXCEEDED`) and scrubs the
+  child environment. It is honest, and it is a DENY-LIST — the child holds
+  the kernel's full syscall surface and we subtract from it. The `wasm-wasi`
+  profile is the allow-list counterpart: a module cannot EXPRESS a syscall
+  it was not granted — no filesystem beyond the single preopened workspace,
+  no sockets, no fork, no exec. The cost is stated rather than hidden:
+  **arbitrary shell does not exist there.** It runs a fixed set of
+  precompiled tools pinned by digest in `deploy/wasm-toolset/toolset.json`,
+  verified on every execution, and `wasmtime` is invoked as a system binary
+  so the codebase stays stdlib-only. Readiness is computed per tool
+  (`toolset_ready` / `toolset_broken` in `capabilities()`), so one drifted
+  digest does not take the whole boundary dark and a refusal names the right
+  cause. **Profiles fail closed and are never downgraded** — a declared
+  profile whose runtime is absent refuses the action, because the witness
+  plane cannot save a node that believes it is acting inside a boundary it
+  is not inside (INV-9: it observes, it does not intervene). Both refusal
+  and execution are witnessed, intent and outcome.
 
 ## 7. Tests
 
@@ -200,15 +295,51 @@ python scripts/run_acceptance.py [unit|integration|conformance|adversarial|legac
 ```
 
 CI runs the matrix on Python 3.10–3.12 (`.github/workflows/ci.yml`).
-Current status: 68/68 acceptance checks green.
+Current status: 127/127 acceptance checks green (hermetic default groups),
+up from 94 at v0.6.3 — v0.6.4 added I-1…I-9 (isolation profiles) and
+G-1…G-8 (ingress hardening) for 111, v0.6.5 added A-1…A-9 (adapter layer)
+and W-1…W-7 (plane vocabulary) for 127. Each new check is written to fail
+against the previous release, and G-6 and I-9 are written to fail against
+the first cut of the drop that introduced them — an audit found that the
+original concurrency check tested the semaphore's semantics rather than the
+claim, and so passed while the ceiling bounded nothing.
+
+The `live` group is opt-in and excluded from the default run and from the
+published badge: `python scripts/run_acceptance.py live` exercises the
+wasm-wasi boundary against a real `wasmtime` (L-1…L-5: workspace reachable,
+external filesystem unreachable, no network capability, no host binary
+launchable, digest tampering fail-closed) and is required by the Ф0 gate on
+each target host. Without a runtime it FAILS LOUDLY rather than skipping —
+a check that skips itself is not evidence.
+
+Release integrity is itself a test (`tests/unit/test_release_integrity.py`):
+R-VER pins this README's version line, `pyproject`, `SECURITY.md` and the
+last CHANGELOG header to `jjdai.__version__`; R-ACCEPT pins the badge above
+to what the runner actually collects, hand-written surfaces included, after
+a v0.6.4 audit found a README badge reading `68/68` while the generated one
+said `109/109`.
 
 ## 8. Roadmap
 
+**Open after v0.6.5 (near term):** `/readyz` and the liveness split ·
+`sd_notify` with the `WatchdogSec` return · Prometheus alert rules
+(v0.6.6) · SBOM and the supply-chain stream that `wasmtime` enters as a
+declared host requirement (v0.6.7) · **the canonical AGPL-3.0 text, which
+is a PUBLICATION BLOCKER** — `LICENSES/AGPL-3.0.txt` is still a placeholder
+and is loudly marked as one · compiled modules for the wasm toolset · the
+Profile Gauntlet that ADR-015 requires before adding an executable tool
+(until it exists the toolset digest travels in `capabilities()`, so a change
+is visible even though it is not yet governed).
+
 **P1 (remaining):** full Plane B canary protocol · GPU acceptance runs ·
-rate limiting / DoS controls.
+the bounded metadata channel the dead-drop analysis leaves open (record
+counts, kinds, timing).
 **P2:** DIIP · training federation · champion/challenger deployment ·
 constitutional human governance (Steward Collegium, Being Registry) ·
-economic layer · TEE attestation · multi-jurisdiction Witness network.
+economic layer · TEE attestation · multi-jurisdiction Witness network ·
+the Ф3 form of the append rule, where the runtime keeps the local chain and
+the witness plane does the anchoring, so no organ of a being calls
+`append` at all.
 
 ## 9. License
 

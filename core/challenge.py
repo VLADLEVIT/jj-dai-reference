@@ -43,6 +43,23 @@ from jjdai.canonical import canonical
 from jjdai.crypto import H_hex, vrf_verify
 from jjdai.durable import durable_append
 
+# --------------------------------------------------------------------------- #
+# Refusal reason codes (v0.6.5)
+# --------------------------------------------------------------------------- #
+#: A FIXED, VERSIONED enumeration. Codes cross into the witness plane; the
+#: human sentence does not. Adding a code is a deliberate act — the point of
+#: an enumeration is that it can be exhausted by a reader, which free text
+#: never can.
+REASON_CODES_VERSION = "1"
+REASON_VRF_INVALID = "vrf_invalid"
+REASON_NO_VALID_REVEALS = "no_valid_reveals"
+REASON_WINDOW_CLOSED = "window_closed"
+REASON_NOT_ELIGIBLE = "not_eligible"
+REASON_DUPLICATE = "duplicate"
+REASON_CODES = (REASON_VRF_INVALID, REASON_NO_VALID_REVEALS,
+                REASON_WINDOW_CLOSED, REASON_NOT_ELIGIBLE, REASON_DUPLICATE)
+
+
 CHALLENGE_KIND = "CHALLENGE"
 SORTITION_DOMAIN = b"jjdai:challenge:sortition:v1:"
 
@@ -83,6 +100,17 @@ class ChallengeRound:
 
     # ------------------------------------------------------------------ #
     def _witness(self, digest: dict, request: dict = None) -> int:
+        """Every round event is witnessed with CODED reasons only.
+
+        The plane takes enum tokens, integers and digests — never prose.
+        This is not a serialization preference: an append-only replicated
+        store that accepts free text is both a covert channel and an
+        unbounded write, and the roadmap says the same thing about refusal
+        reasons in general ("a code from a fixed versioned enumeration plus
+        an optional evidence hash. Never free text"). The human sentence
+        still exists — it goes to the caller and to the local log, where it
+        neither replicates nor persists forever.
+        """
         with self.chain.lock:
             self.chain.append(CHALLENGE_KIND, request=request or {},
                               semantic_digest=digest)
@@ -144,7 +172,8 @@ class ChallengeRound:
         except ValueError as e:
             self._witness({"phase": "seat_refused", "round_id": round_id,
                            "verifier": verifier_id,
-                           "reason": f"vrf: {e}"})
+                           "reason_code": REASON_VRF_INVALID,
+                           "detail_hash": H_hex(str(e).encode())})
             raise ChallengeError(f"seat claim refused: {e}")
         won = is_selected(beta, rnd["k"], len(rnd["eligible"]))
         self._witness({"phase": "seat", "round_id": round_id,
@@ -258,9 +287,10 @@ class ChallengeRound:
                        "supporters": sorted(best["voters"]),
                        "unanimous": len(votes) == 1}
         else:
+            # the round refuses to invent a verdict; the plane records the
+            # CODE, the sentence stays with the caller
             outcome = {"status": "unresolved",
-                       "reason": "no valid reveals — the round refuses to "
-                                 "invent a verdict"}
+                       "reason_code": REASON_NO_VALID_REVEALS}
         summary = {
             **outcome,
             "round_id": round_id,

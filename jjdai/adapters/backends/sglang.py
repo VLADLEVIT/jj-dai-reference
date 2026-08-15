@@ -60,7 +60,11 @@ class SGLangError(RuntimeError):
     the daemon maps this to 503 (fail-closed: no engine, no inference)."""
 
 
-class SGLangEngine:
+from jjdai.adapters.protocol import BaseEngineBackend  # noqa: E402
+from jjdai.adapters.registry import register          # noqa: E402
+
+
+class SGLangEngine(BaseEngineBackend):
     """NECS engine seam bound to an SGLang server.
 
     determinism_level:
@@ -224,3 +228,6 @@ class SGLangEngine:
             "note": "" if all_ok else
                     f"unreachable token at pos {reachable.index(False)}",
         }
+
+
+register("sglang", SGLangEngine)

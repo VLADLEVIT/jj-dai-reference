@@ -1,6 +1,6 @@
 # JJ DAI — Reference Trust, Governance & Agent Kernel
 
-**Version:** `0.6.4` (matches `jjdai.__version__`; enforced by the release-integrity test) · **Python:** ≥3.10, stdlib-only core · **Site:** [jj-dai.org](https://jj-dai.org)
+**Version:** `0.6.5` (matches `jjdai.__version__`; enforced by the release-integrity test) · **Python:** ≥3.10, stdlib-only core · **Site:** [jj-dai.org](https://jj-dai.org)
 
 > A tested reference implementation of JJ DAI identity, memory, verification,
 > witness, routing, containment and agent-governance primitives, with an
@@ -65,9 +65,9 @@ inside a governed sandbox — each act witnessed before and after.
 | Containment — Article 25 | Prototype (Reference prototype) |
 | Ingress hardening — caps before authorization | Implemented |
 | Tier-1 trust node daemon | Prototype |
-| Engine adapters | Prototype (Prototype adapters) |
+| Adapter layer — EngineBackend Protocol v1 | Implemented (Implemented, protocol v1 declared whole) |
 | NECS v0.1 + harness | Implemented |
-| Acceptance and CI | Implemented (111/111 green) |
+| Acceptance and CI | Implemented (127/127 green) |
 | Retired M1-M5 lineage | Implemented (Frozen) |
 | Deployment kit (Linux + macOS) | Implemented (Implemented, macOS kit v0.6.2) |
 | Plane B canary lifecycle | Planned |
@@ -202,7 +202,7 @@ python scripts/run_acceptance.py [unit|integration|conformance|adversarial|legac
 ```
 
 CI runs the matrix on Python 3.10–3.12 (`.github/workflows/ci.yml`).
-Current status: 111/111 acceptance checks green (hermetic default groups).
+Current status: 127/127 acceptance checks green (hermetic default groups).
 
 The `live` group is opt-in and excluded from the default run: `python scripts/run_acceptance.py live` exercises the wasm-wasi
 boundary against a real `wasmtime` and is required by the Ф0 gate on each target host.

@@ -7,7 +7,7 @@ Certifies the DS4 path end-to-end with NO GPU/Metal and NO third-party deps:
 
     mock_dwarfstar.py  (executable wire contract, BOTH dialects)
         ▲
-    engine_dwarfstar.py  (adapter under test, auto-probing dialect)
+    jjdai/adapters/backends/dwarfstar.py  (backend driver under test, auto-probing dialect)
         ▲
     daemon.py --engine dwarfstar  (envelope + Ed25519 witness OUTSIDE engine)
 
@@ -38,7 +38,7 @@ import time
 
 
 from smoke_two_nodes import get, post, wait_up, jii, verify_chain_offline  # noqa: E402
-from engine_dwarfstar import DwarfStarEngine, DwarfStarError               # noqa: E402
+from jjdai.adapters.backends.dwarfstar import DwarfStarEngine, DwarfStarError               # noqa: E402
 
 
 import os

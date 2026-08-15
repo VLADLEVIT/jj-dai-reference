@@ -1114,3 +1114,118 @@ return, Prometheus alert rules, the `jjdai/adapters/` restructure, and
 the canonical AGPL text (PUBLICATION BLOCKER). The wasm toolset ships as
 mechanism only: no node in this build carries compiled modules, so in
 practice execution is still the reference fence.
+
+# JJ DAI v0.6.5 — adapter layer, and a vocabulary for the witness plane
+
+Roadmap Ф0, drop v0.6.5. Two pieces of work that look unrelated and are
+not: both are about closing a window that shuts at genesis. Serialized
+shapes — the adapter contract, the record enum, the field set of a
+witness record — are cheap to fix now and become schema migrations
+afterwards.
+
+## 1. `jjdai/adapters/` — the engine seam becomes a package
+
+The architectural decision this encodes: **JJ DAI does not integrate each
+LLM with its own adapter.** Engines integrate through one stable backend
+protocol, model families arrive as declarative profiles, and a single
+conformance suite proves compatibility. That is what keeps the daemon
+from becoming a switch over vendor names.
+
+Three terms that used to share the word "adapter" now have separate
+names — **backend driver** (our code, connecting to an engine), **model
+profile** (a declarative description of a family), **weight adapter**
+(LoRA/DoRA over a checkpoint, the same word §8 of the ASIC spec uses).
+
+**EngineBackend Protocol v1 is declared WHOLE, today.** The prototype
+seam was enough for the current code and not for production serving or an
+ASIC runtime. The temptation is to add methods as they are implemented —
+but if a method is simply absent, every caller grows its own `hasattr`
+probe and its own quiet fallback, and a quiet fallback is exactly how a
+node ends up believing it has a capability it does not have. So the whole
+v1 method set exists on every driver, and what is unimplemented raises
+the typed `NotSupported`. Fail closed, the same posture the isolation
+profiles took in v0.6.4.
+
+**Capability is derived, never declared.** `capability_manifest()`
+reports what a driver actually overrides. A hand-written capability list
+is a claim, and claims drift from code; a derived one cannot.
+
+Drivers: `hash` (the deterministic reference, moved out of `daemon.py` —
+it was never node-specific), `dwarfstar` and `sglang` (moved from
+`node/`), and `vllm`, `llama_cpp`, `mlx`, `asic` declared and refusing by
+type so the registry, the conformance suite and the compatibility matrix
+have real objects to interrogate rather than names in a document.
+
+**Model profiles and ModelArtifactManifest.** A profile is written for
+humans and is therefore *not* a cryptographic object of truth. The chain
+is: profile → validation against a versioned schema → JCS → manifest →
+hash → signature → witness record. Validation is strict and unknown keys
+are refused: a field this build ignores is a claim nobody checks, and the
+manifest would sign the disagreement.
+
+`--engine` selection now goes through the registry, and the registry
+admits nothing that fails the contract. Adding a driver never edits the
+daemon. **Inference behaviour is unchanged by the move**, and A-4 checks
+exactly that.
+
+## 2. A vocabulary for the witness plane
+
+An honest correction first, because the problem was narrower than it was
+described when this work was scoped. `request` and `response` already
+entered the chain as hiding COMMITMENTS and `provenance` as a hash, so
+being-chosen bytes never reached a peer. `semantic_digest` is the one
+field placed in the hashed body verbatim — and that is the one this drop
+closes.
+
+The plane now takes a **vocabulary**: enum tokens, integers, hex digests,
+and one named exception for the fixed numeric histogram. Nested
+node-authored structure is allowed, because that shape is authored by our
+own schema; leaves are constrained, and depth and value count are
+bounded. Prose is refused with the remedy named — pass `H(x)`, not `x`.
+
+Not because today's callers misused the field. They didn't. But "no
+caller does that" is a habit, and a habit is not an invariant. An
+append-only, replicated, undeletable store that accepts free text is both
+a covert channel and an unbounded write.
+
+**Refusal reasons became codes.** The challenge round carried sentences
+like "no valid reveals — the round refuses to invent a verdict" into the
+chain; the rate limiter carried an explanatory note with every abuse
+record. Both are now versioned codes with an optional evidence hash,
+which is what the roadmap already required of refusal reasons in general.
+The sentences still exist — they go to the caller and the local log,
+where they neither replicate nor persist forever.
+
+## 3. Reserved before genesis (cross-cutting track IV)
+
+Declared now, emittable only in Ф2–Ф3:
+
+- record kinds `SESSION_OPEN`, `SESSION_CLOSE`, `LEDGER_ANCHOR`,
+  `SNAPSHOT`;
+- nullable fields `session_id` and `ir_schema_version`, omitted entirely
+  when absent so a record that does not use them is byte-identical to a
+  v0.6.4 record.
+
+Emitting a reserved kind refuses: reserving a NAME is cheap, emitting a
+record whose semantics are undefined is not. The reasoning is the same
+one that closes the guardian-terminology window — witness records are
+JCS-canonicalized and hash-chained, so a value that has entered the chain
+cannot be added or renamed afterwards without breaking every hash after
+it. One line before genesis; a schema migration after.
+
+## Acceptance
+
+111 → 127. Sixteen new checks: A-1…A-9
+(`tests/unit/test_adapter_layer.py`) and W-1…W-7
+(`tests/unit/test_plane_schema.py`), plus the five opt-in live checks
+from v0.6.4.
+
+## Still open after this drop
+
+`/readyz` and the liveness split, `sd_notify` with the `WatchdogSec`
+return, Prometheus alert rules (v0.6.6), and the canonical AGPL text
+(PUBLICATION BLOCKER, v0.6.7). The dead-drop analysis leaves a bounded
+metadata channel — record counts, kinds, timing — which this drop does
+not address. And the deeper form of the same rule, where the runtime
+keeps the local chain and the witness plane does the anchoring so no
+organ of a being calls `append` at all, remains Ф3 work under ADR-015.

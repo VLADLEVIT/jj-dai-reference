@@ -7,7 +7,7 @@ Certifies the SGLang path end-to-end with NO GPU and NO third-party deps:
 
     mock_sglang.py  (executable API contract)
         ▲
-    engine_sglang.py  (adapter under test)
+    jjdai/adapters/backends/sglang.py  (backend driver under test)
         ▲
     daemon.py --engine sglang   (JII envelope + Ed25519 witness OUTSIDE engine)
 
@@ -40,7 +40,7 @@ import time
 
 from smoke_two_nodes import (get, post, wait_up, jii,           # noqa: E402
                              verify_chain_offline)
-from engine_sglang import SGLangEngine                          # noqa: E402
+from jjdai.adapters.backends.sglang import SGLangEngine                          # noqa: E402
 
 
 import os

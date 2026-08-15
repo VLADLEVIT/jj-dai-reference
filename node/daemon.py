@@ -100,40 +100,12 @@ def semantic_digest(text: str) -> str:
 # Engine seam
 # --------------------------------------------------------------------------- #
 
-class HashEngine:
-    """Deterministic reference engine (Profile B). Same input -> same bytes,
-    so the node can honestly declare determinism_level='reproducible'.
-
-    PRODUCTION SEAM: replace with DwarfStarEngine — an adapter that forwards
-    `messages`+`sampling` to the local DwarfStar /v1 endpoint and declares
-    determinism_level='attested'. The daemon's envelope/witness logic does
-    not change."""
-
-    determinism_level = "reproducible"
-    backend = "cpu"
-
-    def __init__(self, fingerprint: str):
-        self.fingerprint = fingerprint
-
-    def generate(self, messages: list, sampling: dict,
-                 adapter_ids: list = ()) -> str:
-        prompt = canonical(messages).decode()
-        tag = "+".join(adapter_ids)
-        return "out:" + H_hex((prompt + tag + self.fingerprint).encode())[:24]
-
-    def score(self, messages: list, tokens: list, sampling: dict,
-              adapter_ids: list = ()) -> dict:
-        """Reference verifier: the genuine completion is exactly what this
-        engine would generate; anything else is unreachable."""
-        genuine = self.generate(messages, sampling, adapter_ids).split()
-        reachable = [i < len(genuine) and t == genuine[i]
-                     for i, t in enumerate(tokens)]
-        ok = all(reachable) and bool(tokens)
-        return {"ok": ok, "reachable": reachable,
-                "min_margin": 1.0 if ok else 0.0,
-                "verifier_fp": self.fingerprint,
-                "determinism": self.determinism_level,
-                "note": "" if ok else "token mismatch"}
+# HashEngine moved to jjdai/adapters/backends/hash.py in v0.6.5: it was
+# never node-specific — it is the reference driver the conformance suite
+# measures the others against. Re-exported here so existing importers and
+# tests keep working; the daemon itself now asks the registry by name.
+from jjdai.adapters.backends.hash import HashEngine        # noqa: E402,F401
+from jjdai.adapters.registry import create as create_backend  # noqa: E402,F401
 
 
 # --------------------------------------------------------------------------- #
@@ -945,8 +917,13 @@ class RateLimiter:
                             "key_hash": semantic_digest(key),
                             "cls": cls, "limit": limit, "window_s": window,
                             "rejected": st[2],
-                            "note": "systematic over-budget traffic; one "
-                                    "record per offender per window"})
+                            # v0.6.5: a CODE, not a sentence. The plane takes
+                            # enum tokens, integers and digests; prose in an
+                            # append-only replicated store is a covert
+                            # channel and an unbounded write. The explanation
+                            # lives in the docs for this code, once, instead
+                            # of in every record forever.
+                            "reason_code": "systematic_over_budget"})
             return False, retry
 
 
@@ -1704,13 +1681,13 @@ def main(argv=None):
         return 2
 
     if args.engine == "sglang":
-        from engine_sglang import SGLangEngine
+        from jjdai.adapters.backends.sglang import SGLangEngine
         engine = SGLangEngine(
             args.engine_url, fingerprint=args.fingerprint,
             adapter_paths=json.loads(args.adapter_paths),
             determinism_level=args.engine_determinism or "attested")
     elif args.engine == "dwarfstar":
-        from engine_dwarfstar import DwarfStarEngine
+        from jjdai.adapters.backends.dwarfstar import DwarfStarEngine
         engine = DwarfStarEngine(
             args.engine_url, fingerprint=args.fingerprint,
             determinism_level=args.engine_determinism or "attested")

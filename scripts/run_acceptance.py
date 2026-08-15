@@ -21,6 +21,11 @@ import traceback
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 GROUPS = ("unit", "integration", "conformance", "adversarial", "legacy")
+#: Opt-in groups: never collected by default, selectable by name.
+#: "live" needs a real wasm runtime on the host and is required by the
+#: Ф0 gate on each target host — a check that skips itself quietly is
+#: not evidence, so it stays out of the hermetic default instead.
+OPT_IN = ("live",)
 
 for _p in (ROOT, os.path.join(ROOT, "node"), os.path.join(ROOT, "m1m5")):
     if _p not in sys.path:
@@ -47,7 +52,7 @@ def load(path, group):
 
 
 def main(argv):
-    groups = [g for g in argv if g in GROUPS] or list(GROUPS)
+    groups = [g for g in argv if g in GROUPS + OPT_IN] or list(GROUPS)
     total = failed = errors = 0
     t0 = time.time()
     for group, path in collect(groups):

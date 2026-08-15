@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+dist/
+build/
+*.egg-info/
+# runtime artifacts — never commit identities or witness logs
+*.keystore
+*.jsonl
+salt_vault*

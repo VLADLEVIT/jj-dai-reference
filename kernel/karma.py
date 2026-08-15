@@ -84,6 +84,23 @@ class ActionRefused(KarmaError):
     """The governor did not permit this action (Article 25)."""
 
 
+class IsolationRefused(KarmaError):
+    """Base for a refusal to act because the required BOUNDARY is not the one
+    available. Distinct from ActionRefused (the governor said no) and from
+    SandboxEscape (the action tried to leave). Both refusal and execution are
+    witnessed; the difference between them is whether the hand moved."""
+
+
+class ProfileUnavailable(IsolationRefused):
+    """The declared isolation profile cannot execute on this host. FAIL
+    CLOSED — never a silent downgrade to a weaker profile."""
+
+
+class ToolNotPermitted(IsolationRefused):
+    """The action is not in the fixed toolset of this profile, or its module
+    does not match the digest the manifest pins."""
+
+
 class KarmaAudit(KarmaError):
     pass
 
@@ -109,7 +126,30 @@ class ActionResult:
 
 
 class Sandbox:
-    """Path-confined, resource-limited execution surface."""
+    """Path-confined, resource-limited execution surface.
+
+    This is also the REFERENCE isolation profile (v0.6.4): the baseline every
+    node can run, and the fence inside which stronger profiles are launched.
+    See kernel/isolation.py for the seam and for wasm-wasi.
+    """
+
+    NAME = "reference"
+
+    def available(self) -> tuple:
+        """(-> ok, reason). The baseline is always available: it needs
+        nothing beyond the interpreter already running."""
+        return True, ""
+
+    def capabilities(self) -> dict:
+        return {"profile": self.NAME, "execution": "os-process",
+                "arbitrary_argv": True, "available": True,
+                "unavailable_reason": "", "toolset": None,
+                "fail_closed": True,
+                "limits": {"timeout_s": self.timeout_s, "cpu_s": self.cpu_s,
+                           "mem_bytes": self.mem_bytes,
+                           "fsize_bytes": self.fsize_bytes,
+                           "nproc": self.nproc,
+                           "max_output": self.max_output}}
 
     def __init__(self, root: str, *, timeout_s: float = 10.0,
                  max_output: int = 64_000, cpu_s: int = 10,
@@ -272,9 +312,12 @@ class Karma:
 
     def __init__(self, being_id: str, workspace: str, *, witness=None,
                  governor=None, journal_path: str = None, now_fn=time.time,
-                 sandbox: Sandbox = None):
+                 sandbox: Sandbox = None, profile: Sandbox = None):
         self.being_id = being_id
-        self.sandbox = sandbox or Sandbox(workspace)
+        # `profile` is the v0.6.4 name; `sandbox` stays as the compatible
+        # spelling. They are the same seat: an isolation profile IS the
+        # execution surface, and the reference profile is the old sandbox.
+        self.sandbox = profile or sandbox or Sandbox(workspace)
         self._witness = witness
         self._governor = governor
         self._journal_path = journal_path
@@ -286,6 +329,15 @@ class Karma:
                 truncate_torn_tail(journal_path)
             for e in events:
                 self._apply(e)
+
+    @property
+    def profile_name(self) -> str:
+        return getattr(self.sandbox, "NAME", "reference")
+
+    def isolation(self) -> dict:
+        """What boundary this organ is actually acting inside."""
+        cap = getattr(self.sandbox, "capabilities", None)
+        return cap() if callable(cap) else {"profile": self.profile_name}
 
     # ------------------------------------------------------------------ #
     # The gate — asked BEFORE the intent is even written
@@ -389,10 +441,15 @@ class Karma:
         # 3. the act itself
         try:
             result = fn()
-        except SandboxEscape as e:
+        except (SandboxEscape, IsolationRefused) as e:
+            # Refusal is witnessed exactly like execution. The record does not
+            # make the refusal safe — not acting does that; the record makes
+            # it ACCOUNTABLE, which is the witness plane's only job (INV-9).
             self._emit({"ph": "outcome", "t": self._now(), "action": action,
                         "action_hash": action_hash, "ok": False,
                         "exit_code": -1, "refused": str(e),
+                        "refusal_class": type(e).__name__,
+                        "isolation_profile": self.profile_name,
                         "stdout_hash": H_hex(b""), "stderr_hash": H_hex(b"")})
             raise
         except OSError as e:
@@ -425,7 +482,8 @@ class Karma:
                 "SANDBOX",
                 request={"karma_event": event},              # hiding commitment
                 provenance={"organ": "karma", "being_id": self.being_id,
-                            "workspace": self.sandbox.root},
+                            "workspace": self.sandbox.root,
+                            "isolation_profile": self.profile_name},
                 semantic_digest=(f"karma:{self.being_id}:{event['ph']}:"
                                  f"{event['action_hash']}:{self.state_hash()}"),
                 timestamp=time.strftime("%Y-%m-%dT%H:%M:%SZ",

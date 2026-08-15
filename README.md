@@ -1,6 +1,6 @@
 # JJ DAI — Reference Trust, Governance & Agent Kernel
 
-**Version:** `0.6.3` (matches `jjdai.__version__`; enforced by the release-integrity test) · **Python:** ≥3.10, stdlib-only core · **Site:** [jj-dai.org](https://jj-dai.org)
+**Version:** `0.6.4` (matches `jjdai.__version__`; enforced by the release-integrity test) · **Python:** ≥3.10, stdlib-only core · **Site:** [jj-dai.org](https://jj-dai.org)
 
 > A tested reference implementation of JJ DAI identity, memory, verification,
 > witness, routing, containment and agent-governance primitives, with an
@@ -14,9 +14,9 @@
 
 ## 1. What is JJ DAI
 
-JJ DAI is an architecture for a decentralized 3-tier network of persistent-memory-owning and self-evolving AI agents built on the principle that everything touching a decision is verified. 
-
-Mutable knowledge lives outside frozen model weights (RAG, Plane H); every inference, memory write,
+JJ DAI is an architecture for verifiable AI agents built on one principle:
+**everything touching a decision is verified.** Mutable knowledge lives
+outside frozen model weights (RAG, Plane H); every inference, memory write,
 routing decision and containment act is bound to cryptographic evidence and
 recorded in an Ed25519-signed, hash-chained witness log; inference and
 verification are performed by separate roles (generator/verifier asymmetry);
@@ -46,6 +46,7 @@ inside a governed sandbox — each act witnessed before and after.
 | Smriti — continuity and memory | Implemented |
 | Viveka — discernment and deliberation | Implemented |
 | Karma — governed action | Implemented (Implemented, reference sandbox) |
+| Isolation profiles — the boundary seam | Implemented (Implemented, per-tool readiness, fails closed) |
 | BeingRuntime | Prototype (Prototype, v0.5.3) |
 | Decision lifecycle | Prototype (Prototype, v0.5.3) |
 | Semantic recovery | Prototype (Prototype, v0.5.3) |
@@ -62,10 +63,11 @@ inside a governed sandbox — each act witnessed before and after.
 | Adversarial challenge round | Prototype (Prototype, networked v0.5.5) |
 | Peer cross-verification loop | Prototype |
 | Containment — Article 25 | Prototype (Reference prototype) |
+| Ingress hardening — caps before authorization | Implemented |
 | Tier-1 trust node daemon | Prototype |
 | Engine adapters | Prototype (Prototype adapters) |
 | NECS v0.1 + harness | Implemented |
-| Acceptance and CI | Implemented (94/94 green) |
+| Acceptance and CI | Implemented (111/111 green) |
 | Retired M1-M5 lineage | Implemented (Frozen) |
 | Deployment kit (Linux + macOS) | Implemented (Implemented, macOS kit v0.6.2) |
 | Plane B canary lifecycle | Planned |
@@ -200,7 +202,10 @@ python scripts/run_acceptance.py [unit|integration|conformance|adversarial|legac
 ```
 
 CI runs the matrix on Python 3.10–3.12 (`.github/workflows/ci.yml`).
-Current status: 68/68 acceptance checks green.
+Current status: 111/111 acceptance checks green (hermetic default groups).
+
+The `live` group is opt-in and excluded from the default run: `python scripts/run_acceptance.py live` exercises the wasm-wasi
+boundary against a real `wasmtime` and is required by the Ф0 gate on each target host.
 
 ## 8. Roadmap
 

@@ -43,8 +43,8 @@ that everything touching a decision is verified.
 Mutable knowledge lives outside frozen model weights (RAG, Plane H); every
 inference, memory write, routing decision and containment act is bound to
 cryptographic evidence and recorded in an Ed25519-signed, hash-chained
-witness log; inference and
-verification are performed by separate roles (generator/verifier asymmetry);
+witness log; inference and verification are performed by separate roles
+(generator/verifier asymmetry);
 and an agent's executive capabilities can be selectively severed — with due
 process, reversibility and rehabilitation — without silencing its voice or
 destroying its memory.
@@ -55,7 +55,74 @@ The organ kernel: **Smriti** (memory) observes and indexes, **Viveka**
 (discernment) distinguishes states and drift, **Karma** (action) executes
 inside a governed sandbox — each act witnessed before and after.
 
-## 2. What is in this release
+## 2. System requirements
+
+**To run the kernel and the acceptance suite** — a POSIX host and
+**Python ≥ 3.10**. That is the whole list. The trust core is stdlib-only:
+`core/`, `jjdai/`, `kernel/`, `node/`, `necs/` import nothing that is not
+in the standard library, so there is no dependency tree to audit and
+nothing to install before `python scripts/run_acceptance.py` works.
+
+Two stdlib modules must be compiled into your interpreter, which the
+system packages of every mainstream distribution provide: `ssl` (every
+TLS/mTLS path in the daemon) and `sqlite3` (the Plane H retrieval store).
+`pytest` is optional — it buys the `tests/` layout and the CI matrix;
+`scripts/run_acceptance.py` is a stdlib runner that follows the same
+protocol for environments without it.
+
+**Windows is not a target.** The Karma reference sandbox is built on
+`os.setsid`, `resource.setrlimit` (CPU, address space, file size, process
+count) and `os.killpg` — POSIX primitives with no Windows equivalent, and
+the boundary is the wrong thing to emulate approximately. WSL2 behaves as
+the Linux host it is.
+
+**To operate a node**, the deployment kit targets two hosts, and the
+runbooks are written per host rather than pretending one command fits both:
+
+| | Linux node | macOS node |
+|---|---|---|
+| Target | Ubuntu 24.04, `systemd`, `openssl` | Apple Silicon, `launchd` |
+| Runbook | `deploy/RUNBOOK.md` | `deploy/RUNBOOK-macOS.md` |
+| Service | `jjdai-node@.service` | `org.jjdai.node.<name>.plist` |
+| Bootstrap | `deploy/bootstrap_node.sh` | `deploy/macos/bootstrap_node_macos.sh` |
+| Keystore sealing | `deploy/tpm_seal.py` (TPM 2.0 + `tpm2-tools`) | `deploy/macos/keychain_seal.py` (System keychain, **degraded profile** — see RUNBOOK-macOS §2) |
+
+The macOS runbook's reference host is a MacBook Pro, Apple Silicon,
+128 GB unified memory / 2 TB.
+
+**Optional host requirements.** Each of these buys one capability, and
+every one of them FAILS CLOSED when absent — the node refuses the work
+rather than performing it in a weaker way:
+
+- `wasmtime` on `PATH` — required by the `wasm-wasi` isolation profile,
+  invoked as a system binary rather than linked in, so the codebase stays
+  stdlib-only. Declaring the profile without it is a loud refusal.
+- TPM 2.0 and `tpm2-tools` (Linux) or the macOS System keychain — sealing
+  the keystore passphrase. Without either, the passphrase comes from the
+  environment, never the CLI.
+- `openssl` — issuing the deployment PKI. `scripts/gen_dev_certs.py`
+  issues a DEV CA for local work; production PKI is the operator's duty.
+- an `ots` client — verifying Bitcoin inclusion of OTS calendar proofs
+  held in custody.
+- a Monero wallet RPC endpoint — the `xmr` anchor backend.
+
+**No accelerator is required.** The `hash` reference driver is
+deterministic and CPU-only, and it is what the acceptance suite runs
+against. GPU-class hardware belongs to the engines behind the seam, not to
+JJ DAI: `sglang` and `dwarfstar` reach a server over HTTP (Tier-1
+substrate, RTX 6000 / Apple Silicon class, whitepaper §13 step 1), so the
+trust shell and the accelerator need not share a host.
+
+**Footprint.** A node listens on `8471` by default and holds, per the
+ingress ceilings, 64 concurrent connections with a 1 MiB body cap and a
+15 s request clock. Each sandboxed action gets 10 s CPU, 512 MiB of
+address space, a 64 MiB file-size cap, 64 processes and 64 kB of captured
+output. Plan disk deliberately: the witness log is append-only JSONL and
+grows monotonically — it is never compacted, because a chain that forgets
+is not a chain — and on a Linux node `/var/lib/jjdai` also carries
+journals, replicas and the workspace.
+
+## 3. What is in this release
 
 <!-- STATUS:BEGIN (generated from docs/architecture_status.json — do not edit by hand) -->
 | Component | Status |
@@ -103,7 +170,7 @@ inside a governed sandbox — each act witnessed before and after.
 | Human governance layer | Constitutional text only |
 <!-- STATUS:END -->
 
-## 3. What is NOT in this release
+## 4. What is NOT in this release
 
 No DIIP (governed self-improvement), no full Plane B canary lifecycle, no
 training federation, no TEE/runtime attestation (weight attestation proves
@@ -127,7 +194,7 @@ behind it, and selecting it refuses. So do the reserved witness fields
 `session_id` and `ir_schema_version`, and the reserved record kinds. See
 `docs/JJDAI_Code_Architecture_Map_v0.5.md` for the full classification.
 
-## 4. Quick start
+## 5. Quick start
 
 ```bash
 git clone https://github.com/VLADLEVIT/jj-dai-reference && cd jj-dai-reference
@@ -163,7 +230,7 @@ downgrade. `--engine` has no hardcoded list: it accepts whatever the
 registry carries on this host, and `--help` prints both the registered
 drivers and any that failed to import.
 
-## 5. Architecture
+## 6. Architecture
 
 ```
             ┌────────────────────────────────────────────────┐
@@ -232,7 +299,7 @@ decision supersedes it. The reflexive loop is a Ф3 roadmap deliverable;
 until it ships, the runtime remains archive-only, which is compliant with
 INV-9 v1.1.
 
-## 6. Security model (read before deploying)
+## 7. Security model (read before deploying)
 
 - **Replication restores, within limits.** Roots are RFC 6962 tree heads
   with quorum receipts and CT-style consistency proofs; SEGMENTS let peers
@@ -336,7 +403,7 @@ INV-9 v1.1.
   not merely that the being acted inside `wasm-wasi`, but which executables
   its hand could reach.
 
-## 7. Tests
+## 8. Tests
 
 ```bash
 python -m pytest tests/unit tests/adversarial -q     # fast
@@ -396,7 +463,7 @@ skips itself is not evidence.
   section 1, and nothing stopped the next build from putting "3-layer"
   back.
 
-## 8. Roadmap
+## 9. Roadmap
 
 **Open after v0.6.5 (near term):** `/readyz` and the liveness split ·
 `sd_notify` with the `WatchdogSec` return · Prometheus alert rules
@@ -418,7 +485,7 @@ the Ф3 form of the append rule, where the runtime keeps the local chain and
 the witness plane does the anchoring, so no organ of a being calls
 `append` at all.
 
-## 9. License
+## 10. License
 
 Two-license structure (see `LICENSE`): the trust/governance **core is
 AGPL-3.0-only** — nodes serve other nodes over a network, and §13 obliges
@@ -427,7 +494,7 @@ serve; the **NECS specification and harness are Apache-2.0** so that
 independent engine vendors can implement and certify without copyleft
 obligations. Contributions require a CLA (see `CONTRIBUTING.md`).
 
-## 10. Responsible disclosure
+## 11. Responsible disclosure
 
 Security reports: see `SECURITY.md`. Do not open public issues for
 vulnerabilities in identity, witness, sandbox or containment paths.

@@ -57,7 +57,7 @@ inside a governed sandbox — each act witnessed before and after.
 
 ## 2. System requirements
 
-**To run the kernel and the acceptance suite** — a POSIX host and
+**To run the kernel and the acceptance suite** — **Linux or macOS**, and
 **Python ≥ 3.10**. That is the whole list. The trust core is stdlib-only:
 `core/`, `jjdai/`, `kernel/`, `node/`, `necs/` import nothing that is not
 in the standard library, so there is no dependency tree to audit and
@@ -70,11 +70,15 @@ TLS/mTLS path in the daemon) and `sqlite3` (the Plane H retrieval store).
 `scripts/run_acceptance.py` is a stdlib runner that follows the same
 protocol for environments without it.
 
-**Windows is not a target.** The Karma reference sandbox is built on
-`os.setsid`, `resource.setrlimit` (CPU, address space, file size, process
-count) and `os.killpg` — POSIX primitives with no Windows equivalent, and
-the boundary is the wrong thing to emulate approximately. WSL2 behaves as
-the Linux host it is.
+**On Windows, run a Linux environment — WSL2 or a virtual machine.** This
+is not a packaging gap that a later release closes. The Karma reference
+sandbox confines an action with `os.setsid`, `resource.setrlimit` (CPU,
+address space, file size, process count) and `os.killpg`: POSIX primitives
+with no Windows equivalent. A containment boundary is the wrong thing to
+approximate — a sandbox that emulates its limits is a sandbox whose limits
+are a guess — so the daemon does not pretend to offer one there. Inside
+WSL2 or a Linux VM this is simply the Linux host it is, and everything
+above applies unchanged.
 
 **To operate a node**, the deployment kit targets two hosts, and the
 runbooks are written per host rather than pretending one command fits both:

@@ -334,6 +334,24 @@ class Karma:
     def profile_name(self) -> str:
         return getattr(self.sandbox, "NAME", "reference")
 
+    def isolation_provenance(self) -> dict:
+        """What the witness needs in order to prove WHICH hand acted.
+
+        Naming the profile proves the being acted inside wasm-wasi. It does
+        not prove which executable ran there. Without the toolset digest a
+        record can attest the boundary and stay silent about the thing that
+        crossed it — and the toolset is exactly what widens what the hand
+        can reach (an L2 mutation, by ADR-015).
+        """
+        prov = {"isolation_profile": self.profile_name}
+        cap = getattr(self.sandbox, "capabilities", None)
+        if callable(cap):
+            man = cap()
+            for key in ("toolset_hash", "runtime"):
+                if man.get(key):
+                    prov[key] = man[key]
+        return prov
+
     def isolation(self) -> dict:
         """What boundary this organ is actually acting inside."""
         cap = getattr(self.sandbox, "capabilities", None)
@@ -483,7 +501,7 @@ class Karma:
                 request={"karma_event": event},              # hiding commitment
                 provenance={"organ": "karma", "being_id": self.being_id,
                             "workspace": self.sandbox.root,
-                            "isolation_profile": self.profile_name},
+                            **self.isolation_provenance()},
                 semantic_digest=(f"karma:{self.being_id}:{event['ph']}:"
                                  f"{event['action_hash']}:{self.state_hash()}"),
                 timestamp=time.strftime("%Y-%m-%dT%H:%M:%SZ",

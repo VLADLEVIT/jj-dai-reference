@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.abspath(
 from jjdai.canonical import canonical                          # noqa: E402
 from jjdai.crypto import H_hex                                 # noqa: E402
 from jjdai.adapters.protocol import BaseEngineBackend          # noqa: E402
-from jjdai.adapters.registry import register                   # noqa: E402
+from jjdai.adapters.registry import BackendConfig, register    # noqa: E402
 
 
 class HashEngine(BaseEngineBackend):
@@ -34,8 +34,16 @@ class HashEngine(BaseEngineBackend):
     determinism_level = "reproducible"
     backend = "hash"
 
-    def __init__(self, fingerprint: str):
-        self.fingerprint = fingerprint
+    def __init__(self, config: BackendConfig = None):
+        # A bare fingerprint string is accepted as well as a config. The
+        # reference driver is constructed directly in a great many places
+        # that have no interest in the registry, and breaking them would be
+        # churn without a safety gain — the registry path still hands a
+        # BackendConfig like every other driver.
+        if isinstance(config, str):
+            config = BackendConfig(fingerprint=config)
+        cfg = config or BackendConfig()
+        self.fingerprint = cfg.fingerprint or "fp-unset"
 
     def generate(self, messages: list, sampling: dict,
                  adapter_ids: list = ()) -> str:

@@ -61,7 +61,7 @@ class SGLangError(RuntimeError):
 
 
 from jjdai.adapters.protocol import BaseEngineBackend  # noqa: E402
-from jjdai.adapters.registry import register          # noqa: E402
+from jjdai.adapters.registry import BackendConfig, register  # noqa: E402
 
 
 class SGLangEngine(BaseEngineBackend):
@@ -230,4 +230,19 @@ class SGLangEngine(BaseEngineBackend):
         }
 
 
-register("sglang", SGLangEngine)
+def _factory(config: BackendConfig = None):
+    """Registry entry point: ONE argument, like every other driver.
+
+    The rich constructor stays for direct use and for tests; this adapts the
+    single config shape onto it, and refuses by NAME when something required
+    is absent — so an operator reads "dwarfstar requires url", not a
+    TypeError from three frames down.
+    """
+    cfg = (config or BackendConfig()).require("sglang", "url", "fingerprint")
+    return SGLangEngine(
+        cfg.url, fingerprint=cfg.fingerprint,
+        adapter_paths=cfg.adapter_paths,
+        determinism_level=cfg.determinism_level or "attested")
+
+
+register("sglang", _factory)

@@ -31,12 +31,15 @@ def phase_readiness(backend) -> dict:
     streaming/cancel, health and attestation — and, since r6.6 moved
     passivation down, the session/KV-state group too.
     """
+    # attributes are DECLARED, methods are IMPLEMENTED — the workaround this
+    # replaces existed only because the two were being asked the same
+    # question
+    from .protocol import declared_attributes
     exec_min = all(implements(backend, m) for m in ("generate", "score"))
-    trust_min = all(implements(backend, m)
-                    for m in ("fingerprint", "capabilities")) \
-        if not hasattr(backend, "fingerprint") else True
+    attrs = declared_attributes(backend)
+    identified = attrs["backend"] is not None and attrs["fingerprint"] is not None
     return {
-        "phase_1": bool(exec_min and trust_min),
+        "phase_1": bool(exec_min and identified),
         "phase_2": bool(group_complete(backend, "lifecycle")
                         and group_complete(backend, "execution")
                         and group_complete(backend, "health")

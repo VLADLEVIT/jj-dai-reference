@@ -127,9 +127,9 @@ def test_ed25519_iff_bypass_is_dead():
                        "base_url": "http://evil", "roles": ["replicate"],
                        "created_at": time.time()},
               "pub": degenerate_pub.hex(), "sig": zero_sig.hex()}
-    steward = SigningKey.generate()
-    bundle = admit_peer(steward, record)        # honest authority countersigns
-    reg = PeerRegistry(admission_keys={canonical_node_id(steward.public)})
+    guardian = SigningKey.generate()
+    bundle = admit_peer(guardian, record)        # honest authority countersigns
+    reg = PeerRegistry(admission_keys={canonical_node_id(guardian.public)})
     try:
         reg.register(bundle)
     except PeerError:
@@ -162,8 +162,8 @@ def test_canonical_identity_unified():
 
 def test_journal_integrity_fail_closed():
     with tempfile.TemporaryDirectory() as tmp:
-        steward = SigningKey.generate()
-        skeys = {canonical_node_id(steward.public)}
+        guardian = SigningKey.generate()
+        skeys = {canonical_node_id(guardian.public)}
 
         # ---- J-1 PeerRegistry ----
         p1 = os.path.join(tmp, "peers.jsonl")
@@ -276,10 +276,10 @@ def test_plane_h_atomicity():
 
 
 def test_iff_nonce_and_status_hardening():
-    steward = SigningKey.generate()
+    guardian = SigningKey.generate()
     peer_sk = SigningKey.generate()
-    reg = PeerRegistry(admission_keys={canonical_node_id(steward.public)})
-    bundle = admit_peer(steward, make_peer_record(peer_sk,
+    reg = PeerRegistry(admission_keys={canonical_node_id(guardian.public)})
+    bundle = admit_peer(guardian, make_peer_record(peer_sk,
                                                   base_url="http://p"))
     reg.register(bundle)
     auth = RequestAuthenticator(reg, window_s=30.0, nonce_capacity=2)

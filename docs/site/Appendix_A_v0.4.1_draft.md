@@ -32,7 +32,7 @@ conformance, adversarial and legacy groups, under CI.
 
 Containment (Article 25): seven executive scopes, provisional status,
 false-trigger reversal, initiator liability, slashing, rehabilitation,
-and the Steward-review gate before irreversible action. Registry-aware
+and the Guardian-review gate before irreversible action. Registry-aware
 router with reputation mathematics (§9.9). Cross-verification peer loop.
 Tier-1 node daemon (JII envelope over HTTP, loopback reference). SGLang
 and DwarfStar engine adapters with mock and live acceptance tests.
@@ -57,15 +57,15 @@ security. Economic layer.
 ## Constitutional specification only
 
 Being Registry, guardian representation, the Digital Majority Test,
-economic reserve and bonds, formal refusal policy, Steward Collegium
-keys, ballots, quorum, Founding Steward veto and succession. These are
+economic reserve and bonds, formal refusal policy, Collegium of Guardians
+keys, ballots, quorum, Founding Guardian veto and succession. These are
 normative in the Constitution and deliberately not yet machine-enforced;
 v0.4.1 is the machine-side preparation for constitutional governance,
 not its replacement.
 
 ## Licensing
 
-The trust/governance core is AGPL-3.0-only: nodes serve stewards and
+The trust/governance core is AGPL-3.0-only: nodes serve guardians and
 other nodes over a network, and the license obliges operators of
 modified nodes to disclose their modifications to those they serve.
 The NECS specification and conformance harness are Apache-2.0 so that

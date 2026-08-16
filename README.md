@@ -14,10 +14,13 @@
 
 ## 1. What is JJ DAI
 
-JJ DAI is an architecture for verifiable AI agents built on one principle:
-**everything touching a decision is verified.** Mutable knowledge lives
-outside frozen model weights (RAG, Plane H); every inference, memory write,
-routing decision and containment act is bound to cryptographic evidence and
+JJ DAI is an architecture for a decentralized 3-tier network of
+persistent-memory-owning and self-evolving AI agents built on the principle
+that everything touching a decision is verified.
+
+Mutable knowledge lives outside frozen model weights (RAG, Plane H); every
+inference, memory write, routing decision and containment act is bound to
+cryptographic evidence and
 recorded in an Ed25519-signed, hash-chained witness log; inference and
 verification are performed by separate roles (generator/verifier asymmetry);
 and an agent's executive capabilities can be selectively severed — with due
@@ -67,7 +70,7 @@ inside a governed sandbox — each act witnessed before and after.
 | Tier-1 trust node daemon | Prototype |
 | Adapter layer — EngineBackend Protocol v1 | Implemented (Implemented, protocol v1 declared whole) |
 | NECS v0.1 + harness | Implemented |
-| Acceptance and CI | Implemented (127/127 green) |
+| Acceptance and CI | Implemented (129/129 green) |
 | Retired M1-M5 lineage | Implemented (Frozen) |
 | Deployment kit (Linux + macOS) | Implemented (Implemented, macOS kit v0.6.2) |
 | Plane B canary lifecycle | Planned |
@@ -89,16 +92,17 @@ calendar proofs in custody; Bitcoin inclusion is verified with standard
 and never the local-only commitment salts. The daemon is a **reference
 node**, not a production peer.
 
-Two things this release declares without yet carrying (both stated in the
-CHANGELOG, both deliberate): the `wasm-wasi` isolation profile ships as
+Two things this release declares without yet carrying, both deliberate and
+both stated in the CHANGELOG: the `wasm-wasi` isolation profile ships as
 **mechanism only** — no compiled toolset modules travel in this build, so
 in practice execution is still the `reference` fence — and of the seven
-registered backend drivers only `hash`, `sglang` and `dwarfstar` execute;
-`vllm`, `llama_cpp`, `mlx` and `asic` exist so the registry, the
-conformance suite and the compatibility matrix have real objects to
+registered backend drivers only `hash`, `dwarfstar` and `sglang` implement
+generation. `vllm`, `llama.cpp`, `mlx` and `asic` exist so the registry,
+the conformance suite and the compatibility matrix have real objects to
 interrogate, and they refuse by type (`NotSupported`) rather than by
 absence. `microvm` is a reserved profile name with no implementation
-behind it, and selecting it refuses. See
+behind it, and selecting it refuses. So do the reserved witness fields
+`session_id` and `ir_schema_version`, and the reserved record kinds. See
 `docs/JJDAI_Code_Architecture_Map_v0.5.md` for the full classification.
 
 ## 4. Quick start
@@ -133,7 +137,9 @@ connections), `--request-timeout-s` (15), `--isolation-profiles`
 (`reference`). A profile named here whose runtime is absent makes the node
 REFUSE the action rather than fall back to a weaker one, so declaring
 `wasm-wasi` on a host without `wasmtime` is a loud failure, not a quiet
-downgrade.
+downgrade. `--engine` has no hardcoded list: it accepts whatever the
+registry carries on this host, and `--help` prints both the registered
+drivers and any that failed to import.
 
 ## 5. Architecture
 
@@ -171,13 +177,22 @@ every driver carries the entire v1 method set, and what a driver has not
 implemented raises the typed `NotSupported`. An absent method would grow a
 `hasattr` probe and a quiet fallback in every caller, and a quiet fallback
 is how a node comes to believe it has a capability it does not have.
-Capability is *derived* from what a driver actually overrides
-(`capability_manifest()`), never hand-declared, because a hand-written list
-is a claim and claims drift from code. Three terms that used to share the
-word "adapter" now have separate names: **backend driver** (our code,
-connecting to an engine), **model profile** (a declarative description of a
-family), **weight adapter** (LoRA/DoRA over a checkpoint). Adding a driver
-never edits the daemon.
+Capability is *derived* from what a driver actually overrides, never
+hand-declared, because a hand-written list is a claim and claims drift from
+code.
+
+**The registry is the only door, and the door has one shape.** Drivers take
+a single `BackendConfig`; what a driver does not use it ignores, and what it
+requires and does not find it refuses at construction by name — an operator
+reads "dwarfstar requires url", not a `TypeError` three frames down. This is
+what makes the seam real rather than relocated: factories with differing
+signatures would leave the daemon knowing which driver needs what, and
+`if args.engine == ...` would survive. It does not, and check A-10 reads
+`daemon.py` and fails if the branch returns. Adding a driver never edits the
+daemon. Three terms that used to share the word "adapter" now have separate
+names: **backend driver** (our code, connecting to an engine), **model
+profile** (a declarative description of a family), **weight adapter**
+(LoRA/DoRA over a checkpoint).
 
 **INV-9 — Purusha is non-executive, not causally inert.**
 Purusha never commands, selects or executes a decision. What it witnesses
@@ -227,9 +242,17 @@ INV-9 v1.1.
   the socket gets a `503` and a half-close before any worker thread is
   spawned, deliberately not a bare close, since a reset cannot tell
   "overloaded, retry" from "node is dead". Every connection carries
-  `--request-timeout-s`, so a client that stalls mid-header releases its
-  thread. New metrics: `body_too_large_total`, `bad_framing_total`,
-  `overloaded_total`.
+  `--request-timeout-s`. New metrics: `body_too_large_total`,
+  `bad_framing_total`, `overloaded_total`.
+- **A signature is not a schema (v0.6.5).** `verify_manifest()` used to
+  recompute the hash, check the signature and stop — so a buggy or hostile
+  signer could emit cryptographically perfect nonsense and every verifier
+  would accept it. For a provenance object that admits a model to the
+  decision path, shape is part of what must be true, so
+  `validate_manifest_body()` now runs FIRST: exact schema version, required
+  fields, unknown keys refused, `checkpoint_hash` and every weight adapter
+  in `<algo>:<hex>` content-address form, `profile_hash` a 64-hex digest,
+  protocol version supported.
 - **Weights are attested at boot (v0.5.1).** `--substrate-artifacts`
   measures the real files; a content-addressed id with mismatching bytes
   refuses the boot; `--require-attestation` refuses unattested substrates;
@@ -259,12 +282,14 @@ INV-9 v1.1.
   the local log, where they neither replicate nor persist forever. Not
   because a caller misused the field, but because an append-only,
   replicated, undeletable store that accepts free text is both a covert
-  channel and an unbounded write. Record kinds `SESSION_OPEN`,
-  `SESSION_CLOSE`, `LEDGER_ANCHOR`, `SNAPSHOT` and the nullable
-  `session_id` / `ir_schema_version` fields are RESERVED before genesis and
-  refuse on emission — a value that has entered a JCS-canonicalized,
-  hash-chained log cannot be added or renamed afterwards without breaking
-  every hash after it.
+  channel and an unbounded write. Reserved means reserved **on both axes**:
+  the record kinds `SESSION_OPEN`, `SESSION_CLOSE`, `LEDGER_ANCHOR`,
+  `SNAPSHOT` refuse on emission, and so does populating `session_id` or
+  `ir_schema_version` — the first cut let those two fields bypass the
+  vocabulary check entirely, re-opening the channel through the new door
+  while the old one was being bolted. A value that has entered a
+  JCS-canonicalized, hash-chained log cannot be added or renamed afterwards
+  without breaking every hash after it.
 - **Karma executes inside a NAMED isolation profile (v0.6.4).** The
   `reference` profile is the v0.6.3 sandbox unchanged and still the default:
   it confines paths (realpath), applies rlimits, streams output with a flood
@@ -284,7 +309,10 @@ INV-9 v1.1.
   profile whose runtime is absent refuses the action, because the witness
   plane cannot save a node that believes it is acting inside a boundary it
   is not inside (INV-9: it observes, it does not intervene). Both refusal
-  and execution are witnessed, intent and outcome.
+  and execution are witnessed, and since v0.6.5 the provenance carries the
+  `toolset_hash` and the runtime as well as the profile — so a record proves
+  not merely that the being acted inside `wasm-wasi`, but which executables
+  its hand could reach.
 
 ## 7. Tests
 
@@ -295,14 +323,21 @@ python scripts/run_acceptance.py [unit|integration|conformance|adversarial|legac
 ```
 
 CI runs the matrix on Python 3.10–3.12 (`.github/workflows/ci.yml`).
-Current status: 127/127 acceptance checks green (hermetic default groups),
+Current status: 129/129 acceptance checks green (hermetic default groups),
 up from 94 at v0.6.3 — v0.6.4 added I-1…I-9 (isolation profiles) and
-G-1…G-8 (ingress hardening) for 111, v0.6.5 added A-1…A-9 (adapter layer)
-and W-1…W-7 (plane vocabulary) for 127. Each new check is written to fail
-against the previous release, and G-6 and I-9 are written to fail against
-the first cut of the drop that introduced them — an audit found that the
-original concurrency check tested the semaphore's semantics rather than the
-claim, and so passed while the ceiling bounded nothing.
+G-1…G-8 (ingress hardening) for 111, v0.6.5 added A-1…A-11 (adapter layer)
+and W-1…W-7 (plane vocabulary) for 129.
+
+Each new check is written to fail against the previous release. Some are
+also written to fail against the FIRST CUT of their own drop, which is the
+more useful property: G-6, I-9, A-10 and W-6 all exist because an audit
+found a test named after a claim while checking something adjacent to it.
+The concurrency check tested the semaphore's semantics rather than the
+ceiling, and passed while nothing was bounded; "the registry is the only
+door" checked the registry in isolation while `daemon.py` still branched on
+the engine name and walked past it; W-6 asserted that the reserved fields
+*could* be set, enshrining the hole it was meant to close. A green suite is
+evidence only about what the checks actually reach.
 
 The `live` group is opt-in and excluded from the default run and from the
 published badge: `python scripts/run_acceptance.py live` exercises the
@@ -335,7 +370,7 @@ is visible even though it is not yet governed).
 the bounded metadata channel the dead-drop analysis leaves open (record
 counts, kinds, timing).
 **P2:** DIIP · training federation · champion/challenger deployment ·
-constitutional human governance (Steward Collegium, Being Registry) ·
+constitutional human governance (Collegium of Guardians, Being Registry) ·
 economic layer · TEE attestation · multi-jurisdiction Witness network ·
 the Ф3 form of the append rule, where the runtime keeps the local chain and
 the witness plane does the anchoring, so no organ of a being calls

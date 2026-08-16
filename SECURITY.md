@@ -47,7 +47,7 @@ profile refuses self-verification and unprovenanced panels, but Karma
 remains a REFERENCE sandbox — do not expose POST /v1/tasks beyond a
 trusted mTLS perimeter until the security-alpha hardening lands; rate
 limiting bounds request VOLUME per identity but is not authorization —
-who may call what is now role-based (peer/admin/anonymous from the mTLS CN) with default-deny; capability- and steward-ballot authorization remain future work; certificate revocation is serial-list based, checked before authz; the challenge
+who may call what is now role-based (peer/admin/anonymous from the mTLS CN) with default-deny; capability- and guardian ballot authorization remain future work; certificate revocation is serial-list based, checked before authz; the challenge
 round runs networked over mTLS (open→seat→commit→reveal→resolve) but
 its VRF keys are ordinary node keys (dedicated VRF key hygiene remains
 future work); witness recovery

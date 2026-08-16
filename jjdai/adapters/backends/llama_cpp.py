@@ -13,15 +13,16 @@ import sys
 sys.path.insert(0, os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "..", "..")))
 from jjdai.adapters.protocol import BaseEngineBackend        # noqa: E402
-from jjdai.adapters.registry import register                 # noqa: E402
+from jjdai.adapters.registry import BackendConfig, register  # noqa: E402
 
 
 class LlamaCppEngine(BaseEngineBackend):
     backend = "llama.cpp"
     determinism_level = "best_effort"
 
-    def __init__(self, base_url: str = "", *, fingerprint: str = ""):
-        self.base_url, self.fingerprint = base_url, fingerprint
+    def __init__(self, config: BackendConfig = None):
+        cfg = config or BackendConfig()
+        self.base_url, self.fingerprint = cfg.url, cfg.fingerprint
 
 
 register("llama.cpp", LlamaCppEngine)

@@ -252,6 +252,21 @@ class WitnessChain:
                 f"(ADR-015). Emitting a record whose meaning is undefined is "
                 f"worse than not having the name.")
         check_plane_value("semantic_digest", semantic_digest)
+        # v0.6.5 audit (P0-2): the reserved FIELDS must refuse for the same
+        # reason the reserved KINDS do. Declaring a name before genesis is
+        # cheap; letting it carry a value whose grammar is not yet defined
+        # re-opens the very channel the vocabulary above just closed —
+        # unconstrained strings, replicated forever, on an ordinary INFER
+        # record. Reserved means reserved on BOTH axes.
+        for _field, _value in (("session_id", session_id),
+                               ("ir_schema_version", ir_schema_version)):
+            if _value is not None:
+                raise ValueError(
+                    f"field {_field!r} is RESERVED in v0.6.5: the name enters "
+                    f"the canonical record shape before genesis, but nothing "
+                    f"may populate it until its grammar lands in Ф2–Ф3 "
+                    f"(ADR-015). A reserved field that accepts anything is a "
+                    f"dead-drop with a schedule.")
         idx = self.next_index()
         body = {
             "index": idx,

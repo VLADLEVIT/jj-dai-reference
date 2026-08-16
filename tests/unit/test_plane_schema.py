@@ -26,9 +26,12 @@ and not addressed here.
   W-4  BOUNDED WRITE: depth and value count are capped.
   W-5  RESERVED KINDS EXIST BUT CANNOT BE EMITTED: the names are in the
        canonical enum before genesis; emitting one refuses.
-  W-6  RESERVED FIELDS ARE OMITTED WHEN ABSENT: a record without
-       session_id / ir_schema_version is byte-identical to a v0.6.4 record,
-       so the reservation costs no hash compatibility.
+  W-6  RESERVED FIELDS REFUSE, AND ARE ABSENT FROM THE RECORD: the names
+       enter the canonical shape before genesis, but nothing may populate
+       them until their grammar exists. (The first cut of this drop let
+       both through unchecked — free text on an ordinary INFER record —
+       which re-opened the channel the vocabulary had just closed. Written
+       to fail against that version.)
   W-7  REASONS ARE CODES: the challenge round and the rate limiter put
        codes in the plane, never sentences.
 """
@@ -148,19 +151,23 @@ def test_reserved_fields_are_omitted_when_absent():
         body = c.records[-1]
         assert "session_id" not in body, body
         assert "ir_schema_version" not in body, body
-        plain_keys = sorted(body)
 
-        c.append("INFER", semantic_digest="cd" * 32,
-                 session_id="sess:" + "0a" * 8,
-                 ir_schema_version=IR_SCHEMA_VERSION)
-        body2 = c.records[-1]
-        assert body2["session_id"].startswith("sess:"), body2
-        assert body2["ir_schema_version"] == IR_SCHEMA_VERSION, body2
-        # the reservation costs nothing to a record that does not use it
-        assert sorted(k for k in body2 if k in plain_keys) == plain_keys, \
-            "carrying the reserved fields changed the base record shape"
-        # and the chain still verifies with the new fields inside the hash
-        assert c.verify_chain(), "chain broke once a reserved field was used"
+        # populating a reserved field refuses — including, above all, with
+        # the free text that a constrained semantic_digest can no longer
+        # carry, which is what makes this a security check and not tidiness
+        for kw in ({"session_id": "sess:" + "0a" * 8},
+                   {"session_id": "FREE TEXT: meet me at the bridge"},
+                   {"ir_schema_version": IR_SCHEMA_VERSION},
+                   {"ir_schema_version": "FREE TEXT TOO"}):
+            before = len(c.records)
+            try:
+                c.append("INFER", semantic_digest="cd" * 32, **kw)
+            except ValueError as e:
+                assert "RESERVED" in str(e), str(e)
+            else:
+                raise AssertionError(f"reserved field populated: {kw}")
+            assert len(c.records) == before, "a refused write still appended"
+        assert c.verify_chain()
 
 
 def test_reasons_are_codes():

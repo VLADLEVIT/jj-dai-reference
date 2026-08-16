@@ -1213,9 +1213,84 @@ JCS-canonicalized and hash-chained, so a value that has entered the chain
 cannot be added or renamed afterwards without breaking every hash after
 it. One line before genesis; a schema migration after.
 
+## Audit response (same drop, before tagging)
+
+Three blockers and three smaller items, all closed here. Two of the three
+blockers were invisible to acceptance — and in both cases the test that
+should have caught them was named after the claim while checking
+something adjacent to it. That is the same failure mode as G-6 in v0.6.4,
+and it is worth naming as a pattern rather than as two incidents.
+
+**P0-1 — the registry existed and the daemon walked past it.** The
+CHANGELOG said engine selection went through the registry; the test was
+called "the registry is the only door"; `node/daemon.py` still read `if
+args.engine == "sglang" ... elif "dwarfstar" ... else hash`, and
+`create_backend` was imported and never called. The test checked the
+registry in isolation, which passed, while the door it was named for
+stood open. `vllm` was registered and unreachable, and adding a backend
+still meant editing the daemon — the one thing the seam exists to
+prevent.
+
+The deeper cause was a missing second contract: factories with different
+signatures do not remove the branch, they relocate it, because the caller
+must still know that DwarfStar takes a URL and the reference driver does
+not. So drivers now take **one** `BackendConfig`. What a driver does not
+use it ignores; what it requires and does not find it refuses by name, so
+an operator reads "dwarfstar requires url" rather than a `TypeError` from
+three frames down. `--engine` has no hardcoded choices any more: the set
+of engines is whatever the registry carries. New check A-10 reads
+`daemon.py` for the branch and fails if it returns.
+
+**P0-2 — the reserved fields re-opened the channel the vocabulary had
+just closed.** `session_id` and `ir_schema_version` bypassed
+`check_plane_value` entirely and were emittable on an ordinary INFER
+record, so free text reached the replicated chain through the new door
+while the old one was being bolted. Worse, W-6 as written asserted that
+they COULD be set — the test enshrined the hole. Reserved now means
+reserved on both axes: populating either field refuses, exactly as
+emitting a reserved KIND does, until their grammar lands in Ф2–Ф3. W-6 is
+rewritten to attempt precisely the free text the auditor used.
+
+**P0-3 — a valid signature was being read as a valid manifest.**
+`verify_manifest()` recomputed the hash and checked the signature, and
+stopped. A signature proves who wrote a thing, never that the thing is
+well formed, so a buggy or hostile signer could emit cryptographically
+perfect nonsense — `{"junk": "yes"}` verified — and every verifier would
+accept it. For a provenance object that admits a model to the decision
+path, shape is part of what must be true. `validate_manifest_body()` now
+runs FIRST: exact schema version, required fields, unknown keys refused,
+`checkpoint_hash` and every weight adapter in `<algo>:<hex>` content-
+address form, `profile_hash` a 64-hex digest, protocol version supported.
+
+**P1 — the capability manifest contradicted itself.** `METHOD_GROUPS`
+mixed methods with attributes, so `fingerprint` was reported
+`not_supported` on a driver that plainly had one, and `capabilities()`
+counted as an unimplemented backend capability when it is supplied by the
+framework for every driver. Three kinds are now kept apart: driver
+METHODS, required ATTRIBUTES, and FRAMEWORK methods. The workaround this
+had forced in `phase_readiness()` is gone with it.
+
+**P1 — Steward → Guardian is now swept** through current code, comments
+and docs, including the serialized state value `PENDING_STEWARD` →
+`PENDING_GUARDIAN`. CHANGELOG history is left alone: it records what was
+true when it was written. Zero current occurrences remain.
+
+**P1 carry-over from v0.6.4 — the record named the boundary but not the
+hand.** Karma's provenance carried `isolation_profile` and nothing about
+which executable could run there. It now carries `toolset_hash` and the
+runtime, so a witness record can prove not merely "the being acted inside
+wasm-wasi" but which toolset its hand could reach.
+
+**P2 — a driver's import error no longer disappears.**
+`except Exception: pass` in `backends/__init__.py` meant a driver with a
+syntax error simply vanished from the registry: the node reported one
+fewer capability and nobody could ask why. Failures are recorded, exposed
+through `import_errors()`, named in `--engine` help, and quoted when an
+unknown backend is requested.
+
 ## Acceptance
 
-111 → 127. Sixteen new checks: A-1…A-9
+111 → 129. Eighteen new checks: A-1…A-11
 (`tests/unit/test_adapter_layer.py`) and W-1…W-7
 (`tests/unit/test_plane_schema.py`), plus the five opt-in live checks
 from v0.6.4.

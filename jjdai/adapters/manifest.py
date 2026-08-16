@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import json
 import os
+import re as _re
 import sys
 
 sys.path.insert(0, os.path.abspath(
@@ -147,6 +148,70 @@ def build_manifest(*, profile: dict, checkpoint_hash: str,
     return body
 
 
+MANIFEST_REQUIRED = ("schema", "family", "profile_hash", "profile_schema",
+                     "architecture", "tokenizer", "chat_template",
+                     "checkpoint_hash", "quantization",
+                     "conversion_toolchain", "backend", "backend_version",
+                     "runtime_version", "protocol_version",
+                     "weight_adapters", "source", "licenses", "golden")
+_CONTENT_ADDRESS = _re.compile(r"^(sha256|sha512|blake3):[0-9a-f]{32,128}$")
+_DIGEST = _re.compile(r"^[0-9a-f]{64}$")
+SUPPORTED_PROTOCOL_VERSIONS = ("1",)
+
+
+def validate_manifest_body(body: dict) -> dict:
+    """Schema-validate a manifest body — BEFORE trusting its signature.
+
+    A signature proves who wrote a thing, never that the thing is well
+    formed. Without this step a buggy or hostile signer can emit
+    cryptographically perfect nonsense and every verifier will accept it,
+    because all any verifier checked was that the bytes had not moved since
+    they were signed. That is the wrong question for a PROVENANCE object:
+    the manifest is what admits a model and a backend to the decision path,
+    so its shape is part of what must be true.
+    """
+    if not isinstance(body, dict):
+        raise ManifestError("manifest body must be a mapping")
+    schema = body.get("schema")
+    if schema != f"jjdai.model-artifact/v{MANIFEST_SCHEMA_VERSION}":
+        raise ManifestError(
+            f"unknown manifest schema {schema!r}; this build reads "
+            f"jjdai.model-artifact/v{MANIFEST_SCHEMA_VERSION}")
+    missing = [k for k in MANIFEST_REQUIRED if k not in body]
+    if missing:
+        raise ManifestError(f"manifest is missing required key(s): {missing}")
+    unknown = [k for k in body if k not in MANIFEST_REQUIRED]
+    if unknown:
+        raise ManifestError(
+            f"manifest carries unknown key(s) {unknown}: an unread field in "
+            f"a signed provenance object is a claim nobody checks")
+    ck = str(body["checkpoint_hash"])
+    if not _CONTENT_ADDRESS.match(ck):
+        raise ManifestError(
+            f"checkpoint_hash {ck!r} is not a content address: expected "
+            f"<algo>:<hex>, e.g. sha256:<64 hex>. A manifest whose artifact "
+            f"reference cannot be resolved proves nothing about the artifact")
+    if not _DIGEST.match(str(body["profile_hash"])):
+        raise ManifestError(
+            f"profile_hash {body['profile_hash']!r} is not a 64-hex digest")
+    if body["protocol_version"] not in SUPPORTED_PROTOCOL_VERSIONS:
+        raise ManifestError(
+            f"EngineBackend protocol version {body['protocol_version']!r} is "
+            f"not supported by this build "
+            f"(supported: {list(SUPPORTED_PROTOCOL_VERSIONS)})")
+    for i, wa in enumerate(body["weight_adapters"]):
+        if not _CONTENT_ADDRESS.match(str(wa)):
+            raise ManifestError(
+                f"weight_adapters[{i}] {wa!r} is not a content address — a "
+                f"weight adapter changes what the model does and must be "
+                f"nameable by digest")
+    for key in ("family", "architecture", "tokenizer", "chat_template",
+                "backend", "backend_version"):
+        if not isinstance(body[key], str) or not body[key].strip():
+            raise ManifestError(f"{key} must be a non-empty string")
+    return body
+
+
 def manifest_hash(body: dict) -> str:
     return H_hex(canonical(body))
 
@@ -170,6 +235,10 @@ def verify_manifest(envelope: dict) -> dict:
     body = envelope.get("body")
     if not isinstance(body, dict):
         raise ManifestError("envelope carries no body")
+    # schema FIRST: a valid signature over garbage is still garbage, and
+    # checking the signature first would let malformed provenance reach a
+    # caller that stopped reading after "verified"
+    validate_manifest_body(body)
     digest = manifest_hash(body)
     if envelope.get("manifest_hash") != digest:
         raise ManifestError(

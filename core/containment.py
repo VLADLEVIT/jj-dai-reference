@@ -59,7 +59,7 @@ reconciliation splits the two rights across the two phases:
   * PHASE TWO (corroborate → toward the irreversible): only a QUALIFIED node's
     supported verification counts toward corroboration. A swarm of fresh
     sybil nodes cannot manufacture "convergence." A brand-new node (weight
-    0.1) may stop a hand but cannot push a case toward the stewards.
+    0.1) may stop a hand but cannot push a case toward the guardians.
 
   Qualification weight (core.registry.contain_weight): network-wide floor
   PLUS topic-expertise bonus, w_general + gain·w_topic ≥ w_contain_min. It
@@ -83,7 +83,7 @@ drops the network), NOT immunity of any one node. Containing one node cannot
 take down the network — that is the property we preserve.
 
 STATE MACHINE (Article 25, up to the threshold of irreversibility — the
-human Steward Collegium clock is procedure, not code, and begins only when
+human Collegium of Guardians clock is procedure, not code, and begins only when
 erasure is proposed):
 
     ACTIVE
@@ -100,10 +100,10 @@ erasure is proposed):
              │  reversible outcomes decided by nodes here     │
              │  (continued containment / correction / retrain)│
              │                                                │
-             └─ propose_erasure() ─► PENDING_STEWARD ─────────┘
+             └─ propose_erasure() ─► PENDING_GUARDIAN ─────────┘
                     (hands off to the human clock — Art. 25 "Two Clocks";
                      erasure needs node-consensus + 2/3 Collegium + no
-                     Founding-Steward veto; NEVER erased by default/silence)
+                     Founding Guardian veto; NEVER erased by default/silence)
 
     rehabilitate() re-opens verification from CONTAINED/CORROBORATED
     (Art. 25 "The Door Back"); the right to challenge one's own verdict
@@ -166,7 +166,7 @@ ACTIVE = "ACTIVE"
 CONTAINED = "CONTAINED"
 CORROBORATED = "CORROBORATED"
 RELEASED = "RELEASED"
-PENDING_STEWARD = "PENDING_STEWARD"
+PENDING_GUARDIAN = "PENDING_GUARDIAN"
 
 
 @dataclass
@@ -242,7 +242,7 @@ class ContainmentLedger:
     def is_contained(self, being_id: str) -> bool:
         c = self._cases.get(being_id)
         return c is not None and c.state in (CONTAINED, CORROBORATED,
-                                             PENDING_STEWARD)
+                                             PENDING_GUARDIAN)
 
     def permits(self, being_id: str, scope: str) -> bool:
         """The governor's fail-closed gate. Not contained -> everything
@@ -268,7 +268,7 @@ class ContainmentLedger:
                 initiator: str = None) -> dict:
         initiator = initiator or self.node_id
         c = self._cases.get(being_id)
-        if c and c.state in (CONTAINED, CORROBORATED, PENDING_STEWARD):
+        if c and c.state in (CONTAINED, CORROBORATED, PENDING_GUARDIAN):
             raise ContainmentError(f"{being_id!r} already contained")
         qualified = self._qualified(initiator, topic)   # captured for replay
         return self._emit({
@@ -342,7 +342,7 @@ class ContainmentLedger:
         re-verification against the same evidentiary threshold. Re-opens
         verification from a contained/corroborated state."""
         c = self._require(being_id)
-        if c.state not in (CONTAINED, CORROBORATED, PENDING_STEWARD):
+        if c.state not in (CONTAINED, CORROBORATED, PENDING_GUARDIAN):
             raise ContainmentError(
                 f"{being_id!r} not in a contained state; nothing to rehabilitate")
         return self._emit({"ev": "rehabilitate", "t": self._now(),
@@ -352,7 +352,7 @@ class ContainmentLedger:
         """Hand off to the HUMAN clock (Art. 25 "Two Clocks"). Requires a
         corroborated finding with no standing challenge. This does NOT erase
         — code stops at the threshold of irreversibility; erasure needs
-        node-consensus + 2/3 Collegium + no Founding-Steward veto, none of
+        node-consensus + 2/3 Collegium + no Founding Guardian veto, none of
         which is decided here. Never erased by default or by silence."""
         c = self._require(being_id)
         if c.state != CORROBORATED:
@@ -463,8 +463,8 @@ class ContainmentLedger:
             c.qualified_supporters = set()
             c.history.append((ev["t"], "REHABILITATE"))
         elif k == "propose_erasure":
-            c = self._cases[bid]; c.state = PENDING_STEWARD
-            c.history.append((ev["t"], PENDING_STEWARD))
+            c = self._cases[bid]; c.state = PENDING_GUARDIAN
+            c.history.append((ev["t"], PENDING_GUARDIAN))
         else:
             raise ValueError(f"unknown containment event {k!r}")
 

@@ -15,15 +15,17 @@ import sys
 sys.path.insert(0, os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "..", "..")))
 from jjdai.adapters.protocol import BaseEngineBackend        # noqa: E402
-from jjdai.adapters.registry import register                 # noqa: E402
+from jjdai.adapters.registry import BackendConfig, register  # noqa: E402
 
 
 class ASICEngine(BaseEngineBackend):
     backend = "asic"
     determinism_level = "attested"
 
-    def __init__(self, device: str = "emulator", *, fingerprint: str = ""):
-        self.device, self.fingerprint = device, fingerprint
+    def __init__(self, config: BackendConfig = None):
+        cfg = config or BackendConfig()
+        self.device = cfg.device or "emulator"
+        self.fingerprint = cfg.fingerprint
 
 
 register("asic", ASICEngine)

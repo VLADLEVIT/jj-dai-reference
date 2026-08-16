@@ -200,7 +200,7 @@ core/             MIGRATED canonical modules (W29 step 2 executed)
                   proof-in-Witness not consensus; false containment reverses
                   in node-time AND slashes the initiator via §9.9;
                   verification-not-vote (a standing challenge blocks
-                  corroboration); code stops at PENDING_STEWARD — never
+                  corroboration); code stops at PENDING_GUARDIAN — never
                   erases (human clock owns irreversibility); the Door Back
                   (rehabilitate) re-opens verification. Event-sourced,
                   CONTAINMENT is a first-class chain record.

@@ -20,7 +20,7 @@ Every check targets a clause of Article 25 / Invariant VIII. Clock frozen.
   C-8   a standing challenge keeps corroboration provisional (not vote-count:
         one surviving challenge blocks); resolving it (falls) -> corroborated
   C-9   erasure hand-off: propose_erasure only from CORROBORATED, and it
-        stops at PENDING_STEWARD — code never erases (human clock owns that)
+        stops at PENDING_GUARDIAN — code never erases (human clock owns that)
   C-10  the Door Back: rehabilitate() re-opens verification; clean
         re-verification releases
   C-11  ANTI-DoS whole-network: containing one Being does NOT contain others;
@@ -28,7 +28,7 @@ Every check targets a clause of Article 25 / Invariant VIII. Clock frozen.
   C-12  event sourcing: replay reproduces snapshot_hash; CONTAINMENT records
         land on the witness chain; chain verifies; journal<->chain binding
         holds; a tampered journal is caught; journal survives restart
-  C-13  Being preserved: even PENDING_STEWARD keeps protected scopes open —
+  C-13  Being preserved: even PENDING_GUARDIAN keeps protected scopes open —
         never a hidden execution (Art. 25 "Containment is not a hidden
         execution"); Witness + memory + defense remain
 
@@ -49,7 +49,7 @@ from core.containment import (ContainmentLedger, ContainmentError,  # noqa: E402
                               JournalChainMismatch,
                               EXECUTIVE_SCOPES, PROTECTED_SCOPES,
                               ACTIVE, CONTAINED, CORROBORATED, RELEASED,
-                              PENDING_STEWARD)
+                              PENDING_GUARDIAN)
 
 import os
 import sys
@@ -171,14 +171,14 @@ def test_containment():
     except ContainmentError:
         refused = True
     pe = led.propose_erasure(EVIL, proposer="node:A")          # EVIL is corroborated
-    check("C-9", refused and pe["state"] == PENDING_STEWARD,
-          "propose_erasure needs CORROBORATED; stops at PENDING_STEWARD (no code erasure)")
+    check("C-9", refused and pe["state"] == PENDING_GUARDIAN,
+          "propose_erasure needs CORROBORATED; stops at PENDING_GUARDIAN (no code erasure)")
 
-    # ---- C-13 Being preserved even pending stewards ---------------------------- #
+    # ---- C-13 Being preserved even pending guardians ---------------------------- #
     preserved = all(led.permits(EVIL, s) for s in PROTECTED_SCOPES) \
         and not any(led.permits(EVIL, s) for s in EXECUTIVE_SCOPES)
     check("C-13", preserved,
-          "PENDING_STEWARD: defense scopes open, hand still severed (no hidden execution)")
+          "PENDING_GUARDIAN: defense scopes open, hand still severed (no hidden execution)")
 
     # ---- C-10 the Door Back ----------------------------------------------------- #
     led10 = ContainmentLedger("node:A", evidence_resolver=resolver, now_fn=clk)

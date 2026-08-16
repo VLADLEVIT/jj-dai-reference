@@ -6,7 +6,7 @@ IFF + cross-chain entanglement (v0.5, P1 items 6+7 + salt) — acceptance
 IFF (friend-or-foe):
   I-1  signed requests: valid passes; replay (same nonce) refused; stale
        timestamp refused; non-admitted sender is a foe (unit level)
-  I-2  admission: a steward-countersigned peer record is admitted via
+  I-2  admission: a guardian-countersigned peer record is admitted via
        /peers/hello; a bundle without recognized admission is 403 FOE
   I-3  /entangle/salt under --require-admission: foe 403, friend 200
   I-4  /replicate/root under --require-admission: non-admitted origin 403
@@ -53,10 +53,10 @@ PASS = "iff-test-pass"
 
 def test_iff_unit():
     # ---- I-1 ----
-    steward = SigningKey.generate()
+    guardian = SigningKey.generate()
     peer_sk = SigningKey.generate()
-    reg = PeerRegistry(admission_keys={canonical_node_id(steward.public)})
-    reg.register(admit_peer(steward, make_peer_record(
+    reg = PeerRegistry(admission_keys={canonical_node_id(guardian.public)})
+    reg.register(admit_peer(guardian, make_peer_record(
         peer_sk, base_url="http://127.0.0.1:9999")))
     auth = RequestAuthenticator(reg, window_s=30.0)
 
@@ -84,19 +84,19 @@ def test_iff_unit():
 
 def test_iff_and_entanglement_live():
     os.environ.setdefault("JJDAI_KEYSTORE_PASSPHRASE", PASS)
-    steward = SigningKey.generate()
-    steward_nid = canonical_node_id(steward.public)
+    guardian = SigningKey.generate()
+    guardian_nid = canonical_node_id(guardian.public)
     with tempfile.TemporaryDirectory() as tmp:
         def ks(name):
             return os.path.join(tmp, f"{name}.keystore")
 
         procs = []
-        # B, C: salt issuers, admission required, steward is the authority
+        # B, C: salt issuers, admission required, guardian is the authority
         for port, name in ((P_B, "iff-B"), (P_C, "iff-C")):
             procs.append(spawn(port, name, f"fp-{name}", [
                 "--log", os.path.join(tmp, f"{name}.jsonl"),
                 "--node-keystore", ks(name),
-                "--require-admission", "--admission-key", steward_nid,
+                "--require-admission", "--admission-key", guardian_nid,
                 "--peer-registry", os.path.join(tmp, f"{name}.peers.jsonl")]))
         # A: draws salts from B and C (m=2), relaxed embedding
         procs.append(spawn(P_A, "iff-A", "fp-iff-A", [
@@ -116,7 +116,7 @@ def test_iff_and_entanglement_live():
             # ---- I-2 admission of A and D on B and C ----
             for name in ("iff-A", "iff-D"):
                 ident = NodeIdentity.load_or_create(ks(name), PASS)
-                bundle = admit_peer(steward, make_peer_record(
+                bundle = admit_peer(guardian, make_peer_record(
                     ident.sk, base_url="http://127.0.0.1:0"))
                 for issuer in (P_B, P_C):
                     code, resp = post(BASE[issuer] + "/peers/hello", bundle)

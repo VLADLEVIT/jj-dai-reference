@@ -27,7 +27,7 @@ root, the issuer's hash-chain ordering, and the salt inside the record's
 signed body. The remaining trust assumption is the ISSUER's chain itself
 (anchor it; use m-of-n distinct issuers against collusion). Without the
 link, output degrades honestly to confidence "evidential" — an
-investigative signal for Stewards, never an automatic verdict.
+investigative signal for Guardians, never an automatic verdict.
 
 This is distributed linked timestamping (Haber–Stornetta) across JJ DAI
 nodes: the Sākṣī witness each other.
@@ -338,7 +338,7 @@ def judge_divergence(chain_a: dict, chain_b: dict, issuer_export: dict,
 
     EVIDENTIAL fallback (no cross-link available): the side whose
     'historical' records embed salts at HIGHER issuer indices is the more
-    likely fabrication — an investigative signal for Stewards, never an
+    likely fabrication — an investigative signal for Guardians, never an
     automatic verdict. Inconclusive when neither (or both equally) show
     anachronism; absence of beacons is not evidence."""
     issuer_id = issuer_export.get("node_id")

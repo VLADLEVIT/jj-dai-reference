@@ -50,10 +50,23 @@ METHOD_GROUPS = {
     "lifecycle": ("load_model", "unload_model"),
     "execution": ("generate", "stream_generate", "score", "cancel"),
     "health": ("health", "readiness"),
-    "trust": ("fingerprint", "attestation_manifest", "capabilities"),
+    "trust": ("attestation_manifest",),
     "session": ("create_session", "export_session_state",
                 "restore_session_state", "close_session"),
 }
+
+#: Not methods. A driver DECLARES these; there is nothing to implement, so
+#: asking whether they are "overridden" is a category error — and the first
+#: cut of this file made exactly that error, reporting `fingerprint` as
+#: not_supported on a driver that plainly had one.
+REQUIRED_ATTRIBUTES = ("backend", "determinism_level", "fingerprint",
+                       "protocol_version")
+
+#: Provided BY THE FRAMEWORK, not by the driver. `capabilities()` is how the
+#: adapter layer answers about a backend; it is not a capability OF the
+#: backend, and counting it as one made the source of truth about
+#: capabilities lie about itself.
+FRAMEWORK_METHODS = ("capabilities",)
 
 
 @runtime_checkable
@@ -173,12 +186,30 @@ def implements(obj, method: str) -> bool:
     return own is not None and own is not base
 
 
+def declared_attributes(obj) -> dict:
+    """Which required attributes a driver actually declares, and their
+    values. Absence is reported as absence — never as an unimplemented
+    method."""
+    out = {}
+    for attr in REQUIRED_ATTRIBUTES:
+        value = getattr(obj, attr, None)
+        out[attr] = value if value not in (None, "") else None
+    return out
+
+
 def capability_manifest(obj) -> dict:
-    """What this backend can do, per protocol group, derived not declared."""
+    """What this backend can do, per protocol group, derived not declared.
+
+    Three kinds of thing are kept apart, because conflating them made the
+    manifest contradict itself: METHODS a driver may implement, ATTRIBUTES a
+    driver declares, and FRAMEWORK methods the adapter layer supplies for
+    every driver.
+    """
     groups = {g: sorted(m for m in ms if implements(obj, m))
               for g, ms in METHOD_GROUPS.items()}
     missing = {g: sorted(m for m in ms if not implements(obj, m))
                for g, ms in METHOD_GROUPS.items()}
+    attrs = declared_attributes(obj)
     return {
         "protocol_version": getattr(obj, "protocol_version",
                                     PROTOCOL_VERSION),
@@ -188,4 +219,8 @@ def capability_manifest(obj) -> dict:
         "fingerprint": getattr(obj, "fingerprint", ""),
         "implemented": groups,
         "not_supported": {g: ms for g, ms in missing.items() if ms},
+        "attributes": attrs,
+        "attributes_missing": sorted(k for k, v in attrs.items()
+                                     if v is None),
+        "framework": list(FRAMEWORK_METHODS),
     }

@@ -105,7 +105,11 @@ def semantic_digest(text: str) -> str:
 # measures the others against. Re-exported here so existing importers and
 # tests keep working; the daemon itself now asks the registry by name.
 from jjdai.adapters.backends.hash import HashEngine        # noqa: E402,F401
-from jjdai.adapters.registry import create as create_backend  # noqa: E402,F401
+from jjdai.adapters.errors import RegistryError            # noqa: E402
+from jjdai.adapters.registry import (BackendConfig,        # noqa: E402
+                                     available as available_backends,
+                                     create as create_backend,
+                                     import_errors, load_builtin)
 
 
 # --------------------------------------------------------------------------- #
@@ -1489,10 +1493,23 @@ def main(argv=None):
     ap.add_argument("--adapters", default="{}",
                     help='JSON map adapter_id -> base_compat_tag (Profile A)')
     ap.add_argument("--fingerprint", default="fp-tier1-0001")
-    ap.add_argument("--engine", choices=("hash", "sglang", "dwarfstar"),
-                    default="hash")
+    # No hardcoded choices: the set of engines is whatever the registry
+    # carries, so a new backend driver becomes selectable by existing, not
+    # by editing this file. Validation happens in the registry, which can
+    # also say WHY a name is missing (unknown vs. driver failed to import).
+    load_builtin()
+    ap.add_argument("--engine", default="hash",
+                    help=f"backend driver name; registered on this host: "
+                         f"{available_backends()}"
+                         + (f" · failed to import: "
+                            f"{sorted(import_errors())}"
+                            if import_errors() else ""))
     ap.add_argument("--engine-url", default="http://127.0.0.1:30000",
-                    help="SGLang server base URL (when --engine sglang)")
+                    help="base URL of the engine server, for drivers that "
+                         "serve over HTTP (sglang, dwarfstar)")
+    ap.add_argument("--engine-device", default="",
+                    help="device selector, for drivers that address one "
+                         "(asic: emulator | device)")
     ap.add_argument("--adapter-paths", default="{}",
                     help='JSON map adapter_id -> lora_path name in SGLang')
     ap.add_argument("--engine-determinism", default=None,
@@ -1680,19 +1697,22 @@ def main(argv=None):
               "fresh --log path." % args.log, file=sys.stderr)
         return 2
 
-    if args.engine == "sglang":
-        from jjdai.adapters.backends.sglang import SGLangEngine
-        engine = SGLangEngine(
-            args.engine_url, fingerprint=args.fingerprint,
+    # v0.6.5 audit (P0-1): the daemon asks the registry BY NAME and knows
+    # nothing about which engines exist. The previous branch here made the
+    # seam decorative — vllm was registered and unreachable, and adding a
+    # backend still meant editing this file, which is the one thing the
+    # adapter layer was built to prevent.
+    load_builtin()
+    try:
+        engine = create_backend(args.engine, BackendConfig(
+            url=args.engine_url,
+            fingerprint=args.fingerprint,
+            determinism_level=args.engine_determinism,
             adapter_paths=json.loads(args.adapter_paths),
-            determinism_level=args.engine_determinism or "attested")
-    elif args.engine == "dwarfstar":
-        from jjdai.adapters.backends.dwarfstar import DwarfStarEngine
-        engine = DwarfStarEngine(
-            args.engine_url, fingerprint=args.fingerprint,
-            determinism_level=args.engine_determinism or "attested")
-    else:
-        engine = HashEngine(args.fingerprint)
+            device=getattr(args, "engine_device", "")))
+    except RegistryError as e:
+        print(f"engine: {e}", file=sys.stderr)
+        raise SystemExit(2)
     peers = [p.strip() for p in args.peers.split(",") if p.strip()]
     # IFF registry: admission authority defaults to THIS node (founding
     # bootstrap) — its own countersignature admits the first peers.

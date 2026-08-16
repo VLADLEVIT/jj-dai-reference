@@ -124,7 +124,7 @@ signal of a misconfigured peer or an abusive client. A rising
 ### Add a node
 Issue its leaf (step 1), bootstrap it (step 2), start + back up (step 3),
 then add its `https://…` to every existing node's `JJDAI_PEERS` and
-restart them one at a time. Admission beyond transport is the steward
+restart them one at a time. Admission beyond transport is the guardian
 flow (peers registry); transport is what this step wires.
 
 ### Rotate / revoke a compromised cert

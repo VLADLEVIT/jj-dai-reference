@@ -56,12 +56,13 @@ def _profile():
 def test_contract_is_declared_whole():
     R.load_builtin()
     # construction args differ per driver; the CONTRACT does not
-    args = {"hash": (("fp-x",), {}),
-            "dwarfstar": (("http://127.0.0.1:1",), {"fingerprint": "fp-x"}),
-            "sglang": (("http://127.0.0.1:1",), {"fingerprint": "fp-x"})}
+    # ONE config shape for every driver — that is the point of the second
+    # contract, and it is what lets the daemon stop knowing which engines
+    # exist
+    cfg = R.BackendConfig(url="http://127.0.0.1:1", fingerprint="fp-x",
+                          device="emulator")
     for name in R.available():
-        a, kw = args.get(name, ((), {}))
-        backend = R.create(name, *a, **kw)
+        backend = R.create(name, cfg)
         for method in ALL_METHODS:
             assert hasattr(backend, method), \
                 f"{name}: v{PROTOCOL_VERSION} method {method!r} is absent — " \
@@ -118,7 +119,7 @@ def test_registry_is_the_only_door():
     class Broken:
         backend = "broken"
 
-    R.register("broken-test", lambda: Broken(), replace=True)
+    R.register("broken-test", lambda cfg=None: Broken(), replace=True)
     try:
         R.create("broken-test")
     except RegistryError as e:
@@ -169,14 +170,14 @@ def test_profile_identity_is_canonical():
 def test_manifest_chain_and_tampering():
     sk = SigningKey.generate()
     body = M.build_manifest(profile=_profile(),
-                            checkpoint_hash="sha256:deadbeef",
+                            checkpoint_hash="sha256:" + "de" * 32,
                             backend="dwarfstar", backend_version="0.6.5",
                             licenses=["MIT"], source="internal-mirror")
     env = M.sign_manifest(body, sk)
     assert M.verify_manifest(env)["family"] == "DeepSeek"
 
     tampered = json.loads(json.dumps(env))
-    tampered["body"]["checkpoint_hash"] = "sha256:0000"
+    tampered["body"]["checkpoint_hash"] = "sha256:" + "00" * 32
     try:
         M.verify_manifest(tampered)
     except ManifestError as e:
@@ -213,7 +214,7 @@ def test_adding_a_family_touches_nothing_else():
         with open(path, "w", encoding="utf-8") as f:
             json.dump(doc, f)
         loaded = M.load_profile(path)
-    body = M.build_manifest(profile=loaded, checkpoint_hash="sha256:q",
+    body = M.build_manifest(profile=loaded, checkpoint_hash="sha256:" + "9a" * 32,
                             backend="vllm", backend_version="0.6.5")
     assert body["family"] == "Qwen-test", body
     # the adapter layer must not have dragged the node in with it
@@ -227,6 +228,81 @@ def test_adding_a_family_touches_nothing_else():
             f"the adapter layer imports {forbidden!r} — the seam has leaked"
 
 
+def test_daemon_selects_through_the_registry():
+    """A-10 (audit P0-1): the daemon must know the registry, not the engines.
+
+    Written to fail against the first cut of this drop, where the registry
+    existed, the test was called "the only door", and daemon.py still had
+    `if args.engine == "sglang" ... elif "dwarfstar" ... else hash`. The
+    seam was real and unused: vllm was registered and unreachable, and
+    adding a backend still meant editing the daemon.
+    """
+    daemon_src = open(os.path.join(_ROOT, "node", "daemon.py"),
+                      encoding="utf-8").read()
+    for branch in ('args.engine == "sglang"', 'args.engine == "dwarfstar"',
+                   'elif args.engine'):
+        assert branch not in daemon_src, \
+            f"daemon still branches on an engine name: {branch!r}"
+    assert "create_backend(args.engine" in daemon_src, \
+        "daemon does not construct through the registry"
+    assert 'choices=("hash", "sglang", "dwarfstar")' not in daemon_src, \
+        "the CLI still hardcodes the set of engines"
+
+    # every registered backend is constructible from ONE config shape —
+    # which is what actually lets the daemon stop knowing the engines
+    R.load_builtin()
+    cfg = R.BackendConfig(url="http://127.0.0.1:1", fingerprint="fp",
+                          device="emulator")
+    for name in R.available():
+        if name == "broken-test":        # deliberately contract-breaking
+            continue
+        assert R.create(name, cfg) is not None, name
+
+    # a driver that fails to import is a recorded fact, not a silent absence
+    R.note_import_error("ghost-driver", RuntimeError("boom"))
+    assert "ghost-driver" in R.import_errors()
+    try:
+        R.create("ghost-driver", cfg)
+    except RegistryError as e:
+        assert "failed to import" in str(e), str(e)
+    else:
+        raise AssertionError("a failed driver resolved anyway")
+
+
+def test_manifest_signature_does_not_certify_shape():
+    """A-11 (audit P0-3): a valid signature over garbage is still garbage."""
+    sk = SigningKey.generate()
+    for bad, why in (({"junk": "yes"}, "no schema"),
+                     ({"schema": "jjdai.model-artifact/v999",
+                       "checkpoint_hash": "not-a-hash"}, "wrong schema")):
+        try:
+            M.verify_manifest(M.sign_manifest(bad, sk))
+        except ManifestError:
+            continue
+        raise AssertionError(f"signed nonsense verified: {why}")
+
+    good = M.build_manifest(profile=_profile(),
+                            checkpoint_hash="sha256:" + "de" * 32,
+                            backend="hash", backend_version="0.6.5")
+    for mutate, why in (
+        (lambda b: b.update({"checkpoint_hash": "deadbeef"}),
+         "checkpoint not a content address"),
+        (lambda b: b.update({"profile_hash": "short"}), "profile_hash grammar"),
+        (lambda b: b.update({"protocol_version": "99"}), "unsupported protocol"),
+        (lambda b: b.update({"weight_adapters": ["lora-1"]}),
+         "adapter not a content address"),
+        (lambda b: b.update({"family": ""}), "empty family"),
+        (lambda b: b.update({"surprise": 1}), "unknown key"),
+    ):
+        body = json.loads(json.dumps(good))
+        mutate(body)
+        try:
+            M.verify_manifest(M.sign_manifest(body, sk))
+        except ManifestError:
+            continue
+        raise AssertionError(f"signed manifest accepted despite: {why}")
+
+
 if __name__ == "__main__":
     tests = [test_contract_is_declared_whole,
              test_capability_is_derived,
@@ -236,7 +312,9 @@ if __name__ == "__main__":
              test_profile_identity_is_canonical,
              test_manifest_chain_and_tampering,
              test_manifest_requires_its_artifact,
-             test_adding_a_family_touches_nothing_else]
+             test_adding_a_family_touches_nothing_else,
+             test_daemon_selects_through_the_registry,
+             test_manifest_signature_does_not_certify_shape]
     for t in tests:
         t()
         print(f"  ok  {t.__name__}")

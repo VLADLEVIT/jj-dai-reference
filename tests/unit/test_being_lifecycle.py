@@ -164,7 +164,7 @@ def test_containment_hand_not_mind():
     with tempfile.TemporaryDirectory() as tmp:
         rt, chain, gov, being = _mk_runtime(tmp)
         gov.contain(being, evidence_refs=["w:0"],
-                    initiator="steward:test", reason="unit")
+                    initiator="guardian:test", reason="unit")
         with_action = rt.handle_task({"text": "act now",
                                       "action": {"kind": "fs_write",
                                                  "path": "no.txt",

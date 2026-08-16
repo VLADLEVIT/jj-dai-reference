@@ -205,7 +205,7 @@ def test_being_runtime_three_nodes():
             # ---- G-4 ------------------------------------------------------ #
             code, c = _req(ctx, base_a + "/admin/containment", {
                 "contain": True, "evidence_refs": ["w:0"],
-                "initiator": "steward:test", "reason": "gate-6 hand-stop"})
+                "initiator": "guardian:test", "reason": "gate-6 hand-stop"})
             assert code == 200 and c["contained"], c
             code, resp3 = _req(ctx, base_a + "/v1/tasks", {
                 "task": {"text": "try to act while contained",

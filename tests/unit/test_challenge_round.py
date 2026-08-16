@@ -92,7 +92,7 @@ def test_vrf_rfc9381():
 
 def test_multisig():
     ks = [SigningKey.generate() for _ in range(3)]
-    msg = b"steward ballot"
+    msg = b"guardian ballot"
     pol = {"m": 2, "pubkeys": [k.public.hex() for k in ks]}
     two = [(ks[0].public.hex(), ks[0].sign(msg).hex()),
            (ks[1].public.hex(), ks[1].sign(msg).hex())]

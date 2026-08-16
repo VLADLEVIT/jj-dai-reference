@@ -137,6 +137,10 @@ def test_refusal_is_witnessed():
         assert outcome["isolation_profile"] == "wasm-wasi", outcome
         prov = w.records[-1][1]["provenance"]
         assert prov["isolation_profile"] == "wasm-wasi", prov
+        # naming the boundary is not enough: the record must also fix WHICH
+        # toolset the hand could reach (v0.6.5 audit carry-over)
+        assert len(prov["toolset_hash"]) == 64, prov
+        assert prov["runtime"], prov
 
 
 def test_tool_outside_the_fixed_set_is_refused():

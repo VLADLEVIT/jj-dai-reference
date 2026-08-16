@@ -144,10 +144,10 @@ def test_governed_plane_h():
             raise AssertionError("G-6: double supersede must be refused")
 
         # ---- G-7 redact (privileged: grant to governor identity) ----
-        sk_steward = SigningKey.generate()
-        policy.grant(NS, canonical_node_id(sk_steward.public), ops=("redact",))
+        sk_guardian = SigningKey.generate()
+        policy.grant(NS, canonical_node_id(sk_guardian.public), ops=("redact",))
         root_before = gov.store.merkle_root(NS)
-        env_red = make_write_proposal(sk_steward, op="redact", ns=NS,
+        env_red = make_write_proposal(sk_guardian, op="redact", ns=NS,
                                       doc_id="spec-001",
                                       target_chunk=r2["chunk_id"])
         r3 = gov.apply(env_red)

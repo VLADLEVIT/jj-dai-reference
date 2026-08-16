@@ -496,7 +496,10 @@ AGPL-3.0-only** — nodes serve other nodes over a network, and §13 obliges
 operators of modified nodes to disclose their modifications to those they
 serve; the **NECS specification and harness are Apache-2.0** so that
 independent engine vendors can implement and certify without copyleft
-obligations. Contributions require a CLA (see `CONTRIBUTING.md`).
+obligations. Contributions require a CLA; the contribution guide that
+described the process was withdrawn as outdated and its replacement has
+not landed yet, so ask before opening a pull request rather than assuming
+the old terms still apply.
 
 ## 11. Responsible disclosure
 

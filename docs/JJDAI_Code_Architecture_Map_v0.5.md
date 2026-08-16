@@ -2,7 +2,7 @@
 
 > GENERATED from `docs/architecture_status.json` by `scripts/gen_architecture_docs.py` — edit the JSON, not this file. `scripts/check_docs_drift.py` fails CI on divergence.
 
-Acceptance: 129/129 green (stdlib runner; CI matrix Python 3.10-3.12).
+Acceptance: 132/132 green (stdlib runner; CI matrix Python 3.10-3.12).
 
 ## #00 · The neurosymbolic stack
 

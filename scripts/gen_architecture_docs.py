@@ -257,16 +257,55 @@ def gen_html(st: dict, acceptance: int) -> str:
 
 # --------------------------------------------------------------------------- #
 
+#: Every block the build is allowed to write, and nothing else. The README
+#: intro belongs to the repository: it explains the project to a reader who
+#: has not met it, and a generator that knows only the status file has no
+#: business rewriting that sentence. A build that needs to say something new
+#: gets a NEW marker block rather than reaching into the prose.
+MARKERS = {
+    "VERSION": ("<!-- VERSION:BEGIN", "<!-- VERSION:END -->"),
+    "STATUS": ("<!-- STATUS:BEGIN", "<!-- STATUS:END -->"),
+    "ACCEPT": ("<!-- ACCEPT:BEGIN", "<!-- ACCEPT:END -->"),
+}
+
+
+def splice(text: str, name: str, body: str) -> str:
+    """Replace only what sits between one marker pair, opening tag kept."""
+    open_tag, close_tag = MARKERS[name]
+    pat = re.compile(re.escape(open_tag) + r".*?-->" + r".*?"
+                     + re.escape(close_tag), re.S)
+    m = pat.search(text)
+    if not m:
+        raise SystemExit(f"README is missing {name} markers")
+    head = m.group(0)[:m.group(0).index("-->") + 3]
+    return text[:m.start()] + head + "\n" + body + "\n" + close_tag \
+        + text[m.end():]
+
+
+def gen_version_line(st: dict) -> str:
+    return (f"**Version:** `{st['version']}` (matches `jjdai.__version__`; "
+            f"enforced by the release-integrity test) · **Python:** ≥3.10, "
+            f"stdlib-only core · **Site:** "
+            f"[jj-dai.org](https://jj-dai.org)")
+
+
+def gen_accept_block(acceptance: int) -> str:
+    return (f"Current status: {acceptance}/{acceptance} acceptance checks "
+            f"green (hermetic default groups).\n\nThe `live` group is opt-in "
+            f"and excluded from the default run: `python "
+            f"scripts/run_acceptance.py live` exercises the wasm-wasi\n"
+            f"boundary against a real `wasmtime` and is required by the Ф0 "
+            f"gate on each target host.")
+
+
 def generate(write: bool = True) -> dict:
     st = load()
     acceptance = count_acceptance()
     table = gen_readme_table(st, acceptance)
     readme = io.open(README, encoding="utf-8").read()
-    if BEGIN not in readme or END not in readme:
-        raise SystemExit("README is missing STATUS markers")
-    new_readme = re.sub(re.escape(BEGIN) + ".*?" + re.escape(END),
-                        BEGIN + "\n" + table + "\n" + END, readme,
-                        flags=re.S)
+    new_readme = splice(readme, "STATUS", table)
+    new_readme = splice(new_readme, "VERSION", gen_version_line(st))
+    new_readme = splice(new_readme, "ACCEPT", gen_accept_block(acceptance))
     map_md = gen_map(st, acceptance)
     page = gen_html(st, acceptance)
     html_path = os.path.join(ROOT, "docs", "site",

@@ -1,6 +1,28 @@
 # JJ DAI — Reference Trust, Governance & Agent Kernel
 
+<!-- VERSION:BEGIN (generated — the build owns this line and nothing else near it) -->
 **Version:** `0.6.5` (matches `jjdai.__version__`; enforced by the release-integrity test) · **Python:** ≥3.10, stdlib-only core · **Site:** [jj-dai.org](https://jj-dai.org)
+<!-- VERSION:END -->
+
+<!--
+  README OWNERSHIP (v0.6.5)
+  ------------------------
+  Everything OUTSIDE a generated marker block is owned by the repository and
+  is never written by the build. That includes the title, this notice, and
+  section 1 "What is JJ DAI" — the prose that explains the project to a
+  reader who has not met it belongs to whoever maintains the repository, not
+  to a generator that knows only the status file.
+
+  The build owns exactly three blocks, each fenced by markers:
+      VERSION:BEGIN/END   the version line
+      STATUS:BEGIN/END    the component status table
+      ACCEPT:BEGIN/END    the acceptance count and group note
+
+  scripts/gen_architecture_docs.py splices only between those markers, and
+  tests/unit/test_readme_ownership.py fails the build if a single byte
+  outside them changes. If the build ever needs to say something new, it
+  gets a new marker block — it does not reach into the prose.
+-->
 
 > A tested reference implementation of JJ DAI identity, memory, verification,
 > witness, routing, containment and agent-governance primitives, with an
@@ -20,8 +42,8 @@ that everything touching a decision is verified.
 
 Mutable knowledge lives outside frozen model weights (RAG, Plane H); every
 inference, memory write, routing decision and containment act is bound to
-cryptographic evidence and
-recorded in an Ed25519-signed, hash-chained witness log; inference and
+cryptographic evidence and recorded in an Ed25519-signed, hash-chained
+witness log; inference and
 verification are performed by separate roles (generator/verifier asymmetry);
 and an agent's executive capabilities can be selectively severed — with due
 process, reversibility and rehabilitation — without silencing its voice or
@@ -70,7 +92,7 @@ inside a governed sandbox — each act witnessed before and after.
 | Tier-1 trust node daemon | Prototype |
 | Adapter layer — EngineBackend Protocol v1 | Implemented (Implemented, protocol v1 declared whole) |
 | NECS v0.1 + harness | Implemented |
-| Acceptance and CI | Implemented (129/129 green) |
+| Acceptance and CI | Implemented (132/132 green) |
 | Retired M1-M5 lineage | Implemented (Frozen) |
 | Deployment kit (Linux + macOS) | Implemented (Implemented, macOS kit v0.6.2) |
 | Plane B canary lifecycle | Planned |
@@ -323,10 +345,18 @@ python scripts/run_acceptance.py [unit|integration|conformance|adversarial|legac
 ```
 
 CI runs the matrix on Python 3.10–3.12 (`.github/workflows/ci.yml`).
-Current status: 129/129 acceptance checks green (hermetic default groups),
-up from 94 at v0.6.3 — v0.6.4 added I-1…I-9 (isolation profiles) and
-G-1…G-8 (ingress hardening) for 111, v0.6.5 added A-1…A-11 (adapter layer)
-and W-1…W-7 (plane vocabulary) for 129.
+
+<!-- ACCEPT:BEGIN (generated — do not edit by hand) -->
+Current status: 132/132 acceptance checks green (hermetic default groups).
+
+The `live` group is opt-in and excluded from the default run: `python scripts/run_acceptance.py live` exercises the wasm-wasi
+boundary against a real `wasmtime` and is required by the Ф0 gate on each target host.
+<!-- ACCEPT:END -->
+
+That count grew from 94 at v0.6.3: v0.6.4 added I-1…I-9 (isolation
+profiles) and G-1…G-8 (ingress hardening) for 111; v0.6.5 added A-1…A-11
+(adapter layer), W-1…W-7 (plane vocabulary) and R-OWN-1…R-OWN-4 (README
+ownership).
 
 Each new check is written to fail against the previous release. Some are
 also written to fail against the FIRST CUT of their own drop, which is the
@@ -339,20 +369,32 @@ the engine name and walked past it; W-6 asserted that the reserved fields
 *could* be set, enshrining the hole it was meant to close. A green suite is
 evidence only about what the checks actually reach.
 
-The `live` group is opt-in and excluded from the default run and from the
-published badge: `python scripts/run_acceptance.py live` exercises the
-wasm-wasi boundary against a real `wasmtime` (L-1…L-5: workspace reachable,
-external filesystem unreachable, no network capability, no host binary
-launchable, digest tampering fail-closed) and is required by the Ф0 gate on
-each target host. Without a runtime it FAILS LOUDLY rather than skipping —
-a check that skips itself is not evidence.
+What the opt-in `live` group proves, and why it is excluded from the count
+above: L-1…L-5 exercise the wasm-wasi boundary against a real `wasmtime` —
+workspace reachable, external filesystem unreachable, no network capability
+granted, no host binary launchable, digest tampering fail-closed. Without a
+runtime the group FAILS LOUDLY rather than skipping, because a check that
+skips itself is not evidence.
 
-Release integrity is itself a test (`tests/unit/test_release_integrity.py`):
-R-VER pins this README's version line, `pyproject`, `SECURITY.md` and the
-last CHANGELOG header to `jjdai.__version__`; R-ACCEPT pins the badge above
-to what the runner actually collects, hand-written surfaces included, after
-a v0.6.4 audit found a README badge reading `68/68` while the generated one
-said `109/109`.
+**This README is itself under test.** Two suites hold it to the code:
+
+- `test_release_integrity.py` — R-VER pins the version line, `pyproject`,
+  `SECURITY.md` and the last CHANGELOG header to `jjdai.__version__`;
+  R-ACCEPT pins the badge to what the runner actually collects, after a
+  v0.6.4 audit found a README badge reading `68/68` while the generated one
+  said `109/109`.
+- `test_readme_ownership.py` (v0.6.5) — the file has two owners, and the
+  boundary is now enforced rather than agreed. The build owns the three
+  fenced blocks above and nothing else; the title, the notice and section 1
+  belong to the repository. R-OWN-2 copies the tree, plants a sentinel
+  inside section 1, runs the generator and fails if a single byte outside
+  the markers moved; R-OWN-3 requires the generator to be idempotent, so a
+  build never hands the repository a diff it did not ask for; R-OWN-4
+  requires every machine-owned fact to live inside a block, leaving no
+  reason for a build step to reach into the prose. This exists because it
+  had already happened — the repository corrected "3-layer" to "3-tier" in
+  section 1, and nothing stopped the next build from putting "3-layer"
+  back.
 
 ## 8. Roadmap
 

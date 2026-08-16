@@ -90,11 +90,15 @@ def test_acceptance_count_matches_collected():
     assert int(m.group(1)) == counted, \
         f"R-ACCEPT: map says {m.group(1)}, runner collects {counted}"
     # v0.6.4 audit: the GENERATED badge was correct while a HAND-WRITTEN
-    # one in the README still said 68/68. A drift the drift-checker could
-    # not see, because it only ever compared generated surfaces.
+    # one in the README still said 68/68 — drift the checker could not see,
+    # because it only ever compared generated surfaces.
+    # v0.6.5: the badge moved INSIDE the ACCEPT marker block so no build
+    # step has a reason to edit hand-owned prose (see
+    # tests/unit/test_readme_ownership.py). It is still checked here, from
+    # inside the block.
     readme = _read("README.md")
     manual = re.findall(r"(\d+)/(\d+)\s+acceptance checks green", readme)
-    assert manual, "R-ACCEPT: README lacks a hand-written acceptance badge"
+    assert manual, "R-ACCEPT: README lacks an acceptance badge"
     for a, b in manual:
         assert int(a) == counted and int(b) == counted, \
             (f"R-ACCEPT: README hand-written badge says {a}/{b}, runner "

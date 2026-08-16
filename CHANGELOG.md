@@ -1288,11 +1288,42 @@ fewer capability and nobody could ask why. Failures are recorded, exposed
 through `import_errors()`, named in `--engine` help, and quoted when an
 unknown backend is requested.
 
+## 4. README ownership — the build stops touching the prose
+
+Requested by whoever pushes to the repository, and correct: the intro must
+either be left alone by the build or live somewhere the build cannot
+reach.
+
+It was already half true — `gen_architecture_docs.py` spliced only
+between the STATUS markers. But the version line and the acceptance badge
+were hand-written text that build steps edited anyway with a `sed`, which
+is how a maintainer's wording gets silently replaced by the next
+generated README, or turns into a merge conflict for a one-word change.
+The repository had already corrected "3-layer" to "3-tier" in section 1;
+nothing stopped a build from putting "3-layer" back.
+
+Ownership is now explicit and enforced rather than agreed:
+
+- the build owns exactly three fenced blocks — `VERSION`, `STATUS`,
+  `ACCEPT` — and the version line and acceptance badge moved INSIDE them,
+  so no build step has any reason to edit prose;
+- everything else, including the title and section 1 "What is JJ DAI",
+  belongs to the repository. The sentence that explains the project to
+  someone who has not met it is not something a generator that knows only
+  a status file should be writing;
+- `tests/unit/test_readme_ownership.py` copies the tree, plants a
+  sentinel inside section 1, runs the generator, and fails if a single
+  byte outside the marker blocks changed. It also checks idempotence, so
+  a build never hands the repository a diff it did not ask for;
+- a build that needs to say something new gets a NEW marker block. It
+  does not reach into the prose.
+
 ## Acceptance
 
-111 → 129. Eighteen new checks: A-1…A-11
+111 → 132. Twenty-one new checks: A-1…A-11
 (`tests/unit/test_adapter_layer.py`) and W-1…W-7
-(`tests/unit/test_plane_schema.py`), plus the five opt-in live checks
+(`tests/unit/test_plane_schema.py`), R-OWN-1…R-OWN-4
+(`tests/unit/test_readme_ownership.py`), plus the five opt-in live checks
 from v0.6.4.
 
 ## Still open after this drop

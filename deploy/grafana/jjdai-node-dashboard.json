@@ -1,0 +1,52 @@
+{
+  "__comment": "JJ DAI node — starter dashboard (v0.6.6). Deliberately small: panels for the facts that exist, no SLO thresholds, since r6.6.2 leaves SLO values TBD until the end of Ф3. Import and extend per deployment.",
+  "title": "JJ DAI — node",
+  "uid": "jjdai-node",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": {"from": "now-6h", "to": "now"},
+  "templating": {"list": [{"name": "instance", "type": "query", "query": "label_values(jjdai_uptime_seconds, instance)", "multi": true, "includeAll": true}]},
+  "panels": [
+    {"id": 1, "type": "stat", "title": "Ready (aggregate)", "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+     "targets": [{"expr": "jjdai_ready{instance=~\"$instance\"}"}]},
+    {"id": 2, "type": "stat", "title": "Beacon age (s)", "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+     "targets": [{"expr": "jjdai_liveness_beacon_age_seconds{instance=~\"$instance\"}"}]},
+    {"id": 3, "type": "stat", "title": "Witness records", "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+     "targets": [{"expr": "jjdai_witness_records{instance=~\"$instance\"}"}]},
+    {"id": 4, "type": "stat", "title": "Uptime (s)", "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
+     "targets": [{"expr": "jjdai_uptime_seconds{instance=~\"$instance\"}"}]},
+    {"id": 5, "type": "timeseries", "title": "Readiness by subsystem", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+     "description": "1 ready · 0.5 degraded · 0 not ready · -1 not configured",
+     "targets": [
+       {"expr": "jjdai_ready_identity{instance=~\"$instance\"}", "legendFormat": "identity"},
+       {"expr": "jjdai_ready_witness{instance=~\"$instance\"}", "legendFormat": "witness"},
+       {"expr": "jjdai_ready_anchoring{instance=~\"$instance\"}", "legendFormat": "anchoring"},
+       {"expr": "jjdai_ready_engine{instance=~\"$instance\"}", "legendFormat": "engine"},
+       {"expr": "jjdai_ready_isolation{instance=~\"$instance\"}", "legendFormat": "isolation"},
+       {"expr": "jjdai_ready_being{instance=~\"$instance\"}", "legendFormat": "being"}]},
+    {"id": 6, "type": "timeseries", "title": "Anchoring lag / unanchored depth", "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+     "targets": [
+       {"expr": "jjdai_anchor_lag_seconds{instance=~\"$instance\"}", "legendFormat": "lag (s)"},
+       {"expr": "jjdai_unanchored_depth{instance=~\"$instance\"}", "legendFormat": "depth"}]},
+    {"id": 7, "type": "timeseries", "title": "Isolation toolset faults by cause", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+     "description": "digest drift is a security event; a missing module is a deployment one. Kept apart on purpose.",
+     "targets": [
+       {"expr": "jjdai_toolset_digest_drift_total{instance=~\"$instance\"}", "legendFormat": "digest drift"},
+       {"expr": "jjdai_toolset_module_missing_total{instance=~\"$instance\"}", "legendFormat": "module missing"},
+       {"expr": "jjdai_toolset_other_fault_total{instance=~\"$instance\"}", "legendFormat": "other"}]},
+    {"id": 8, "type": "timeseries", "title": "Host suspensions and clock steps", "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+     "description": "Mac node sleep breaks count against the 72h requirement of the F1 gate.",
+     "targets": [
+       {"expr": "increase(jjdai_sleep_gaps_total{instance=~\"$instance\"}[1h])", "legendFormat": "suspensions/h"},
+       {"expr": "jjdai_sleep_gap_last_seconds{instance=~\"$instance\"}", "legendFormat": "last gap (s)"},
+       {"expr": "increase(jjdai_clock_steps_total{instance=~\"$instance\"}[1h])", "legendFormat": "clock steps/h"}]},
+    {"id": 9, "type": "timeseries", "title": "Ingress refusals", "gridPos": {"h": 8, "w": 24, "x": 0, "y": 20},
+     "targets": [
+       {"expr": "increase(jjdai_overloaded_total{instance=~\"$instance\"}[5m])", "legendFormat": "overloaded"},
+       {"expr": "increase(jjdai_refusal_dropped_total{instance=~\"$instance\"}[5m])", "legendFormat": "refusal dropped"},
+       {"expr": "increase(jjdai_rate_limited_total{instance=~\"$instance\"}[5m])", "legendFormat": "rate limited"},
+       {"expr": "increase(jjdai_denied_authz_total{instance=~\"$instance\"}[5m])", "legendFormat": "authz denied"},
+       {"expr": "increase(jjdai_bad_framing_total{instance=~\"$instance\"}[5m])", "legendFormat": "bad framing"}]}
+  ]
+}

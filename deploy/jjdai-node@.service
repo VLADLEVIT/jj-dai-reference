@@ -6,7 +6,11 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
-Type=simple
+# Type=notify (v0.6.6): the daemon sends READY=1 once the listener is bound,
+# so units ordered After= this one start against a node that can actually be
+# reached, not merely a process that has been forked.
+Type=notify
+NotifyAccess=main
 User=jjdai
 Group=jjdai
 WorkingDirectory=/opt/jjdai
@@ -33,6 +37,8 @@ ExecStart=/usr/bin/python3 -m node.daemon \
     --authz-policy /etc/jjdai/authz.json \
     --revoked-serials @/etc/jjdai/pki/revoked.txt \
     --rate-limit ${JJDAI_RATE_LIMIT} \
+    --anchor-lag-max-s ${JJDAI_ANCHOR_LAG_MAX_S} \
+    --unanchored-depth-max ${JJDAI_UNANCHORED_DEPTH_MAX} \
     --being-profile production \
     --being-provenance /etc/jjdai/provenance.json \
     --being-workspace /var/lib/jjdai/%i.ws \
@@ -44,10 +50,15 @@ Restart=on-failure
 RestartSec=5
 # The Witness is persist-before-expose and recovery is journaled: a
 # crash-restart resumes meaning, so aggressive restart is safe.
-# WatchdogSec intentionally NOT set: the daemon does not implement
-# sd_notify(WATCHDOG=1) yet, and an unanswered watchdog would make systemd
-# kill a healthy node every interval. A stdlib NOTIFY_SOCKET heartbeat and
-# WatchdogSec return together in the observability drop (audit item #1).
+# WatchdogSec RETURNS in v0.6.6 together with the sd_notify heartbeat it was
+# waiting for (audit item #1, opened in v0.6.3). The heartbeat is gated on a
+# beacon refreshed by the ACCEPT LOOP: a node whose serving path is wedged
+# stops answering and is restarted, while a node that is merely BUSY keeps
+# answering. 90s against a 30s beacon staleness limit leaves room for a slow
+# inference pass without leaving a hung node running.
+WatchdogSec=90
+# A watchdog restart must not race the ordinary restart backoff.
+WatchdogSignal=SIGABRT
 
 # ---- hardening: the hand the OS gives this process is small ----------
 NoNewPrivileges=true

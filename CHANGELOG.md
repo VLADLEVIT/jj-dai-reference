@@ -1351,3 +1351,211 @@ metadata channel — record counts, kinds, timing — which this drop does
 not address. And the deeper form of the same rule, where the runtime
 keeps the local chain and the witness plane does the anchoring so no
 organ of a being calls `append` at all, remains Ф3 work under ADR-015.
+
+---
+
+# JJ DAI v0.6.6 — observability: the difference between running and serving
+
+Scope: the observability drop the v0.6.3 audit deferred. `/healthz` becomes
+liveness alone, `/readyz` arrives beside it, `sd_notify` returns `WatchdogSec`
+to the systemd unit, host suspension becomes visible, and the isolation
+toolset stops reporting two different events under one word. Inference
+behaviour is unchanged; no serialized witness value is added or renamed, so
+nothing in this drop touches the pre-genesis window.
+
+## The split, and why the obvious design was rejected
+
+Until now a node answered exactly one health question and answered it with
+`ok: true` for as long as the process could form a reply. The v0.6.3 audit
+recorded the consequence plainly: `/healthz` is liveness-only. Anything that
+reads a liveness answer as permission to send work will send work to a node
+that is running and cannot serve.
+
+The obvious readiness design — one boolean — was rejected on arithmetic
+rather than taste. **This build ships no compiled wasm modules.** A freshly
+deployed node therefore has an unprovisioned toolset by construction. Under a
+single flag no node would ever report ready, and the flag would be switched
+off in the field within a week, which is worse than not having it. Meanwhile
+the witness contour, which is what actually makes a node a participant, does
+not depend on wasm at all.
+
+So readiness is reported **per subsystem**, and the aggregate is red only for
+the subsystems without which the node is not a participant:
+
+    CORE      identity · witness · anchoring
+    NON-CORE  engine · isolation · being
+
+Four states, not two: `ready`, `degraded`, `not_ready`, `not_configured`.
+The fourth matters. A testnet node with no anchor backends is not a broken
+node, and reporting it as `not_ready` trains operators to ignore the field.
+Absence of a feature and failure of a feature are different facts and are
+kept apart here as everywhere else in this codebase.
+
+Two consequences worth naming because they are policy, not implementation:
+
+- **an ephemeral (dev) identity is `degraded`, not `ready`.** The node
+  functions, but nothing it signs carries continuity across a restart, and an
+  operator who cannot see that difference on a dashboard discovers it at the
+  worst possible moment.
+- **a contained being is `degraded`, never a fault.** Under Article 25
+  containment is a state of the identity with due process attached. A
+  monitoring stack that pages the operator for it turns a governance event
+  into an incident.
+
+`/readyz` answers **503** when the aggregate is red, so an orchestrator that
+reads only the status code behaves correctly without parsing the body. The
+mapping is a named function (`readiness.http_status`) rather than an inline
+conditional, so it is checked directly — an untested contract is a comment.
+
+**Authorization.** `/healthz` stays anonymous and now leaks nothing: the
+isolation fields that rode there since v0.6.4 have moved to `/readyz` as that
+drop promised. `/readyz` is `peer` and `admin` only. It names which engines
+are loaded, what is broken and how far anchoring has fallen behind — together
+a usable map for whoever is choosing where to push.
+
+## The watchdog returns, gated
+
+v0.6.3 removed `WatchdogSec=60` for the right reason: the daemon could not
+answer it, and an unanswered watchdog would have killed a healthy node every
+interval. It returns here at 90s, together with the `sd_notify` heartbeat it
+was waiting for, and the unit becomes `Type=notify` — `READY=1` is sent once
+the listener is actually bound, so units ordered after this one start against
+a node that can be reached rather than a process that has been forked.
+
+**The heartbeat is gated on a beacon refreshed by the accept loop.** A
+heartbeat firing unconditionally from its own timer thread is theatre: the
+failure a watchdog exists to catch is a process that is alive and stuck — a
+deadlocked accept loop, an organ holding a lock forever, a thread pool with
+no free worker — and a dedicated timer survives all of them and keeps
+pinging, so systemd concludes the node is fine precisely when it is not. Here
+the watchdog reports *the part of the process that answers the network is
+moving*, and reports a wedged one by **silence**.
+
+The beacon is touched in `process_request`, on the accept loop, before
+admission — not inside a handler, where it would stay fresh while the accept
+loop was wedged. Staleness tolerance is three intervals, because a node under
+heavy inference is legitimately slow to come round and a watchdog that
+restarts a busy node is a load amplifier.
+
+**The heartbeat is deliberately NOT gated on readiness.** A node whose anchor
+lag exceeds policy must stop receiving work, but killing and restarting it
+would not fix an anchor backend and would destroy a node holding its chain
+correctly. Feeding readiness into the watchdog turns every upstream outage
+into a fleet-wide restart loop.
+
+## Host suspension is now visible
+
+The Ф1 gate requires `/healthz` green for 72 consecutive hours on every node
+including the Mac node, and says so with an explicit parenthesis: without
+sleep breaks. A laptop-class host is in the topology on purpose — it carries
+the inference path — and a host that suspends does not crash, does not log an
+error and does not fail a health check. It comes back with its uptime intact
+and its replication behind, and nothing notices.
+
+`node/clockwatch.py` compares wall time against monotonic time every two
+seconds. Both `CLOCK_MONOTONIC` on Linux and `mach_absolute_time` on Darwin
+stop while the machine is suspended; wall time does not. The divergence is
+the suspension, and detecting it needs no platform API and no privileges.
+
+A **backwards** divergence is an NTP step, not a suspension, and is counted
+as a separate series. Folding the two together would fire the sleep alert on
+every clock correction and get it muted within a month.
+
+Nothing here is written to the witness plane. A host suspending is an
+operational fact about a machine, not an act of a being.
+
+## "Broken" was one word for two different events
+
+The isolation toolset previously reported a per-tool failure as a string. Two
+of those strings meant very different things:
+
+- a module that is **absent** is an operations fact — someone shipped the
+  manifest without the artifact, and on this build it is the *expected* state
+  of a fresh node;
+- a module whose digest has **drifted** from its pin is a security fact — the
+  artifact under the pin is not the artifact that was pinned.
+
+The first is common and the second is rare, and merging them guarantees the
+rare one is read as the first. Failures now carry a machine-readable cause
+(`MODULE_MISSING`, `DIGEST_DRIFT`, `UNPINNED`, `NOT_PERMITTED`,
+`OUTSIDE_ROOT`), the metric set counts them separately, and the shipped alert
+rules page **security at critical** for drift while a missing module is
+**info** and pages nobody.
+
+`UNPINNED` was split out in the same pass: a manifest entry carrying no
+`sha256` is a manifest defect, not evidence of tampering. Both refuse
+execution; only one of them should wake anybody up at 3am.
+
+`toolset_status()` is unchanged and `toolset_report()` sits beside it.
+Changing a return shape to add a field is how a build acquires a regression
+it did not need.
+
+## Shipped
+
+- `node/readiness.py` — the rules, evaluating a plain snapshot dict, importing
+  nothing from the daemon. `node/daemon.py` gathers the facts. Keeping the
+  claim and the measurement in different modules is the direct answer to the
+  v0.6.5 finding that a check named after a claim while measuring something
+  adjacent to it is worse than no check.
+- `node/sdnotify.py` — stdlib `sd_notify` over an AF_UNIX datagram socket,
+  abstract namespace included; `Beacon`; `Watchdog` with a testable `tick()`.
+  No systemd required to import: on macOS `available()` is false and every
+  call is a no-op.
+- `node/clockwatch.py` — suspension and clock-step detection.
+- `deploy/prometheus/jjdai-alerts.yml` — 16 alerts, each naming one fact with
+  one owner. `deploy/prometheus/README.md` documents the mTLS scrape.
+- `deploy/grafana/jjdai-node-dashboard.json` — starter dashboard.
+- `deploy/jjdai-node@.service` — `Type=notify`, `NotifyAccess=main`,
+  `WatchdogSec=90`, `WatchdogSignal=SIGABRT`, readiness policy flags.
+- `deploy/authz.testnet.json` — `/readyz` for `peer` and `admin`.
+- new flags: `--anchor-lag-max-s`, `--unanchored-depth-max`, `--no-watchdog`,
+  `--sleep-gap-threshold-s`.
+
+Acceptance 133 → 140. New checks: R-1..R-9 (readiness rules and the status
+contract), S-1..S-6 (notify and the beacon gate), C-1..C-4 (suspension versus
+clock step), T-0..T-5 (fault codes), A-1..A-5 (the alert rules as a
+deliverable), H-1..H-6 (the live split, including that `/healthz` leaks
+nothing and that the shipped policy keeps anonymous out of `/readyz`).
+
+## Found by the build's own checks
+
+**M-FLAGS** caught the macOS launcher drifting from the systemd unit the
+moment the two readiness flags were added to the unit and not to the
+launcher. The flag-parity test earns its place again; the launcher now
+carries both.
+
+**One assertion was written from the implementation rather than the
+requirement** and was corrected before the cut: a check asserted that one
+good tool keeps the wasm profile available, which is false on a host without
+`wasmtime` — availability depends on the host runtime as well as the tools.
+The corrected check pins what the v0.6.4 audit actually required: a refusal
+must name the *right* cause, so on a runtime-less host the profile reports a
+host reason and must not report a tool fault it does not have. This is the
+same failure mode as G-6 in v0.6.4 and W-6 in v0.6.5, caught in the drop that
+introduced it rather than in the audit after it.
+
+## Still open after this drop
+
+- `jjdai/adapters/` restructure landed in v0.6.5; the **canonical AGPL text**
+  remains a PUBLICATION BLOCKER and is v0.6.7 together with the supply-chain
+  stream.
+- **No compiled wasm modules ship.** Execution in practice is still the
+  reference fence, and the live group (`tests/live/`) still requires a real
+  runtime on the host.
+- **SLO values remain TBD.** The alert thresholds in the shipped rules are
+  starting points, not the SLO table: r6.6.2 assigns SLO owners in Ф0 and
+  leaves the values open until the end of Ф3. No recording rules ship, for
+  the same reason — shipping thresholds now would mean shipping guesses with
+  the authority of a config file.
+- **`readiness_snapshot()` reports `chain_broken` as empty and
+  `signer_mismatch` as false** rather than re-verifying the chain on every
+  scrape. The boot gate already refuses to start on a foreign identity, and a
+  full chain verification per request would be a self-inflicted denial of
+  service. A cheap periodic re-verification with its result cached belongs in
+  the same phase as the cognitive ledger, and is named here rather than
+  implied.
+- **Anchoring lag reads optimistically** when the scheduler exposes no
+  timestamp: a node that has never anchored reports `null` lag rather than
+  infinite. The metric is honest about not knowing; the alert cannot fire on
+  it. Closing this needs the anchoring scheduler to publish its own last
+  successful anchor, which is a change to that component and not to this one.

@@ -1,8 +1,8 @@
-# JJ DAI — Code Architecture Map v0.6.5
+# JJ DAI — Code Architecture Map v0.6.6
 
 > GENERATED from `docs/architecture_status.json` by `scripts/gen_architecture_docs.py` — edit the JSON, not this file. `scripts/check_docs_drift.py` fails CI on divergence.
 
-Acceptance: 133/133 green (stdlib runner; CI matrix Python 3.10-3.12).
+Acceptance: 140/140 green (stdlib runner; CI matrix Python 3.10-3.12).
 
 ## #00 · The neurosymbolic stack
 
@@ -69,6 +69,7 @@ Mutable knowledge lives outside frozen weights; everything that touches a decisi
 | Module | What it is | Status |
 |---|---|---|
 | `node/daemon.py` | Ingress hardening — caps before authorization: Body ceiling enforced before the body is read (413), chunked framing refused (411) because an undeclared length cannot be capped, malformed Content-Length answered 400 instead of raising in the handler thread, a per-connection clock, and a connection ceiling admitted ON THE ACCEPT LOOP so stalled connections cannot grow worker threads; refusals go to one bounded worker that drains before closing, so the 503 survives. Rate-limit budgets are keyed by certificate identity, with a namespaced address key only where no client certificate was presented. | **Implemented** (Implemented) |
+| `node/readiness.py · node/sdnotify.py · node/clockwatch.py` | Observability — liveness/readiness split, watchdog, sleep detection: /healthz answers liveness and nothing else; /readyz answers readiness per subsystem with an aggregate that is red only for identity, witness and anchoring — a node whose wasm toolset is unprovisioned is still a full witness participant, and this build ships no compiled modules, so any other choice would report every fresh node unready. Readiness is peer/admin: it names loaded engines, broken toolsets and anchoring lag. sd_notify returns WatchdogSec to the unit, gated on a beacon refreshed by the accept loop, so a wedged serving path is reported by silence while a merely busy node keeps answering. Wall-versus-monotonic divergence detects host suspension — the Mac node's invisible failure, which the Ф1 gate counts against 72 hours green. Toolset faults are split by cause: a missing module is an operations event, a drifted digest is a security one, and they alert separately. | **Implemented** (Implemented, v0.6.6) |
 | `node/daemon.py` | Tier-1 trust node daemon: Inference/scoring, Witness export, replication, entanglement, attestation, anchoring, peers, containment, the Being task lifecycle, per-identity rate limiting, role-based authorization, cert revocation, /healthz and /metrics, and the networked challenge round — all over TLS/mTLS. | **Prototype** (Prototype) |
 | `jjdai/adapters/` | Adapter layer — EngineBackend Protocol v1: Backend drivers (hash reference, DwarfStar, SGLang; vLLM, llama.cpp, MLX and the pre-silicon ASIC runtime declared and refusing by type), declarative model-family profiles, typed fail-closed errors and a registry that admits nothing which does not satisfy the contract. Capability is DERIVED from what a driver actually overrides, never hand-declared, so a manifest cannot drift from the code. Generation and scoring behaviour is unchanged by the move. | **Implemented** (Implemented, protocol v1 declared whole) |
 | `necs/` | NECS v0.1 + harness: Conformance specification and harness under Apache-2.0, preserving vendor-neutral adoption. | **Implemented** (Implemented) |

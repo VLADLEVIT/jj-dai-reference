@@ -66,6 +66,30 @@ from kernel.karma import (ActionResult, ProfileUnavailable,        # noqa: E402
 TOOLSET_SCHEMA = "jjdai.toolset/v1"
 DEFAULT_WASMTIME = "wasmtime"
 
+#: Why a declared tool is not executable. Added in v0.6.6 because "broken"
+#: was one word for two different events with two different owners: a module
+#: that is absent is an OPERATIONS fact (someone shipped the manifest without
+#: the artifact), while a module whose digest has drifted from its pin is a
+#: SECURITY fact (the artifact under the pin is not the artifact that was
+#: pinned). Merging them into one alert guarantees that the second is read as
+#: the first, because the first is common and the second is rare.
+TOOL_OK = "OK"
+TOOL_NOT_PERMITTED = "NOT_PERMITTED"        # not in the fixed toolset
+TOOL_OUTSIDE_ROOT = "OUTSIDE_ROOT"          # path escapes the toolset dir
+TOOL_MODULE_MISSING = "MODULE_MISSING"      # declared, artifact absent
+TOOL_UNPINNED = "UNPINNED"                  # manifest entry carries no digest
+TOOL_DIGEST_DRIFT = "DIGEST_DRIFT"          # artifact != pinned digest
+
+#: Codes that must never be reported as routine operational noise.
+TOOL_SECURITY_CODES = (TOOL_DIGEST_DRIFT, TOOL_OUTSIDE_ROOT)
+
+
+def _fail(cls, code: str, msg: str):
+    """Raise-ready exception carrying a machine-readable cause."""
+    e = cls(msg)
+    e.code = code
+    return e
+
 
 class WasmWasiProfile(Sandbox):
     """Capability-scoped execution: a fixed toolset of precompiled modules.
@@ -128,6 +152,26 @@ class WasmWasiProfile(Sandbox):
                 out[tool] = (False, str(e))
             else:
                 out[tool] = (True, "")
+        return out
+
+    def toolset_report(self) -> dict:
+        """{tool: {"ok", "code", "reason"}} — readiness WITH its cause.
+
+        toolset_status() is kept unchanged beside this: it is what the v0.6.4
+        readiness logic and its checks were written against, and changing a
+        return shape to add a field is how a build acquires a regression it
+        did not need.
+        """
+        out = {}
+        for tool in sorted(self.toolset()):
+            try:
+                self._module_for(tool)
+            except (ToolNotPermitted, ProfileUnavailable) as e:
+                out[tool] = {"ok": False,
+                             "code": getattr(e, "code", "UNKNOWN"),
+                             "reason": str(e)}
+            else:
+                out[tool] = {"ok": True, "code": TOOL_OK, "reason": ""}
         return out
 
     def toolset_hash(self) -> str:
@@ -193,6 +237,9 @@ class WasmWasiProfile(Sandbox):
                 "toolset_ready": sorted(t for t, (o, _) in status.items() if o),
                 "toolset_broken": {t: why for t, (o, why) in status.items()
                                    if not o},
+                "toolset_codes": {t: r["code"] for t, r
+                                  in self.toolset_report().items()
+                                  if not r["ok"]},
                 "toolset_hash": self.toolset_hash(),
                 "manifest_signed": False,
                 "fail_closed": True}
@@ -201,7 +248,7 @@ class WasmWasiProfile(Sandbox):
     def _module_for(self, tool: str) -> str:
         entry = self.toolset().get(tool)
         if not isinstance(entry, dict):
-            raise ToolNotPermitted(
+            raise _fail(ToolNotPermitted, TOOL_NOT_PERMITTED,
                 f"tool {tool!r} is not in the fixed toolset of profile "
                 f"{self.NAME!r} — refused (arbitrary execution does not "
                 f"exist in this profile)")
@@ -209,20 +256,27 @@ class WasmWasiProfile(Sandbox):
                                                entry.get("module", "")))
         tools_root = self.tools_dir + os.sep
         if not module.startswith(tools_root):
-            raise ToolNotPermitted(
+            raise _fail(ToolNotPermitted, TOOL_OUTSIDE_ROOT,
                 f"module for tool {tool!r} resolves outside the toolset "
                 f"directory — refused")
         if not os.path.exists(module):
-            raise ProfileUnavailable(
+            raise _fail(ProfileUnavailable, TOOL_MODULE_MISSING,
                 f"module for tool {tool!r} declared but missing at "
                 f"{module!r} — refused")
         want = (entry.get("sha256") or "").lower()
         with open(module, "rb") as f:
             got = H_hex(f.read())
-        if not want or got != want:
-            raise ToolNotPermitted(
+        if not want:
+            # A manifest entry with no pin is a MANIFEST DEFECT, not evidence
+            # of tampering. Both refuse execution; only one of them should
+            # wake anybody up at 3am.
+            raise _fail(ToolNotPermitted, TOOL_UNPINNED,
+                f"manifest entry for tool {tool!r} carries no sha256 pin — "
+                f"refused (an unpinned module is an unverifiable module)")
+        if got != want:
+            raise _fail(ToolNotPermitted, TOOL_DIGEST_DRIFT,
                 f"module digest mismatch for tool {tool!r}: manifest pins "
-                f"{want or '<none>'}, module hashes {got} — refused")
+                f"{want}, module hashes {got} — refused")
         return module
 
     def wasm_argv(self, argv: list, workdir: str) -> list:

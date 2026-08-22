@@ -1,9 +1,10 @@
 {
-  "_comment": "JJ DAI testnet-0 default authorization policy (v0.5.5). Longest matching prefix wins; unmatched paths fall to default:deny. Edit admin_cns to match the CNs of your admin client certs (deploy/gen_pki.py admin --cn ...).",
+  "_comment": "JJ DAI testnet-0 default authorization policy (v0.6.6). /healthz is liveness and stays anonymous; /readyz is readiness and names loaded engines, broken toolsets and anchoring lag, so it is peer/admin only. Longest matching prefix wins; unmatched paths fall to default:deny. Edit admin_cns to match the CNs of your admin client certs (deploy/gen_pki.py admin --cn ...).",
   "default": "deny",
   "admin_cns": ["ops-ua", "ops-kr", "ops-ee"],
   "rules": [
     {"prefix": "/healthz",            "allow": ["anonymous", "peer", "admin"]},
+    {"prefix": "/readyz",             "allow": ["peer", "admin"]},
     {"prefix": "/capabilities",       "allow": ["anonymous", "peer", "admin"]},
     {"prefix": "/metrics",            "allow": ["peer", "admin"]},
     {"prefix": "/witness/",           "allow": ["peer", "admin"]},

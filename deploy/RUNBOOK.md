@@ -105,7 +105,22 @@ Read the node id and record it in your peers manifest:
 
 ## 4. Health and observability
 
-* `GET /healthz` — open; returns uptime, node id, record count.
+* `GET /healthz` — open; **liveness only**: uptime, node id, record count.
+  A green `/healthz` means the process is running and can form a reply. It is
+  not permission to send work.
+* `GET /readyz` — **peer/admin**; readiness per subsystem plus an aggregate,
+  `200` when ready and `503` when not. The aggregate is red only for
+  identity, witness and anchoring; engine, isolation and being degrade the
+  node without removing it from the network. States are `ready`, `degraded`,
+  `not_ready` and `not_configured` — the last is never a fault.
+  Read this, not `/healthz`, before routing work to a node.
+* **Watchdog (v0.6.6).** The unit is `Type=notify` with `WatchdogSec=90`. The
+  heartbeat is gated on a beacon refreshed by the accept loop, so a wedged
+  serving path is reported by silence and systemd restarts the node, while a
+  merely busy node keeps answering. `journalctl -u jjdai-node@<name>` shows
+  `WATCHDOG SILENT` before any such restart — if you see restarts without
+  that line, the cause is not the watchdog.
+  To debug without being restarted: `--no-watchdog`.
 * `GET /metrics` — Prometheus text (peer/admin cert required):
   `jjdai_requests_total`, `jjdai_denied_authz_total`,
   `jjdai_rate_limited_total`, `jjdai_revoked_rejected_total`,

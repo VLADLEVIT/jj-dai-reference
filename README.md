@@ -1,11 +1,11 @@
 # JJ DAI — Reference Trust, Governance & Agent Kernel
 
 <!-- VERSION:BEGIN (generated — the build owns this line and nothing else near it) -->
-**Version:** `0.6.5` (matches `jjdai.__version__`; enforced by the release-integrity test) · **Python:** ≥3.10, stdlib-only core · **Site:** [jj-dai.org](https://jj-dai.org)
+**Version:** `0.6.6` (matches `jjdai.__version__`; enforced by the release-integrity test) · **Python:** ≥3.10, stdlib-only core · **Site:** [jj-dai.org](https://jj-dai.org)
 <!-- VERSION:END -->
 
 <!--
-  README OWNERSHIP (v0.6.5)
+  README OWNERSHIP (v0.6.6)
   ------------------------
   Everything OUTSIDE a generated marker block is owned by the repository and
   is never written by the build. That includes the title, this notice, and
@@ -160,10 +160,11 @@ journals, replicas and the workspace.
 | Peer cross-verification loop | Prototype |
 | Containment — Article 25 | Prototype (Reference prototype) |
 | Ingress hardening — caps before authorization | Implemented |
+| Observability — liveness/readiness split, watchdog, sleep detection | Implemented (Implemented, v0.6.6) |
 | Tier-1 trust node daemon | Prototype |
 | Adapter layer — EngineBackend Protocol v1 | Implemented (Implemented, protocol v1 declared whole) |
 | NECS v0.1 + harness | Implemented |
-| Acceptance and CI | Implemented (132/132 green) |
+| Acceptance and CI | Implemented (140/140 green) |
 | Retired M1-M5 lineage | Implemented (Frozen) |
 | Deployment kit (Linux + macOS) | Implemented (Implemented, macOS kit v0.6.2) |
 | Plane B canary lifecycle | Planned |
@@ -214,8 +215,10 @@ python node/daemon.py --port 8471 \
     --log ./witness-a.jsonl
 
 # talk to it — capabilities carries the engine seam and the isolation
-# profiles this node will actually honour; /healthz carries the same
-# declaration until the liveness split moves it to /readyz (v0.6.6)
+# profiles this node will actually honour. /healthz answers "is this
+# process alive", /readyz answers "should it be sent work" — since v0.6.6
+# those are separate questions with separate answers (and separate authz:
+# /healthz leaks nothing and needs no identity, /readyz does)
 curl -s localhost:8471/capabilities | python -m json.tool
 curl -s localhost:8471/healthz | python -m json.tool
 ```
@@ -363,6 +366,18 @@ INV-9 v1.1.
 - **Identity fails closed.** A signer mismatch against an existing witness
   log aborts boot; keystore passphrases are taken from the environment,
   never the CLI.
+- **Liveness and readiness are different questions (v0.6.6).** `/healthz`
+  answers whether the process is alive; `/readyz` answers whether it should
+  be sent work, and they are not the same fact — a node can be perfectly
+  alive and unfit to serve. The split is also an exposure decision:
+  `/readyz` names loaded engines, broken toolsets and anchoring lag, so the
+  shipped policy admits only `peer` and `admin` to it, while `/healthz`
+  leaks nothing and stays anonymous. Both are enforced by the same authz
+  layer as every other path, and H-1…H-6 check the boundary rather than
+  trusting it. Under systemd the unit runs `Type=notify` with
+  `WatchdogSec=90`; a node that stops ticking is restarted rather than left
+  hanging, and host suspension is detected and distinguished from a clock
+  step instead of being read as a stall.
 - **The witness plane takes a vocabulary, not prose (v0.6.5).** `request`
   and `response` already entered the chain as hiding commitments and
   `provenance` as a hash; `semantic_digest` was the one field placed in the
@@ -418,7 +433,7 @@ python scripts/run_acceptance.py [unit|integration|conformance|adversarial|legac
 CI runs the matrix on Python 3.10–3.12 (`.github/workflows/ci.yml`).
 
 <!-- ACCEPT:BEGIN (generated — do not edit by hand) -->
-Current status: 132/132 acceptance checks green (hermetic default groups).
+Current status: 140/140 acceptance checks green (hermetic default groups).
 
 The `live` group is opt-in and excluded from the default run: `python scripts/run_acceptance.py live` exercises the wasm-wasi
 boundary against a real `wasmtime` and is required by the Ф0 gate on each target host.
@@ -426,8 +441,11 @@ boundary against a real `wasmtime` and is required by the Ф0 gate on each targe
 
 That count grew from 94 at v0.6.3: v0.6.4 added I-1…I-9 (isolation
 profiles) and G-1…G-8 (ingress hardening) for 111; v0.6.5 added A-1…A-11
-(adapter layer), W-1…W-7 (plane vocabulary) and R-OWN-1…R-OWN-4 (README
-ownership).
+(adapter layer), W-1…W-7 (plane vocabulary), R-OWN-1…R-OWN-4 (README
+ownership) and X-1…X-3 (CHANGELOG attribution) for 133; v0.6.6 added
+R-1…R-9 (readiness rules), S-1…S-6 (notify and the beacon gate), C-1…C-4
+(suspension versus clock step), T-0…T-5 (toolset fault codes), A-1…A-5
+(the alert rules as a deliverable) and H-1…H-6 (the live split) for 140.
 
 Each new check is written to fail against the previous release. Some are
 also written to fail against the FIRST CUT of their own drop, which is the
@@ -469,15 +487,36 @@ skips itself is not evidence.
 
 ## 9. Roadmap
 
-**Open after v0.6.5 (near term):** `/readyz` and the liveness split ·
-`sd_notify` with the `WatchdogSec` return · Prometheus alert rules
-(v0.6.6) · SBOM and the supply-chain stream that `wasmtime` enters as a
-declared host requirement (v0.6.7) · **the canonical AGPL-3.0 text, which
-is a PUBLICATION BLOCKER** — `LICENSES/AGPL-3.0.txt` is still a placeholder
-and is loudly marked as one · compiled modules for the wasm toolset · the
-Profile Gauntlet that ADR-015 requires before adding an executable tool
-(until it exists the toolset digest travels in `capabilities()`, so a change
-is visible even though it is not yet governed).
+**v0.6.7 — law, supply chain and the toolset.** The canonical AGPL-3.0
+text byte-for-byte plus the CLA: `LICENSES/AGPL-3.0.txt` is still a
+placeholder, loudly marked, and **this is the PUBLICATION BLOCKER** — no
+distribution before it lands. Alongside it, the release-artifact stream:
+SBOM, pinned dependencies, signed artifacts, two-person release approval,
+and the starter wasm toolset with a signed manifest whose addition is
+witnessed. Repository hygiene rides in the same drop, since it is the same
+concern: the generated map's filename, the history/ move, tests/legacy,
+and the packaging question `pyproject.toml` still leaves open.
+
+**v0.6.8 — reserved serializable values (track V)**, kept out of v0.6.7
+deliberately: law and supply chain are one concern and serialized forms
+are another, and merging them into one tag would mean losing the ability to
+roll back one without the other.
+
+**Open, and named rather than implied.** No compiled wasm modules ship, so
+execution in practice is still the `reference` fence. The alert thresholds
+are starting points, **not an SLO table** — the values stay open until the
+end of Ф3, and no recording rules ship, because thresholds published now
+would carry the authority of a config file while being guesses.
+`readiness_snapshot()` reports `chain_broken` empty and `signer_mismatch`
+false rather than re-verifying the chain per scrape (the boot gate already
+refuses a foreign identity; per-request verification would be a
+self-inflicted denial of service). Anchoring lag reads optimistically when
+the scheduler exposes no timestamp — a node that has never anchored reports
+`null` rather than infinite, so the metric is honest about not knowing and
+the alert cannot fire on it. And the Profile Gauntlet that ADR-015 requires
+before adding an executable tool does not exist yet; until it does, the
+toolset digest travels in `capabilities()`, so a change is at least visible
+even though it is not governed.
 
 **P1 (remaining):** full Plane B canary protocol · GPU acceptance runs ·
 the bounded metadata channel the dead-drop analysis leaves open (record

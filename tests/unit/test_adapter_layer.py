@@ -24,6 +24,18 @@ test_adapter_layer — v0.6.5 acceptance for jjdai/adapters/
   A-9  ADDING A FAMILY TOUCHES NOTHING ELSE: a new profile is loadable and
        manifestable without importing the daemon, the witness or the
        BeingRuntime.
+  A-10 THE DAEMON SELECTS THROUGH THE REGISTRY: no branch on an engine
+       name survives in daemon.py, the CLI does not hardcode the set of
+       engines, every registered backend is constructible from one config
+       shape, and a driver that failed to import is a recorded fact rather
+       than a silent absence. (Audit P0-1: the registry existed and the
+       daemon walked past it, while the test named "the only door" checked
+       the registry in isolation. Written to fail against that version.)
+  A-11 A SIGNATURE DOES NOT CERTIFY SHAPE: signed nonsense is refused, and
+       so is a well-signed manifest whose checkpoint or weight adapters are
+       not content addresses, whose profile_hash is not a digest, whose
+       protocol version is unsupported, or which carries an unknown key.
+       (Audit P0-3.)
 """
 from __future__ import annotations
 

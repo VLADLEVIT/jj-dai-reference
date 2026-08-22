@@ -1,0 +1,254 @@
+# JJ DAI — Prometheus alert rules (build v0.6.6)
+#
+# Design rule for every alert in this file: an alert names ONE fact and has
+# ONE owner. Two rules that page the same person for two different problems
+# are better than one rule that pages nobody usefully for both.
+#
+# The clearest application is the isolation toolset. A module that is absent
+# is an operations fact — someone shipped a manifest without its artifact.
+# A module whose digest has drifted from its pin is a security fact — the
+# artifact under the pin is not the artifact that was pinned. The first is
+# common, the second is rare, and merging them guarantees the rare one is
+# read as the common one. They are two rules here, at two severities.
+#
+# Scrape target: /metrics on each node (peer or admin client cert required).
+
+groups:
+
+  # ------------------------------------------------------------------ #
+  - name: jjdai-liveness
+    rules:
+
+      - alert: JJDaiNodeDown
+        expr: up{job="jjdai-node"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          owner: ops
+        annotations:
+          summary: "Node {{ $labels.instance }} is not scrapeable"
+          description: >
+            No metrics for 2 minutes. Check the unit, the TLS material and
+            whether the host is reachable at all. If several nodes fired
+            together, suspect the network before the nodes.
+
+      - alert: JJDaiAcceptLoopStalled
+        expr: jjdai_liveness_beacon_age_seconds > 30
+        for: 1m
+        labels:
+          severity: critical
+          owner: ops
+        annotations:
+          summary: "Accept loop on {{ $labels.instance }} has not moved"
+          description: >
+            The beacon refreshed by the accept path is stale. systemd's
+            watchdog is being deliberately starved and will restart this
+            node. If this fires without a restart following, the watchdog is
+            not configured — check Type=notify and WatchdogSec in the unit.
+
+      - alert: JJDaiWatchdogSilent
+        expr: increase(jjdai_watchdog_silences_total[10m]) > 0
+        labels:
+          severity: warning
+          owner: ops
+        annotations:
+          summary: "Watchdog withheld a ping on {{ $labels.instance }}"
+          description: >
+            At least one heartbeat was withheld because the accept loop was
+            stale. A single occurrence under peak inference load is
+            tolerable; a pattern means the beacon staleness limit is tuned
+            below what this host's workload actually needs.
+
+  # ------------------------------------------------------------------ #
+  - name: jjdai-readiness
+    rules:
+
+      - alert: JJDaiNodeNotReady
+        expr: jjdai_ready == 0
+        for: 5m
+        labels:
+          severity: critical
+          owner: ops
+        annotations:
+          summary: "Node {{ $labels.instance }} is not ready to serve"
+          description: >
+            A core subsystem — identity, witness or anchoring — is down.
+            Read /readyz for the naming subsystem and its reason. The node is
+            running; it should not be receiving work.
+
+      - alert: JJDaiWitnessNotReady
+        expr: jjdai_ready_witness == 0
+        labels:
+          severity: critical
+          owner: runtime
+        annotations:
+          summary: "Witness chain not ready on {{ $labels.instance }}"
+          description: >
+            The chain is not loaded or does not verify. This is the one
+            subsystem whose failure means the node is not a participant at
+            all. Do not restart into service; investigate the log first.
+
+      - alert: JJDaiEphemeralIdentity
+        expr: jjdai_ready_identity == 0.5
+        for: 15m
+        labels:
+          severity: warning
+          owner: ops
+        annotations:
+          summary: "Node {{ $labels.instance }} is running a dev identity"
+          description: >
+            An ephemeral identity signs records that carry no continuity
+            across a restart. Acceptable on a scratch host, never on a
+            topology node.
+
+  # ------------------------------------------------------------------ #
+  - name: jjdai-anchoring
+    rules:
+
+      - alert: JJDaiAnchorLagHigh
+        expr: jjdai_anchor_lag_seconds > 900
+        for: 10m
+        labels:
+          severity: warning
+          owner: protocol
+        annotations:
+          summary: "Anchoring lag on {{ $labels.instance }} is {{ $value }}s"
+          description: >
+            An anchor backend that has stopped answering looks exactly like a
+            healthy one until the unanchored segment grows. r6.6.2 makes both
+            the segment anchoring lag and the unanchored depth SLO metrics —
+            this is the first of them.
+
+      - alert: JJDaiUnanchoredSegmentDeep
+        expr: jjdai_unanchored_depth > 256
+        for: 10m
+        labels:
+          severity: warning
+          owner: protocol
+        annotations:
+          summary: "Unanchored segment depth {{ $value }} on {{ $labels.instance }}"
+          description: >
+            The default policy is 256 events or 5 minutes, whichever comes
+            first. A segment past that depth means anchoring is not keeping
+            up with cognition on this node.
+
+  # ------------------------------------------------------------------ #
+  - name: jjdai-isolation
+    rules:
+
+      # SECURITY. Not merged with the operational rule below, on purpose.
+      - alert: JJDaiToolsetDigestDrift
+        expr: jjdai_toolset_digest_drift_total > 0
+        for: 0m
+        labels:
+          severity: critical
+          owner: security
+        annotations:
+          summary: "wasm module digest drift on {{ $labels.instance }}"
+          description: >
+            A module on disk no longer hashes to the digest its manifest
+            pins. The profile fails closed and refuses to execute it, so
+            nothing ran — but the artifact under the pin was replaced after
+            it was pinned, and that is an incident, not a deployment error.
+            Do not "fix" it by re-pinning.
+
+      # OPERATIONS. Common, expected on a fresh node, must never page anyone.
+      - alert: JJDaiToolsetModuleMissing
+        expr: jjdai_toolset_module_missing_total > 0
+        for: 30m
+        labels:
+          severity: info
+          owner: ops
+        annotations:
+          summary: "wasm modules declared but absent on {{ $labels.instance }}"
+          description: >
+            The manifest names modules that are not on disk. This build ships
+            no compiled wasm modules, so a freshly deployed node is expected
+            to be in this state until the toolset is provisioned. Severity is
+            info deliberately.
+
+      - alert: JJDaiIsolationDegraded
+        expr: jjdai_ready_isolation == 0
+        for: 15m
+        labels:
+          severity: warning
+          owner: ops
+        annotations:
+          summary: "No declared isolation profile is executable on {{ $labels.instance }}"
+          description: >
+            Every declared profile refuses. Work requiring isolation will not
+            be routed here. The node remains a witness participant — this
+            does not make it not-ready.
+
+  # ------------------------------------------------------------------ #
+  - name: jjdai-host
+    rules:
+
+      # The Ф1 gate requires 72h green on the Mac node WITHOUT sleep breaks.
+      - alert: JJDaiHostSuspended
+        expr: increase(jjdai_sleep_gaps_total[1h]) > 0
+        labels:
+          severity: warning
+          owner: ops
+        annotations:
+          summary: "Host {{ $labels.instance }} suspended"
+          description: >
+            Wall clock and monotonic clock diverged past the threshold: the
+            machine slept. It did not crash and did not log an error, and its
+            uptime is intact — which is exactly why this alert exists. On the
+            Mac node check the power discipline in RUNBOOK-macOS; the Ф1 gate
+            counts a sleep break against the 72-hour requirement.
+
+      - alert: JJDaiClockStepped
+        expr: increase(jjdai_clock_steps_total[1h]) > 2
+        labels:
+          severity: info
+          owner: ops
+        annotations:
+          summary: "Wall clock stepping on {{ $labels.instance }}"
+          description: >
+            Repeated NTP corrections. Not a suspension — counted separately
+            so the suspension alert stays trustworthy — but a node whose
+            clock keeps jumping will produce confusing timestamps in the
+            witness plane.
+
+  # ------------------------------------------------------------------ #
+  - name: jjdai-ingress
+    rules:
+
+      - alert: JJDaiIngressOverloaded
+        expr: increase(jjdai_overloaded_total[5m]) > 50
+        labels:
+          severity: warning
+          owner: runtime
+        annotations:
+          summary: "Connection ceiling hit repeatedly on {{ $labels.instance }}"
+          description: >
+            The v0.6.4 admission ceiling is refusing connections. Either the
+            node is genuinely saturated or --max-concurrency is set below
+            what this host can carry.
+
+      - alert: JJDaiRefusalsDropped
+        expr: increase(jjdai_refusal_dropped_total[5m]) > 0
+        labels:
+          severity: warning
+          owner: runtime
+        annotations:
+          summary: "Refusals closed hard on {{ $labels.instance }}"
+          description: >
+            The bounded refusal queue overflowed, so some clients were reset
+            rather than told 503. Overload is now indistinguishable from a
+            dead node for those clients — which is the condition v0.6.4 set
+            out to remove.
+
+      - alert: JJDaiAuthzDenials
+        expr: increase(jjdai_denied_authz_total[15m]) > 20
+        labels:
+          severity: warning
+          owner: security
+        annotations:
+          summary: "Sustained authorization denials on {{ $labels.instance }}"
+          description: >
+            Either a misconfigured peer is retrying against paths it may not
+            reach, or something is enumerating the surface. Correlate with
+            jjdai_revoked_rejected_total before deciding which.

@@ -113,7 +113,13 @@ sudo launchctl print system/org.jjdai.node.ua-kyiv-1     # status
 sudo launchctl kickstart -k system/org.jjdai.node.ua-kyiv-1   # restart
 sudo launchctl bootout system/org.jjdai.node.ua-kyiv-1   # stop/unload
 tail -f /var/lib/jjdai/log/ua-kyiv-1.err.log             # logs
-curl -sk https://127.0.0.1:8443/healthz                  # health
+curl -sk https://127.0.0.1:8443/healthz                  # liveness (open)
+# readiness needs a peer/admin client cert — it names engines, faults and lag
+curl -sk --cert peer.crt --key peer.key \
+     https://127.0.0.1:8443/readyz | python3 -m json.tool
+# sleep breaks, counted by the node itself (v0.6.6)
+curl -sk --cert peer.crt --key peer.key \
+     https://127.0.0.1:8443/metrics | grep sleep_gap
 ```
 
 `KeepAlive` restarts the daemon on failure (ThrottleInterval 5 s) —
@@ -139,6 +145,13 @@ pmset -g                       # verify
 * **UPS**: the Mac's internal battery is a built-in UPS for the host,
   but the router/switch it talks through is not — put the network path
   on the UPS too, or the node survives an outage mute.
+* Sleep breaks no longer depend on someone noticing. The node compares wall
+  time against monotonic time; both stop while the machine is suspended and
+  wall time does not, so a suspension shows up as `jjdai_sleep_gaps_total`
+  and a stderr line naming the duration. `jjdai_clock_steps_total` counts NTP
+  corrections separately — a backwards step is not a suspension, and merging
+  them would make the sleep signal useless. There is **no `sd_notify` on
+  macOS**: launchd plus this detector is the Mac node's liveness story.
 * The Ф1 healthz gate requires **≥ 72 h green with no sleep gaps** —
   `pmset -g log | grep -i sleep` must show none.
 

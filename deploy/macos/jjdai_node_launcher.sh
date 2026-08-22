@@ -53,6 +53,8 @@ exec /usr/bin/python3 -m node.daemon \
     --authz-policy /etc/jjdai/authz.json \
     --revoked-serials @/etc/jjdai/pki/revoked.txt \
     --rate-limit "${JJDAI_RATE_LIMIT:-infer=30/60,task=10/60,write=60/60,read=120/60}" \
+    --anchor-lag-max-s "${JJDAI_ANCHOR_LAG_MAX_S:-0}" \
+    --unanchored-depth-max "${JJDAI_UNANCHORED_DEPTH_MAX:-0}" \
     --being-profile production \
     --being-provenance /etc/jjdai/provenance.json \
     --being-workspace "/var/lib/jjdai/${NODE_NAME}.ws" \

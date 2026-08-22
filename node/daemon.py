@@ -65,6 +65,9 @@ from core.anchoring import (AnchorLog, AnchorScheduler,     # noqa: E402
 from core.anchoring_xmr import XmrAnchor, XmrAnchorError    # noqa: E402
 from runtime.being import BeingRuntime, BeingRuntimeError   # noqa: E402
 from authz import AuthzPolicy, AuthzError                   # noqa: E402
+import clockwatch                                           # noqa: E402
+import readiness as readiness_rules                         # noqa: E402
+import sdnotify                                             # noqa: E402
 from core.challenge import ChallengeRound                   # noqa: E402
 from core.challenge import (ChallengeRound, ChallengeError,  # noqa: E402
                             verify_fraud_proof)
@@ -145,6 +148,8 @@ class Node:
                  max_concurrency: int = 64,
                  request_timeout_s: float = 15.0,
                  isolation_profiles: list = None,
+                 anchor_lag_max_s: float = 0,
+                 unanchored_depth_max: int = 0,
                  authz: "AuthzPolicy" = None,
                  revoked_serials: set = None,
                  challenge_windows: tuple = None,
@@ -316,6 +321,19 @@ class Node:
         self.request_timeout_s = float(request_timeout_s)
         self.ingress_sem = threading.BoundedSemaphore(self.max_concurrency)
         self.isolation_profiles = list(isolation_profiles or ["reference"])
+
+        # ---- observability (v0.6.6) ------------------------------------- #
+        # The beacon is refreshed by the ACCEPT PATH, not by a timer, so the
+        # watchdog measures the part of the process that serves the network.
+        # See node/sdnotify.py for why an ungated heartbeat is worthless.
+        self.beacon = sdnotify.Beacon()
+        self.watchdog = None
+        self.clockwatch = None
+        # Anchoring policy for readiness. Zero disables the corresponding
+        # check rather than making it always-true: a policy of "no policy"
+        # should be visible as NOT_CONFIGURED, not silently pass.
+        self.anchor_lag_max_s = float(anchor_lag_max_s or 0)
+        self.unanchored_depth_max = int(unanchored_depth_max or 0)
 
         # ---- rate limiter (v0.5.4) -------------------------------------- #
         self.rate_limiter = RateLimiter(rate_limits, chain=self.chain) \
@@ -709,6 +727,57 @@ class Node:
             "require_attestation": self.require_attestation,
         }
 
+    def readiness_snapshot(self) -> dict:
+        """Facts about this node, in the shape node/readiness.py evaluates.
+
+        Kept separate from the evaluation so the RULES can be tested without
+        a node and the FACTS can be gathered without a rule engine. The
+        v0.6.5 lesson is written on the wall here: a check named after the
+        claim while testing something adjacent to it is worse than no check,
+        and the cheapest defence is to keep the claim and the measurement in
+        different modules.
+        """
+        iso = self.isolation_status()
+        anchor_lag = None
+        depth = 0
+        configured = bool(getattr(self, "anchor_scheduler", None))
+        if configured:
+            try:
+                last = getattr(self.anchor_scheduler, "last_anchor_at", None)
+                if last:
+                    anchor_lag = max(0.0, time.time() - float(last))
+                depth = int(getattr(self.anchor_scheduler,
+                                    "unanchored_depth", 0) or 0)
+            except Exception:
+                anchor_lag, depth = None, 0
+        engine = getattr(self, "engine", None)
+        return {
+            "identity_loaded": bool(getattr(self, "sk", None)),
+            "identity_ephemeral": self.identity_mode == "ephemeral",
+            "signer_mismatch": False,      # boot gate refuses to start on this
+            "chain_loaded": self.chain is not None,
+            "chain_broken": "",
+            "records": len(self.chain.records) if self.chain else 0,
+            "anchoring_configured": configured,
+            "anchor_lag_s": anchor_lag,
+            "unanchored_depth": depth,
+            "anchor_lag_max_s": self.anchor_lag_max_s,
+            "unanchored_depth_max": self.unanchored_depth_max,
+            "engine_configured": engine is not None,
+            "engine_ready": engine is not None,
+            "engine_name": getattr(engine, "name", None) if engine else None,
+            "engine_reason": "",
+            "isolation_declared": iso["declared"],
+            "isolation_ready": iso["ready"],
+            "being_configured": self.being is not None,
+            "being_contained": self.governor.is_contained(self.being_id),
+            "being_profile": (self.being.profile if self.being else None),
+        }
+
+    def readiness(self) -> dict:
+        """The full readiness report, aggregate included."""
+        return readiness_rules.evaluate(self.readiness_snapshot())
+
     def isolation_status(self) -> dict:
         """What this node DECLARES it can execute inside (v0.6.4).
 
@@ -1015,6 +1084,12 @@ class BoundedThreadingHTTPServer(ThreadingHTTPServer):
             pass
 
     def process_request(self, request, client_address):
+        # The beacon is refreshed HERE — on the accept loop, before admission
+        # — because this is the thread whose stall is invisible to everything
+        # else. A beacon touched inside a handler would stay fresh while the
+        # accept loop was wedged, which is the failure the watchdog exists
+        # to catch.
+        self.node.beacon.touch()
         if not self.node.ingress_sem.acquire(blocking=False):
             self.node.metrics["overloaded_total"] += 1
             self.node.metrics["requests_total"] += 1
@@ -1212,24 +1287,73 @@ def make_handler(node: Node):
             if not self._authz_gate():
                 return
             if self.path == "/healthz":
-                iso = node.isolation_status()
+                # LIVENESS ONLY (v0.6.6). This process is running and can
+                # form a reply. It says nothing about whether work should be
+                # sent here — that is /readyz. The isolation declaration that
+                # rode here since v0.6.4 has moved there as promised; the
+                # anonymous role keeps this endpoint and learns nothing about
+                # internal state from it, which is the point.
                 return self._send(200, {"ok": True,
                     "uptime_s": round(time.time() - node.started_at, 1),
                     "node_id": node.chain.node_id,
-                    "records": len(node.chain.records),
-                    # Liveness only, by design (the /readyz split is v0.6.6).
-                    # The isolation declaration rides here in the meantime so
-                    # a peer can see which boundaries this node can honour.
-                    "isolation_declared": iso["declared"],
-                    "isolation_ready": iso["ready"]})
+                    "records": len(node.chain.records)})
+            if self.path == "/readyz":
+                # READINESS. Per subsystem, with an aggregate that is red only
+                # for the subsystems without which this node is not a
+                # participant in the network. Authorization is peer/admin:
+                # the body names which engines are loaded, what is broken and
+                # how far anchoring has fallen behind — a map for whoever is
+                # choosing where to push. /healthz stays anonymous.
+                rep = node.readiness()
+                code = readiness_rules.http_status(rep)
+                return self._send(code, {"ready": rep["ready"],
+                                         "reason": rep["reason"],
+                                         "degraded": rep["degraded"],
+                                         "subsystems": rep["subsystems"],
+                                         "node_id": node.chain.node_id,
+                                         "uptime_s": round(
+                                             time.time() - node.started_at,
+                                             1)})
             if self.path == "/metrics":
                 # Prometheus text exposition — the operational eye on a node
-                lines = ["# JJ DAI node metrics (v0.5.5)"]
+                lines = ["# JJ DAI node metrics (v0.6.6)"]
                 m = dict(node.metrics)
                 m["witness_records"] = len(node.chain.records)
                 m["uptime_seconds"] = round(time.time() - node.started_at, 1)
                 if node.being is not None:
                     m["tasks_total"] = len(node.being.traces)
+                # Readiness as gauges (v0.6.6). One numeric scale for every
+                # subsystem so an alert rule never has to join two metrics to
+                # learn one fact.
+                rep = node.readiness()
+                m.update(readiness_rules.gauge_values(rep))
+                anchoring = rep["subsystems"]["anchoring"]
+                if anchoring.get("anchor_lag_s") is not None:
+                    m["anchor_lag_seconds"] = round(
+                        anchoring["anchor_lag_s"], 1)
+                m["unanchored_depth"] = anchoring.get("unanchored_depth", 0)
+                # Isolation toolset, split by CAUSE. A missing module and a
+                # drifted digest are different events with different owners.
+                iso_profiles = node.isolation_status()["profiles"]
+                drift = missing = other = 0
+                for prof in iso_profiles.values():
+                    for code in (prof.get("toolset_codes") or {}).values():
+                        if code == "DIGEST_DRIFT":
+                            drift += 1
+                        elif code == "MODULE_MISSING":
+                            missing += 1
+                        else:
+                            other += 1
+                m["toolset_digest_drift_total"] = drift
+                m["toolset_module_missing_total"] = missing
+                m["toolset_other_fault_total"] = other
+                m["liveness_beacon_age_seconds"] = round(
+                    node.beacon.age(), 3)
+                if node.watchdog is not None:
+                    m["watchdog_pings_total"] = node.watchdog.pings
+                    m["watchdog_silences_total"] = node.watchdog.silences
+                if node.clockwatch is not None:
+                    m.update(node.clockwatch.metrics())
                 for k, v in m.items():
                     lines.append(f"jjdai_{k} {v}")
                 body = ("\n".join(lines) + "\n").encode()
@@ -1630,6 +1754,19 @@ def main(argv=None):
     ap.add_argument("--challenge-windows", default=None,
                     help="commit,reveal seconds for challenge rounds "
                          "(e.g. '30,30'); default 30,30")
+    ap.add_argument("--anchor-lag-max-s", type=float, default=0,
+                    help="readiness: max seconds since the last anchor "
+                         "before /readyz reports NOT_READY (0 = no policy)")
+    ap.add_argument("--unanchored-depth-max", type=int, default=0,
+                    help="readiness: max depth of the unanchored ledger "
+                         "segment before /readyz reports NOT_READY "
+                         "(0 = no policy)")
+    ap.add_argument("--no-watchdog", action="store_true",
+                    help="do not answer systemd's watchdog even when "
+                         "WATCHDOG_USEC is set (debugging only)")
+    ap.add_argument("--sleep-gap-threshold-s", type=float, default=8.0,
+                    help="wall/monotonic divergence counted as a host "
+                         "suspension (Mac node sleep detection)")
     ap.add_argument("--authz-policy", default=None,
                     help="JSON authorization policy (who may call what); "
                          "malformed policy refuses the boot")
@@ -1879,6 +2016,8 @@ def main(argv=None):
                     max_body_bytes=args.max_body_bytes,
                     max_concurrency=args.max_concurrency,
                     request_timeout_s=args.request_timeout_s,
+                    anchor_lag_max_s=args.anchor_lag_max_s,
+                    unanchored_depth_max=args.unanchored_depth_max,
                     isolation_profiles=[x.strip() for x in
                                         args.isolation_profiles.split(",")
                                         if x.strip()],
@@ -1937,10 +2076,50 @@ def main(argv=None):
           f"identity={node.identity_mode}  "
           f"profile={args.profile}  {scheme}://{args.host}:{args.port}",
           flush=True)
+
+    # ---- observability wiring (v0.6.6) ---------------------------------- #
+    # Sleep detection runs everywhere, not only on the Mac node: a Linux host
+    # that suspends is the same blind spot, and the detector costs one
+    # comparison every two seconds.
+    node.clockwatch = clockwatch.ClockWatch(
+        threshold_s=args.sleep_gap_threshold_s,
+        on_gap=lambda g: print(
+            f"[{args.name}] HOST SUSPENDED for ~{g:.0f}s — witness "
+            f"replication and anchoring are behind by at least that much",
+            file=sys.stderr, flush=True),
+        on_step=lambda g: print(
+            f"[{args.name}] wall clock stepped {g:.0f}s relative to "
+            f"monotonic (NTP correction, not a suspension)",
+            file=sys.stderr, flush=True))
+    node.clockwatch.start()
+
+    interval = 0.0 if args.no_watchdog else sdnotify.watchdog_interval_s()
+    if interval > 0:
+        node.watchdog = sdnotify.Watchdog(
+            node.beacon, interval,
+            on_silence=lambda age: print(
+                f"[{args.name}] WATCHDOG SILENT: accept loop has not moved "
+                f"for {age:.0f}s — not answering systemd", file=sys.stderr,
+                flush=True))
+        node.watchdog.start()
+        print(f"[{args.name}] systemd watchdog: pinging every "
+              f"{interval:.0f}s while the accept loop is fresh", flush=True)
+    # READY=1 goes out only now: under Type=notify systemd holds dependent
+    # units until it arrives, and sending it before the socket is listening
+    # would give that ordering guarantee away for nothing.
+    if sdnotify.available():
+        sdnotify.ready(f"listening on {args.host}:{args.port}")
     try:
         srv.serve_forever()
     except KeyboardInterrupt:
         pass
+    finally:
+        if node.watchdog:
+            node.watchdog.stop()
+        if node.clockwatch:
+            node.clockwatch.stop()
+        if sdnotify.available():
+            sdnotify.stopping()
     return 0
 
 

@@ -1559,3 +1559,121 @@ introduced it rather than in the audit after it.
   infinite. The metric is honest about not knowing; the alert cannot fire on
   it. Closing this needs the anchoring scheduler to publish its own last
   successful anchor, which is a change to that component and not to this one.
+
+## v0.6.6 — audit response (recut)
+
+External audit REJECTED the first cut of v0.6.6 with three reproducible P0s,
+none of which the 140 acceptance checks caught. The number is unchanged: a
+build number is spent by a tag, and v0.6.6 was never tagged or published.
+
+Two of the three P0s were introduced by this drop, and both are the same
+mistake in different clothing — **a claim was implemented and the thing it
+claimed was never measured**.
+
+| Finding | Root cause | Changed | Evidence |
+|---|---|---|---|
+| P0-1 idle node restarted by systemd | beacon touched in `process_request`, which runs only when a connection ARRIVES; an idle node aged out, went silent and was killed | `node/daemon.py`, `node/sdnotify.py`, unit, RUNBOOK, alerts | `OBS-WD-1..6` |
+| P0-2 failed anchor counted as covered | `_covered = count` after submitting, whatever the receipts said; restart rebuilt coverage from any receipt | `core/anchoring.py` | `ANCH-RETRY-1..6` |
+| P0-3 `/readyz` blind to anchoring | read `last_anchor_at` / `unanchored_depth`, neither of which existed; `getattr` defaults made an absent measurement green | `core/anchoring.py`, `node/daemon.py`, `node/readiness.py` | `READY-ANCH-1..5` |
+| P1 engine readiness false positive | `engine is not None` answered "does an object exist" | `node/daemon.py` | `R-*`, live |
+| P1 synthetic witness/identity facts | `chain_broken=""`, `signer_mismatch=False` hard-coded | `node/daemon.py` | `R-*` |
+| P1 `/healthz` leaked | published node id, uptime and record count while claiming to publish nothing | `node/daemon.py` | `H-1` |
+| P1 gauges named `_total` | recomputed from state, can go down; a Prometheus `_total` must be monotonic | `node/daemon.py`, alerts | `A-6` |
+| P1 forward clock step read as sleep | wall-vs-monotonic cannot tell a forward NTP correction from a suspension | `node/clockwatch.py` | `CLOCK-1..5` |
+| P1 wheel lost the adapter layer | hand-written package list | `pyproject.toml` | `WHEEL-PKG-1..3` |
+
+### The watchdog measures the accept loop, not the traffic
+
+The beacon now moves in `service_actions()`, which `serve_forever()` calls on
+every loop iteration whether or not anyone is talking to us. The first cut's
+own CHANGELOG explained why the beacon must track the accept loop — and then
+attached it to an event that does not happen on an idle node.
+
+`should_ping()` (policy) is split from `tick()` (policy **plus** delivery),
+because a test that cannot tell "the node is healthy" from "systemd heard us"
+proves neither. A ping now counts only once `sd_notify` has succeeded;
+failures get their own metric. `Thread._stop` was renamed `_stop_event`: the
+old name shadows a `threading.Thread` internal and breaks `join()`.
+
+One number, `DEFAULT_STALE_AFTER_S = 30`, is now quoted by the unit, the
+alert rule and the runbook, and `OBS-WD-6` fails if any of them drifts. The
+first cut had three different numbers in three places and none of them was
+the one in force.
+
+### Coverage is per backend, and only success is coverage
+
+`recorded` is coverage. `pending` and `pending-attestation` are attempts.
+`failed` is an attempt that is known not to have worked. A restart rebuilds
+coverage only from receipts that succeeded.
+
+A **local file is not external anchoring** and cannot discharge an external
+policy, so `required_backends` defaults to everything that is not local. A
+required backend that is behind is reason enough to run — waiting for
+unrelated cognition before retrying meant that on a quiet node a failed
+anchor was never retried at all. Retries contact only the backends that are
+behind, are spaced by backoff, and **write no chain record when nothing
+changed**, or every failed retry becomes an event and the node writes
+bookkeeping to itself forever.
+
+Two subtleties that only appeared under test, both the same shape: the "is
+there news" question and the "is this backend behind" question must be
+measured against what has been **attempted**, not against what is
+**confirmed**. Measured against coverage, a single `pending` backend froze
+the ratchet at zero, made every old record look new forever, and re-anchored
+the node on every tick.
+
+`anchored` keeps its established meaning — a round was submitted and one
+`ANCHOR_EXTERNAL` was appended. Whether every required backend holds the
+range is a different question and got its own field, `fully_covered`, rather
+than quietly redefining an old one.
+
+### Facts, not assertions
+
+`anchor_status()` publishes what readiness reads. `_engine_readiness()` asks
+the backend and reports **UNKNOWN as not-ready** where no probe exists.
+`_chain_verdict()` verifies at most once per interval and caches — verifying
+per scrape would be a self-inflicted denial of service, and asserting `""`
+is not a measurement. `_signer_mismatch()` checks the recent chain instead of
+returning a constant on the grounds that the boot gate would have caught it:
+the gate runs once, readiness is continuous.
+
+Unknown is not green. A required backend that has never succeeded, with
+substantive records unanchored, reads `NOT_READY`.
+
+### Smaller things
+
+`/healthz` now returns `{"ok": true}` and nothing else. `node.beacon` became
+`node.liveness_beacon` — the same object already carried `beacon_source` and
+`current_beacon` for entanglement, and one word for two unrelated things is
+the defect this project keeps finding under other names.
+
+Suspension is measured against a suspend-inclusive clock (`CLOCK_BOOTTIME`)
+where one exists, so a forward NTP correction can no longer be counted as a
+sleep — and could no longer fail the 72-hour Ф1 gate. Where no such clock
+exists the detector degrades to the old comparison and **says so** in
+`clock_source`.
+
+Evidence IDs for new and rewritten checks are namespaced (`OBS-WD-*`,
+`ANCH-RETRY-*`, `READY-ANCH-*`, `CLOCK-*`, `WHEEL-PKG-*`). Retrofitting the
+whole suite and adding a machine-checked catalogue with duplicate refusal in
+CI is a separate Ф0 drop by decision: it is a repo-wide change and does not
+belong in an audit-response cut.
+
+Acceptance 140 → 144, all green. Docs drift clean.
+
+### Accepted deferred debt
+
+- **evidence-ID catalogue** (`evidence_id → test → requirement → gate`, CI
+  refusing duplicates) — own Ф0 drop, before the Ф0 gate. Owner: protocol.
+- **Guardian Action Envelope** — admin-mTLS alone does not prove a guardian
+  acted; a compromised daemon could record consent that was never signed.
+  Belongs with G-GUI, not here. Owner: protocol, Ф0.
+- **cognitive-ledger recovery** — "not replicated" and "snapshot plus
+  subsequent events restores the Being" cannot both hold when the disk dies.
+  Needs encrypted off-host backup or a stated continuity RPO. Owner:
+  runtime, Ф3.
+- **Object Security Matrix as a normative dependency of v0.6.8** — it exists
+  in ADR-018 rev 2 and must be confirmed separately before the reserve is
+  frozen. Owner: architecture.
+- **`/readyz` witness verification depth** — the cached verdict is
+  structural, not a full replay. Owner: runtime, Ф3, with the ledger.

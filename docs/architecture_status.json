@@ -356,9 +356,9 @@
           "status": "impl",
           "chips": [
             "Implemented",
-            "v0.6.6"
+            "v0.6.6 recut"
           ],
-          "desc": "/healthz answers liveness and nothing else; /readyz answers readiness per subsystem with an aggregate that is red only for identity, witness and anchoring — a node whose wasm toolset is unprovisioned is still a full witness participant, and this build ships no compiled modules, so any other choice would report every fresh node unready. Readiness is peer/admin: it names loaded engines, broken toolsets and anchoring lag. sd_notify returns WatchdogSec to the unit, gated on a beacon refreshed by the accept loop, so a wedged serving path is reported by silence while a merely busy node keeps answering. Wall-versus-monotonic divergence detects host suspension — the Mac node's invisible failure, which the Ф1 gate counts against 72 hours green. Toolset faults are split by cause: a missing module is an operations event, a drifted digest is a security one, and they alert separately."
+          "desc": "/healthz answers liveness and nothing else — not even the node id or the record count, which the first cut published anonymously while claiming to publish nothing. /readyz answers readiness per subsystem, peer/admin only, with an aggregate red solely for identity, witness and anchoring. Facts are MEASURED rather than asserted: the engine is asked for a readiness probe and reports UNKNOWN as not-ready when it has none, the witness chain carries a cached structural verdict, signer continuity is checked against the recent chain, and anchoring comes from AnchorScheduler.anchor_status() — the first cut read two attributes that did not exist, so getattr defaults turned an absent measurement into a green light. The sd_notify heartbeat is gated on a beacon refreshed by serve_forever()'s service_actions(), i.e. by the accept loop MOVING rather than by traffic arriving, so an idle node is never restarted and a wedged one is reported by silence; a ping counts only once systemd has received it. Suspension is measured against a suspend-inclusive clock, so a forward NTP correction can no longer be counted as a sleep and fail the 72-hour gate. Toolset faults are split by cause and reported as gauges, because they go down when a module is fixed."
         },
         {
           "path": "node/daemon.py",

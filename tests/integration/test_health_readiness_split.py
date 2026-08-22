@@ -77,11 +77,15 @@ def test_health_readiness_split():
         code, body = _get("/healthz")
         h = json.loads(body)
         assert code == 200 and h["ok"] is True, h
+        # v0.6.6 recut: the cut claimed this endpoint leaked nothing while
+        # publishing the node id, the uptime and the witness record count —
+        # an identity and an activity volume, to anyone who asked.
         for leaked in ("isolation_declared", "isolation_ready", "isolation",
-                       "subsystems", "engine"):
+                       "subsystems", "engine", "node_id", "records",
+                       "uptime_s"):
             assert leaked not in h, f"/healthz still leaks {leaked!r}"
-        assert set(h) == {"ok", "uptime_s", "node_id", "records"}, sorted(h)
-        print("  [PASS] H-1 /healthz is liveness only — no internal state")
+        assert set(h) == {"ok"}, sorted(h)
+        print("  [PASS] H-1 /healthz is liveness only — nothing else at all")
         passed += 1
 
         # H-2
@@ -108,7 +112,7 @@ def test_health_readiness_split():
         assert code == (200 if rz["ready"] else 503), (code, rz["ready"])
         assert rz["ready"] is True, (
             f"a fresh node must be ready; reason: {rz['reason']}")
-        assert h["node_id"] == rz["node_id"], "two endpoints, one node"
+        assert rz["node_id"], "readiness still identifies the node"
         print("  [PASS] H-4 a ready node answers 200 on /readyz")
         passed += 1
 
@@ -118,11 +122,11 @@ def test_health_readiness_split():
         for want in ("jjdai_ready ", "jjdai_ready_witness ",
                      "jjdai_ready_isolation ",
                      "jjdai_liveness_beacon_age_seconds ",
-                     "jjdai_toolset_digest_drift_total ",
-                     "jjdai_toolset_module_missing_total ",
+                     "jjdai_toolset_digest_drift ",
+                     "jjdai_toolset_module_missing ",
                      "jjdai_sleep_gaps_total "):
             assert want in metrics, f"{want!r} missing from /metrics"
-        assert "jjdai_toolset_digest_drift_total 0" in metrics
+        assert "jjdai_toolset_digest_drift 0" in metrics
         print("  [PASS] H-5 /metrics carries readiness, beacon and fault "
               "counters split by cause")
         passed += 1

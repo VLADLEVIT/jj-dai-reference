@@ -22,10 +22,13 @@ clock on a connection, and charged the rate-limit budget to a client ADDRESS.
        the handler — i.e. inside a thread that already existed — so it
        bounded processing and not thread creation. This check is written to
        fail against that version.)
-  G-6b OVER THE CEILING THE NODE ANSWERS, rather than queueing work it has
+  G-7  OVER THE CEILING THE NODE ANSWERS, rather than queueing work it has
        not agreed to hold, and the ceiling is not a latch: releasing a slot
-       restores service.
-  G-7  BUDGET FOLLOWS IDENTITY, NOT ADDRESS: with a client certificate the
+       restores service. The answer is a 503 the caller can actually read:
+       closing over unread inbound data resets the connection and takes the
+       answer with it, which leaves a caller unable to tell overload from a
+       dead node.
+  G-8  BUDGET FOLLOWS IDENTITY, NOT ADDRESS: with a client certificate the
        rate-limit key is the certificate identity; without one it is a
        namespaced address that can never collide with a certificate key.
 """

@@ -1320,11 +1320,27 @@ Ownership is now explicit and enforced rather than agreed:
 
 ## Acceptance
 
-111 → 132. Twenty-one new checks: A-1…A-11
-(`tests/unit/test_adapter_layer.py`) and W-1…W-7
+111 → 133. Twenty-two new checks: A-1…A-11
+(`tests/unit/test_adapter_layer.py`), W-1…W-7
 (`tests/unit/test_plane_schema.py`), R-OWN-1…R-OWN-4
-(`tests/unit/test_readme_ownership.py`), plus the five opt-in live checks
-from v0.6.4.
+(`tests/unit/test_readme_ownership.py`) and X-1…X-3
+(`tests/unit/test_changelog_attribution.py`), plus the five opt-in live
+checks from v0.6.4.
+
+**A correction, and a check for it.** The first cut of this entry claimed
+A-1…A-11 for `test_adapter_layer.py` while that file's own header still
+documented A-1…A-9: the two checks added during the audit response went
+in as functions and never into the description. Someone looking up A-10
+in the file the CHANGELOG named would have found nothing, and the next
+zip would have carried the wrong map back into the repository.
+
+Prose was checked by nobody, so nothing caught it. X-1…X-3 now read every
+`ID-N…ID-M (path)` attribution in this file and verify that the path
+exists, that every ID in the range is documented in that file's own
+header, and that a file's IDs are contiguous. On its first run it
+immediately found a second instance of the same defect, in v0.6.4:
+`test_ingress_hardening.py` had a `G-6b` where the CHANGELOG counted
+through `G-8`. Renumbered — there is no `G-6b` any more.
 
 ## Still open after this drop
 

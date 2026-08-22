@@ -163,7 +163,7 @@ journals, replicas and the workspace.
 | Tier-1 trust node daemon | Prototype |
 | Adapter layer — EngineBackend Protocol v1 | Implemented (Implemented, protocol v1 declared whole) |
 | NECS v0.1 + harness | Implemented |
-| Acceptance and CI | Implemented (132/132 green) |
+| Acceptance and CI | Implemented (133/133 green) |
 | Retired M1-M5 lineage | Implemented (Frozen) |
 | Deployment kit (Linux + macOS) | Implemented (Implemented, macOS kit v0.6.2) |
 | Plane B canary lifecycle | Planned |
@@ -418,7 +418,7 @@ python scripts/run_acceptance.py [unit|integration|conformance|adversarial|legac
 CI runs the matrix on Python 3.10–3.12 (`.github/workflows/ci.yml`).
 
 <!-- ACCEPT:BEGIN (generated — do not edit by hand) -->
-Current status: 132/132 acceptance checks green (hermetic default groups).
+Current status: 133/133 acceptance checks green (hermetic default groups).
 
 The `live` group is opt-in and excluded from the default run: `python scripts/run_acceptance.py live` exercises the wasm-wasi
 boundary against a real `wasmtime` and is required by the Ф0 gate on each target host.

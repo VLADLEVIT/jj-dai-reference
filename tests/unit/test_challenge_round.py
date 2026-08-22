@@ -23,6 +23,7 @@ v0.5.4 unit acceptance — the adversarial challenge round
 """
 from __future__ import annotations
 
+import hashlib
 import os
 import sys
 import tempfile
@@ -118,8 +119,25 @@ def _mk_round(now, **kw):
     return cr, chain, clock
 
 
-def _verifiers(n):
-    return {f"v{i}": SigningKey.generate() for i in range(n)}
+def _verifiers(n, tag: bytes = b"jjdai-test-verifiers/v6"):
+    """Verifier keys derived from a fixed seed, not drawn fresh per run.
+
+    Sortition is deterministic GIVEN the keys — that is what C-SORT asserts.
+    But `SigningKey.generate()` drew new keys on every run, so the NUMBER of
+    seats was a fresh binomial draw: at n=12 with k=6 it lands below the
+    threshold C-RND needs a couple of percent of the time, which is why that
+    assertion described its own failure as "rerun-worthy". A check whose
+    subject is "seats -> blind commits -> reveals -> majority" must not also
+    be a lottery on how many seats today's keys happen to win; the lottery
+    only ever produced red builds that were true about nothing.
+
+    The tag is pinned to a fixture that draws 6 of 12 seats at k=6 — the
+    expected value, and a comfortable margin over the 3 the round needs to
+    split into honest / fraudster / silent. A fixture that merely cleared the
+    threshold would trade a flake for a cliff.
+    """
+    return {f"v{i}": SigningKey(hashlib.sha256(tag + b"/%d" % i).digest())
+            for i in range(n)}
 
 
 def _claim_all(cr, rid, keys, alpha):

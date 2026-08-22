@@ -114,13 +114,16 @@ Read the node id and record it in your peers manifest:
   node without removing it from the network. States are `ready`, `degraded`,
   `not_ready` and `not_configured` — the last is never a fault.
   Read this, not `/healthz`, before routing work to a node.
-* **Watchdog (v0.6.6).** The unit is `Type=notify` with `WatchdogSec=90`. The
-  heartbeat is gated on a beacon refreshed by the accept loop, so a wedged
-  serving path is reported by silence and systemd restarts the node, while a
-  merely busy node keeps answering. `journalctl -u jjdai-node@<name>` shows
-  `WATCHDOG SILENT` before any such restart — if you see restarts without
-  that line, the cause is not the watchdog.
-  To debug without being restarted: `--no-watchdog`.
+* **Watchdog (v0.6.6).** The unit is `Type=notify` with `WatchdogSec=90`,
+  so the daemon pings every 45s while the accept loop has moved within the
+  last **30s**. The beacon is refreshed by `serve_forever()` itself, once per
+  loop iteration — **not** by incoming requests, so an idle node is never
+  restarted. A wedged serving path is reported by silence and systemd
+  restarts the node; a merely busy node keeps answering.
+  `journalctl -u jjdai-node@<name>` shows `WATCHDOG SILENT` before any such
+  restart — if you see restarts without that line, the cause is not the
+  watchdog. Override with `--beacon-stale-after-s`; debug without being
+  restarted using `--no-watchdog`.
 * `GET /metrics` — Prometheus text (peer/admin cert required):
   `jjdai_requests_total`, `jjdai_denied_authz_total`,
   `jjdai_rate_limited_total`, `jjdai_revoked_rejected_total`,

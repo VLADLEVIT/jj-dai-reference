@@ -138,7 +138,7 @@ groups:
 
       # SECURITY. Not merged with the operational rule below, on purpose.
       - alert: JJDaiToolsetDigestDrift
-        expr: jjdai_toolset_digest_drift_total > 0
+        expr: jjdai_toolset_digest_drift > 0
         for: 0m
         labels:
           severity: critical
@@ -154,7 +154,7 @@ groups:
 
       # OPERATIONS. Common, expected on a fresh node, must never page anyone.
       - alert: JJDaiToolsetModuleMissing
-        expr: jjdai_toolset_module_missing_total > 0
+        expr: jjdai_toolset_module_missing > 0
         for: 30m
         labels:
           severity: info

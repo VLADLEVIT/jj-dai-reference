@@ -119,8 +119,31 @@ def evaluate_anchoring(snap: dict) -> dict:
     depth = snap.get("unanchored_depth", 0)
     max_lag = snap.get("anchor_lag_max_s", 0) or 0
     max_depth = snap.get("unanchored_depth_max", 0) or 0
+    behind = list(snap.get("anchor_behind") or [])
+    never = bool(snap.get("anchor_never_succeeded"))
+
+    # UNKNOWN IS NOT GREEN. A required backend that has never succeeded
+    # produces no lag to measure, and the v0.6.6 cut turned that missing
+    # measurement into READY. If there is substantive history that nobody
+    # has anchored, the honest answer is NOT_READY.
+    if never and depth > 0:
+        return {"state": NOT_READY,
+                "reason": ("required anchoring has never succeeded and "
+                           f"{depth} substantive record(s) are unanchored"),
+                "anchor_lag_s": None, "unanchored_depth": depth,
+                "behind": behind}
+    if never:
+        return {"state": DEGRADED,
+                "reason": "no successful anchor yet (nothing to anchor)",
+                "anchor_lag_s": None, "unanchored_depth": depth,
+                "behind": behind}
     over_lag = bool(max_lag) and lag is not None and lag > max_lag
     over_depth = bool(max_depth) and depth > max_depth
+    if behind and not (over_lag or over_depth):
+        return {"state": DEGRADED,
+                "reason": f"backend(s) behind: {', '.join(behind)}",
+                "anchor_lag_s": lag, "unanchored_depth": depth,
+                "behind": behind}
     if over_lag or over_depth:
         why = []
         if over_lag:
@@ -128,7 +151,8 @@ def evaluate_anchoring(snap: dict) -> dict:
         if over_depth:
             why.append(f"unanchored segment {depth} over policy {max_depth}")
         return {"state": NOT_READY, "reason": "; ".join(why),
-                "anchor_lag_s": lag, "unanchored_depth": depth}
+                "anchor_lag_s": lag, "unanchored_depth": depth,
+                "behind": behind}
     return {"state": READY, "reason": "", "anchor_lag_s": lag,
             "unanchored_depth": depth}
 

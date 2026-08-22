@@ -16,7 +16,27 @@ license = {text = "AGPL-3.0-only"}
 # daemon (node/), the NECS harness (necs/) and scripts/ are NOT packaged —
 # they are run from a checkout, not installed. A runnable distribution is a
 # separate deliverable (see README §5).
-packages = ["jjdai", "core", "kernel"]
+# Controlled discovery, not a hand-written list. The hand-written list
+# silently dropped jjdai.adapters (and its backends/, models/, formats/)
+# from every wheel built after v0.6.5 — invisible when running from a
+# checkout, fatal for anyone installing the library. WHEEL-PKG-1 imports
+# the subpackages out of a built wheel so the omission cannot recur.
+packages = [
+    "jjdai", "jjdai.adapters", "jjdai.adapters.backends",
+    "jjdai.adapters.formats",
+    "core", "kernel", "runtime",
+]
+# NOTE: `node/` is deliberately NOT a package. It is a script directory whose
+# modules import their siblings by bare name (`from authz import ...`), which
+# only works because the daemon puts its own directory on sys.path. Packaging
+# it would break those imports rather than fix anything. The runnable node
+# stays a separate deliverable, as the audit allows — what must not happen is
+# the LIBRARY silently losing its own adapter layer, which is what did happen.
+# Model-family profiles are DATA the adapter layer needs at runtime, not
+# documentation. A wheel that ships the code and drops the profiles is a
+# wheel whose registry refuses every model it advertises.
+[tool.setuptools.package-data]
+"jjdai.adapters" = ["models/*.json", "models/*.yaml"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -51,6 +51,13 @@ ENV_SOCKET = "NOTIFY_SOCKET"
 ENV_WATCHDOG_USEC = "WATCHDOG_USEC"
 ENV_WATCHDOG_PID = "WATCHDOG_PID"
 
+#: The deployed staleness limit, in seconds. THE number — the systemd unit,
+#: the Prometheus rule and RUNBOOK.md all quote this and OBS-WD-6 fails if
+#: any of them drifts. With WatchdogSec=90 the ping interval is 45s, so 30s
+#: means a stalled accept loop is caught within one interval and a busy one
+#: is not punished for being slow to come round.
+DEFAULT_STALE_AFTER_S = 30.0
+
 
 def available() -> bool:
     """True when a notify socket is present in the environment."""
@@ -124,9 +131,11 @@ class Beacon:
 class Watchdog(threading.Thread):
     """Pings systemd while the beacon is fresh; goes silent when it is not.
 
-    `stale_after` defaults to three missed intervals: a node under heavy
-    inference can legitimately be slow to come back round the accept loop,
-    and a watchdog that restarts a busy node is a load amplifier.
+    `stale_after` must be passed EXPLICITLY by anything that cares. The
+    default is deliberately conservative, but the deployed value is pinned in
+    one place (`DEFAULT_STALE_AFTER_S`) and asserted against the unit file,
+    the alert rules and the runbook by OBS-WD-6 — the v0.6.6 cut had three
+    different numbers in three places and none of them was the one in force.
     """
 
     def __init__(self, beacon: "Beacon", interval_s: float,
@@ -135,31 +144,49 @@ class Watchdog(threading.Thread):
         self.beacon = beacon
         self.interval_s = float(interval_s)
         self.stale_after = float(stale_after if stale_after is not None
-                                 else interval_s * 3)
+                                 else DEFAULT_STALE_AFTER_S)
         self.on_ping = on_ping
         self.on_silence = on_silence
         self.pings = 0
         self.silences = 0
-        self._stop = threading.Event()
+        self.send_failures = 0
+        # NOT `_stop`: threading.Thread uses that name internally, and
+        # shadowing it breaks Thread.join().
+        self._stop_event = threading.Event()
 
     def stop(self) -> None:
-        self._stop.set()
+        self._stop_event.set()
+
+    def should_ping(self) -> bool:
+        """THE POLICY, with no I/O in it: has the accept loop moved recently?
+
+        Separated from `tick()` because the two answer different questions
+        and a test that cannot tell them apart proves neither. `should_ping`
+        is about the node's health; `tick` is additionally about whether
+        systemd heard us.
+        """
+        return self.beacon.age() <= self.stale_after
 
     def tick(self) -> bool:
-        """One decision. Split out so the policy is testable without sleeping."""
-        if self.beacon.age() > self.stale_after:
+        """One decision plus its delivery."""
+        if not self.should_ping():
             self.silences += 1
             if self.on_silence:
                 self.on_silence(self.beacon.age())
             return False
-        notify("WATCHDOG=1")
+        # A ping is what systemd RECEIVED, not what we attempted. Counting
+        # attempts would make the metric agree with itself while the socket
+        # was gone.
+        if not notify("WATCHDOG=1"):
+            self.send_failures += 1
+            return False
         self.pings += 1
         if self.on_ping:
             self.on_ping()
         return True
 
     def run(self) -> None:
-        while not self._stop.wait(self.interval_s):
+        while not self._stop_event.wait(self.interval_s):
             try:
                 self.tick()
             except Exception:                       # never die quietly

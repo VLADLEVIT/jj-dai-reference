@@ -326,12 +326,19 @@ class Node:
         # The beacon is refreshed by the ACCEPT PATH, not by a timer, so the
         # watchdog measures the part of the process that serves the network.
         # See node/sdnotify.py for why an ungated heartbeat is worthless.
-        self.beacon = sdnotify.Beacon()
+        # NAME: `liveness_beacon`, not `beacon`. This object already owns
+        # `beacon_source` / `current_beacon` — the entanglement SaltBeacon —
+        # and one word for two unrelated things on one object is the same
+        # defect as Champion Profile vs Champion Being.
+        self.liveness_beacon = sdnotify.Beacon()
         self.watchdog = None
         self.clockwatch = None
         # Anchoring policy for readiness. Zero disables the corresponding
         # check rather than making it always-true: a policy of "no policy"
         # should be visible as NOT_CONFIGURED, not silently pass.
+        self._chain_checked_at = 0.0
+        self._chain_verdict_cached = ""
+        self.chain_check_interval_s = 30.0
         self.anchor_lag_max_s = float(anchor_lag_max_s or 0)
         self.unanchored_depth_max = int(unanchored_depth_max or 0)
 
@@ -738,41 +745,130 @@ class Node:
         different modules.
         """
         iso = self.isolation_status()
-        anchor_lag = None
-        depth = 0
-        configured = bool(getattr(self, "anchor_scheduler", None))
+        sched = getattr(self, "anchor_scheduler", None)
+        configured = sched is not None
+        anchor_lag, depth, never, behind = None, 0, False, []
         if configured:
             try:
-                last = getattr(self.anchor_scheduler, "last_anchor_at", None)
+                st = sched.anchor_status()
+                last = st.get("last_success_at")
                 if last:
                     anchor_lag = max(0.0, time.time() - float(last))
-                depth = int(getattr(self.anchor_scheduler,
-                                    "unanchored_depth", 0) or 0)
-            except Exception:
-                anchor_lag, depth = None, 0
-        engine = getattr(self, "engine", None)
+                depth = int(st.get("unanchored_depth", 0) or 0)
+                never = bool(st.get("never_succeeded"))
+                behind = list(st.get("behind") or [])
+            except Exception as e:                 # never a silent green
+                anchor_lag, depth, never = None, 0, True
+                behind = [f"anchor_status unavailable: {e}"]
+        eng_ready, eng_reason, eng_name = self._engine_readiness()
+        chain_broken = self._chain_verdict()
         return {
             "identity_loaded": bool(getattr(self, "sk", None)),
             "identity_ephemeral": self.identity_mode == "ephemeral",
-            "signer_mismatch": False,      # boot gate refuses to start on this
+            "signer_mismatch": self._signer_mismatch(),
             "chain_loaded": self.chain is not None,
-            "chain_broken": "",
+            "chain_broken": chain_broken,
             "records": len(self.chain.records) if self.chain else 0,
             "anchoring_configured": configured,
             "anchor_lag_s": anchor_lag,
+            "anchor_never_succeeded": never,
+            "anchor_behind": behind,
             "unanchored_depth": depth,
             "anchor_lag_max_s": self.anchor_lag_max_s,
             "unanchored_depth_max": self.unanchored_depth_max,
-            "engine_configured": engine is not None,
-            "engine_ready": engine is not None,
-            "engine_name": getattr(engine, "name", None) if engine else None,
-            "engine_reason": "",
+            "engine_configured": self.engine is not None,
+            "engine_ready": eng_ready,
+            "engine_name": eng_name,
+            "engine_reason": eng_reason,
             "isolation_declared": iso["declared"],
             "isolation_ready": iso["ready"],
             "being_configured": self.being is not None,
             "being_contained": self.governor.is_contained(self.being_id),
             "being_profile": (self.being.profile if self.being else None),
         }
+
+    def _engine_readiness(self):
+        """Ask the engine, do not merely observe that one exists.
+
+        `engine is not None` answered "is an object present", and an
+        unreachable DwarfStar reporting `healthy=False` was published as
+        `engine: ready`. Where a backend implements neither `readiness()`
+        nor `healthy()` the honest answer is UNKNOWN, expressed as
+        not-ready-with-a-reason rather than as a green light.
+        """
+        eng = self.engine
+        if eng is None:
+            return False, "", None
+        name = (getattr(eng, "backend", None) or getattr(eng, "name", None)
+                or type(eng).__name__)
+        for meth in ("readiness", "healthy", "health"):
+            fn = getattr(eng, meth, None)
+            if not callable(fn):
+                continue
+            try:
+                res = fn()
+            except Exception as e:
+                return False, f"{meth}() raised: {type(e).__name__}: {e}", name
+            if isinstance(res, dict):
+                ok = res.get("ready", res.get("healthy", res.get("ok")))
+                if ok is None:
+                    return False, f"{meth}() returned no verdict", name
+                return bool(ok), ("" if ok else
+                                  str(res.get("reason", "not ready"))), name
+            return bool(res), ("" if res else f"{meth}() is false"), name
+        return False, ("engine exposes no readiness/healthy probe — state "
+                       "UNKNOWN, reported as not ready"), name
+
+    def _chain_verdict(self) -> str:
+        """Cached structural verdict on the witness chain.
+
+        Verifying the whole chain on every scrape would be a self-inflicted
+        denial of service, and asserting `""` — as the v0.6.6 cut did — is
+        not a measurement at all. So: verify at most once per interval and
+        serve the cached verdict in between.
+        """
+        if self.chain is None:
+            return ""
+        now = time.time()
+        if (self._chain_checked_at and
+                now - self._chain_checked_at < self.chain_check_interval_s):
+            return self._chain_verdict_cached
+        verdict = ""
+        try:
+            fn = (getattr(self.chain, "verify_head", None) or
+                  getattr(self.chain, "verify", None))
+            if callable(fn):
+                res = fn()
+                if res is False:
+                    verdict = "chain verification returned false"
+                elif isinstance(res, dict) and not res.get("ok", True):
+                    verdict = str(res.get("reason", "chain does not verify"))
+            else:
+                verdict = ""      # nothing to verify against; not a failure
+        except Exception as e:
+            verdict = f"{type(e).__name__}: {e}"
+        self._chain_verdict_cached = verdict
+        self._chain_checked_at = now
+        return verdict
+
+    def _signer_mismatch(self) -> bool:
+        """Is the chain carrying records signed by somebody else?
+
+        The boot gate refuses to start on this, which is why the cut simply
+        wrote False. But the gate runs once and readiness is continuous, and
+        a constant is not a measurement.
+        """
+        try:
+            if self.chain is None or not self.chain.records:
+                return False
+            mine = self.chain.node_id
+            for r in reversed(self.chain.records[-32:]):
+                nid = r.get("node") or r.get("node_id")
+                if nid and nid != mine:
+                    return True
+            return False
+        except Exception:
+            return True           # unreadable is not the same as fine
 
     def readiness(self) -> dict:
         """The full readiness report, aggregate included."""
@@ -1083,13 +1179,20 @@ class BoundedThreadingHTTPServer(ThreadingHTTPServer):
         except OSError:
             pass
 
+    def service_actions(self):
+        """Called by `serve_forever()` on EVERY loop iteration, traffic or
+        not — this is where the liveness beacon belongs.
+
+        The v0.6.6 cut touched the beacon in `process_request`, which only
+        runs when a connection ARRIVES. An idle but perfectly healthy node
+        therefore aged its beacon, went silent, and was restarted by systemd.
+        The watchdog must measure whether the accept loop is MOVING, not
+        whether anyone happens to be talking to us.
+        """
+        super().service_actions()
+        self.node.liveness_beacon.touch()
+
     def process_request(self, request, client_address):
-        # The beacon is refreshed HERE — on the accept loop, before admission
-        # — because this is the thread whose stall is invisible to everything
-        # else. A beacon touched inside a handler would stay fresh while the
-        # accept loop was wedged, which is the failure the watchdog exists
-        # to catch.
-        self.node.beacon.touch()
         if not self.node.ingress_sem.acquire(blocking=False):
             self.node.metrics["overloaded_total"] += 1
             self.node.metrics["requests_total"] += 1
@@ -1293,10 +1396,12 @@ def make_handler(node: Node):
                 # rode here since v0.6.4 has moved there as promised; the
                 # anonymous role keeps this endpoint and learns nothing about
                 # internal state from it, which is the point.
-                return self._send(200, {"ok": True,
-                    "uptime_s": round(time.time() - node.started_at, 1),
-                    "node_id": node.chain.node_id,
-                    "records": len(node.chain.records)})
+                # MINIMAL by design. The v0.6.6 cut claimed this endpoint
+                # leaked nothing while publishing the node id, the uptime
+                # and the witness record count to anyone who asked — an
+                # identity and an activity volume. Everything beyond "this
+                # process can answer" lives behind authorization now.
+                return self._send(200, {"ok": True})
             if self.path == "/readyz":
                 # READINESS. Per subsystem, with an aggregate that is red only
                 # for the subsystems without which this node is not a
@@ -1344,14 +1449,20 @@ def make_handler(node: Node):
                             missing += 1
                         else:
                             other += 1
-                m["toolset_digest_drift_total"] = drift
-                m["toolset_module_missing_total"] = missing
-                m["toolset_other_fault_total"] = other
+                # GAUGES, not counters: these are recomputed from current
+                # state and go DOWN when a module is fixed. A Prometheus
+                # `_total` must be monotonic, and naming a gauge `_total` is
+                # how a rule that looks right silently stops being right.
+                m["toolset_digest_drift"] = drift
+                m["toolset_module_missing"] = missing
+                m["toolset_other_fault"] = other
                 m["liveness_beacon_age_seconds"] = round(
-                    node.beacon.age(), 3)
+                    node.liveness_beacon.age(), 3)
                 if node.watchdog is not None:
                     m["watchdog_pings_total"] = node.watchdog.pings
                     m["watchdog_silences_total"] = node.watchdog.silences
+                    m["watchdog_send_failures_total"] = \
+                        node.watchdog.send_failures
                 if node.clockwatch is not None:
                     m.update(node.clockwatch.metrics())
                 for k, v in m.items():
@@ -1761,6 +1872,12 @@ def main(argv=None):
                     help="readiness: max depth of the unanchored ledger "
                          "segment before /readyz reports NOT_READY "
                          "(0 = no policy)")
+    ap.add_argument("--beacon-stale-after-s", type=float,
+                    default=sdnotify.DEFAULT_STALE_AFTER_S,
+                    help="how long the accept loop may be still before the "
+                         "watchdog stops answering systemd (default matches "
+                         "the deployed systemd unit; OBS-WD-6 pins the two "
+                         "together)")
     ap.add_argument("--no-watchdog", action="store_true",
                     help="do not answer systemd's watchdog even when "
                          "WATCHDOG_USEC is set (debugging only)")
@@ -2096,14 +2213,16 @@ def main(argv=None):
     interval = 0.0 if args.no_watchdog else sdnotify.watchdog_interval_s()
     if interval > 0:
         node.watchdog = sdnotify.Watchdog(
-            node.beacon, interval,
+            node.liveness_beacon, interval,
+            stale_after=args.beacon_stale_after_s,
             on_silence=lambda age: print(
                 f"[{args.name}] WATCHDOG SILENT: accept loop has not moved "
                 f"for {age:.0f}s — not answering systemd", file=sys.stderr,
                 flush=True))
         node.watchdog.start()
         print(f"[{args.name}] systemd watchdog: pinging every "
-              f"{interval:.0f}s while the accept loop is fresh", flush=True)
+              f"{interval:.0f}s while the accept loop has moved within "
+              f"{args.beacon_stale_after_s:.0f}s", flush=True)
     # READY=1 goes out only now: under Type=notify systemd holds dependent
     # units until it arrives, and sending it before the socket is listening
     # would give that ordering guarantee away for nothing.

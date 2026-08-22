@@ -107,9 +107,11 @@ def test_alert_rules():
         "overloaded_total", "refusal_dropped_total", "tasks_total",
         "challenge_rounds_total", "witness_records", "uptime_seconds",
         "anchor_lag_seconds", "unanchored_depth",
-        "toolset_digest_drift_total", "toolset_module_missing_total",
-        "toolset_other_fault_total", "liveness_beacon_age_seconds",
+        "toolset_digest_drift", "toolset_module_missing",
+        "toolset_other_fault", "liveness_beacon_age_seconds",
         "watchdog_pings_total", "watchdog_silences_total",
+        "watchdog_send_failures_total",
+        "clock_source_is_suspend_inclusive",
         "sleep_gaps_total", "sleep_gap_last_seconds",
         "sleep_gap_seconds_total", "clock_steps_total",
         "clock_step_last_seconds")}
@@ -120,6 +122,15 @@ def test_alert_rules():
     assert not unknown, f"alerts name metrics the node never emits: {unknown}"
     print(f"  [PASS] A-4 all {len(named)} named metrics are emittable")
     passed += 1
+
+    # A-6 — a gauge must never be spelled like a counter
+    for a in alerts.values():
+        for metric in re.findall(r"\bjjdai_[a-z0-9_]+", a["expr"]):
+            if metric.startswith("jjdai_toolset_"):
+                assert not metric.endswith("_total"), (
+                    f"{metric} is recomputed from current state and can go "
+                    f"DOWN; a Prometheus _total must be monotonic")
+    print("  [PASS] A-6 toolset fault metrics are not spelled as counters")
 
     # A-5
     assert any("jjdai_ready ==" in a["expr"] for a in alerts.values()), \

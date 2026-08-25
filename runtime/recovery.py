@@ -55,9 +55,52 @@ def _orphaned_intents(karma_journal: str) -> set:
     return open_intents - closed
 
 
+class BeingContinuityError(RuntimeError):
+    """A journal written by one Being is being loaded by another.
+
+    Kept SEPARATE from IdentityError because the two answer different
+    questions: IdentityError says a key does not match an id, this says a
+    key and an id are both fine and belong to somebody else's history.
+    """
+
+
+def journal_being_ids(tasks_journal: str) -> set:
+    """Every being_id that has ever opened a task in this journal.
+
+    Read from the `open` entries, which have carried `being_id` since the
+    journal existed — so this works on journals written before the check.
+    """
+    return {e["being_id"] for e in _load_journal(tasks_journal)
+            if e.get("op") == "open" and e.get("being_id")}
+
+
 def recover_traces(tasks_journal: str, *, karma_journal: str = None,
-                   machine=None) -> dict:
-    """-> {task_id: DecisionTrace}, with in-flight fates resolved."""
+                   machine=None, expect_being_id: str = None) -> dict:
+    """-> {task_id: DecisionTrace}, with in-flight fates resolved.
+
+    `expect_being_id` makes recovery FAIL-CLOSED on continuity (recut5,
+    audit P0.1). Until now a daemon started without `--being-keystore`
+    minted a fresh key and a fresh `being:<hash>` on every boot, then
+    loaded the previous Being's traces out of the same journal and served
+    them as its own. Nothing was corrupt and every signature verified —
+    the histories of two beings were simply merged, which is the one thing
+    continuity is supposed to mean and the one thing nothing checked.
+
+    A mismatch is a refusal in every profile, not a warning and not a
+    silent skip: moving a Being to another identity is a MIGRATION, it has
+    its own consent-signed procedure (core.identity.IdentityBinder), and
+    it is not something a restart may do by accident.
+    """
+    if expect_being_id:
+        others = journal_being_ids(tasks_journal) - {expect_being_id}
+        if others:
+            raise BeingContinuityError(
+                f"task journal {tasks_journal!r} was written by "
+                f"{sorted(others)} and this runtime is "
+                f"{expect_being_id!r}: refusing to inherit another being's "
+                "history. This is a migration, and a migration is a "
+                "witnessed act with the being key's consent — never a "
+                "side effect of a restart")
     entries = _load_journal(tasks_journal)
     if not entries:
         return {}

@@ -1,4 +1,4 @@
-# JJ DAI testnet-0 — Operator Runbook, macOS node (v0.6.3)
+# JJ DAI testnet-0 — Operator Runbook, macOS node (v0.6.7)
 
 Companion to `deploy/RUNBOOK.md` (Ubuntu). Everything not repeated here —
 topology, PKI generation, authz policy, anchoring, DIVERGENCE_EVIDENCE
@@ -51,11 +51,20 @@ pre-login; user keychains are not available):
 ```
 sudo python3 /opt/jjdai/deploy/macos/keychain_seal.py seal   --node ua-kyiv-1
 sudo python3 /opt/jjdai/deploy/macos/keychain_seal.py status --node ua-kyiv-1
+
+# recut5: the BEING key is a separate item with a separate lifetime —
+# a being outlives the host it runs on, so it is rotated and migrated
+# independently of the node key.
+sudo python3 /opt/jjdai/deploy/macos/keychain_seal.py seal   --node ua-kyiv-1 --kind being
+sudo python3 /opt/jjdai/deploy/macos/keychain_seal.py status --node ua-kyiv-1 --kind being
 ```
 
-At boot the launcher unseals it and exports
-`JJDAI_KEYSTORE_PASSPHRASE` into the daemon environment; the secret is
-never present in the plist, the env file, or argv of the daemon.
+At boot the launcher unseals both and exports
+`JJDAI_KEYSTORE_PASSPHRASE` and `JJDAI_BEING_PASSPHRASE` into the daemon
+environment; neither secret is present in the plist, the env file, or
+argv of the daemon. A missing being passphrase is a refusal to start,
+not a downgrade: a `production` node with an ephemeral being would mint
+a new mind on every boot and inherit the old one's journal.
 
 **Stated, not hidden.** This is the **macOS Keychain degraded profile
 (non-SE-resident)**: the `security` CLI stores a

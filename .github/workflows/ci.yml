@@ -13,17 +13,84 @@ jobs:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      # PINNED BY COMMIT SHA, not by a moving major tag. `@v4` and `@v5`
+      # are branches in all but name: the same workflow file runs different
+      # code over time, so a green run last month says nothing about what
+      # ran today. The trailing comment names the release each SHA was at
+      # when it was resolved — the SHA is the pin, the comment is for a
+      # human deciding whether to move it.
+      #
+      # Both were resolved with `git ls-remote --tags --refs` and
+      # cross-checked against the exact version tag pointing at the same
+      # commit. Bump by re-resolving, never by editing the digits.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install test runner
-        run: pip install pytest
-      - name: Unit / adversarial / legacy
-        run: python -m pytest tests/unit tests/adversarial tests/legacy -q
+      # PINNED, with a hash-checked requirements file. An unpinned
+      # `pip install pytest` makes the CI result depend on whatever PyPI
+      # served that morning: a green run proves the tree was fine under
+      # an unknown collector, which is not the claim CI is making. The
+      # RUNTIME core stays stdlib-only — this pins the TOOLCHAIN. The
+      # separate `bare-interpreter` job below is what proves the tree
+      # needs no toolchain at all; a step inside THIS job cannot, because
+      # pytest is already installed by the time it runs.
+      - name: Install test runner (pinned)
+        run: pip install --require-hashes -r requirements-dev.txt
+      - name: Unit / adversarial / compatibility
+        run: python -m pytest tests/unit tests/adversarial tests/compatibility -q
       - name: Integration (live daemons, loopback)
         run: python -m pytest tests/integration -q
       - name: Conformance (NECS + adapter mocks)
         run: python -m pytest tests/conformance -q
-      - name: Stdlib runner parity (no-pytest environments)
+      # The stdlib runner and pytest must agree on this host. Note what
+      # this step does NOT prove: pytest is installed in this job, so the
+      # run is not a no-pytest run. It was labelled "no-pytest
+      # environments" through recut3 and that label was simply wrong.
+      - name: Stdlib runner agrees with pytest on this host
         run: python scripts/run_acceptance.py
+      # tests/live is NOT run here and must not be: it requires a real
+      # wasm runtime and a real model on the host. The Ф0 gate requires
+      # it to have run on each TARGET host, which a CI container is not.
+      - name: Software bill of materials reproduces
+        run: python scripts/gen_sbom.py --check
+      # The roadmap PDF is NOT one of the surfaces check_docs_drift.py
+      # generates, so nothing in the tree saw recut2 ship a PDF saying
+      # 211/211 beside a markdown saying 213/213. This is what sees it.
+      - name: Roadmap PDF is current with its markdown
+        run: python scripts/typeset_roadmap.py --check
+
+  # ---------------------------------------------------------------------
+  # The claim "the runtime core is stdlib-only" is made in the README, in
+  # requirements-dev.txt and in the SBOM (`runtime-dependencies: 0`). Until
+  # recut4 nothing tested it: every job pip-installed pytest first, so the
+  # closest thing to proof was a step misnamed "no-pytest environments"
+  # running on a host that had pytest.
+  #
+  # This job installs NOTHING. If any import in the hermetic suite grows a
+  # third-party dependency, this is the job that goes red, and it goes red
+  # on the import rather than three drops later when somebody tries to run
+  # the tree on a machine without a package index.
+  bare-interpreter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
+        with:
+          python-version: "3.12"
+      - name: pytest must NOT be importable in this job
+        run: |
+          if python -c "import pytest" 2>/dev/null; then
+            echo "pytest is importable — this job no longer proves anything"
+            exit 1
+          fi
+          echo "pytest absent, as required"
+      - name: Full hermetic suite on a bare interpreter
+        run: python scripts/run_acceptance.py
+      # Same tree, same evidence file, opposite environment from the job
+      # above. ENTRY-3 has to pass in both, which is the property recut3
+      # broke by asserting the recorded artefact described the current
+      # host: whichever mode the evidence carried, one of these two jobs
+      # was guaranteed to fail.
+      - name: Roadmap PDF is current with its markdown
+        run: python scripts/typeset_roadmap.py --check

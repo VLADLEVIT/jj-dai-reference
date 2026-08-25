@@ -39,9 +39,24 @@ def _healthy(**over) -> dict:
         "identity_loaded": True, "identity_ephemeral": False,
         "signer_mismatch": False,
         "chain_loaded": True, "chain_broken": "", "records": 12,
+        # v0.6.7 vertical: the being's identity is reported beside the
+        # node's, and a healthy fixture has to state both. An ephemeral or
+        # unbound being is DEGRADED, deliberately.
+        "being_ephemeral": False, "being_bound": True,
         "anchoring_configured": True, "anchor_lag_s": 30.0,
         "unanchored_depth": 4, "anchor_lag_max_s": 900,
         "unanchored_depth_max": 256,
+        # v0.6.7 audit: anchoring is evaluated PER REQUIRED BACKEND, so a
+        # healthy fixture has to name one. A snapshot with no per-backend
+        # facts is deliberately NOT_READY — an absent measurement is not a
+        # green light.
+        "anchor_external_configured": True,
+        "anchor_required": ["ots"],
+        "anchor_configured_backends": ["local", "ots"],
+        "anchor_shadow_backends": [],
+        "anchor_backend_facts": {
+            "ots": {"required": True, "never": False, "in_custody": False,
+                    "behind": False, "depth": 4, "lag_s": 30.0}},
         "engine_configured": True, "engine_ready": True,
         "engine_name": "dwarfstar", "engine_reason": "",
         "isolation_declared": ["reference"], "isolation_ready": ["reference"],
@@ -66,7 +81,10 @@ def test_readiness_rules():
     # R-2 — every core subsystem, one at a time
     for name, broken in (("identity", {"identity_loaded": False}),
                          ("witness", {"chain_broken": "hash mismatch at 7"}),
-                         ("anchoring", {"anchor_lag_s": 5000.0})):
+                         ("anchoring", {"anchor_backend_facts": {
+                             "ots": {"required": True, "never": False,
+                                     "in_custody": False, "behind": True,
+                                     "depth": 4, "lag_s": 5000.0}}})):
         rep = R.evaluate(_healthy(**broken))
         assert rep["ready"] is False, (name, rep)
         assert name in rep["reason"], (name, rep["reason"])

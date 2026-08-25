@@ -1,0 +1,32 @@
+{
+  "collector": {
+    "entrypoint_probe_mode": "configuration-only",
+    "pytest": null,
+    "runner": "scripts/run_acceptance.py"
+  },
+  "completed_at": "2026-08-25T14:54:12Z",
+  "digest": "0cbf2f9a7ffa1c82b3a3ea044dc43dd5fc544d52d01680d24db6b26c497ad355",
+  "duration_s": 45.8,
+  "engine": null,
+  "groups": [
+    "adversarial",
+    "compatibility",
+    "conformance",
+    "integration",
+    "unit"
+  ],
+  "host": {
+    "machine": "x86_64",
+    "node": "vm",
+    "release": "6.18.44-fc-v21",
+    "system": "Linux"
+  },
+  "import_errors": 0,
+  "passed": 215,
+  "python": "3.11.15",
+  "schema": "jjdai.acceptance_result/v4",
+  "suite": "hermetic",
+  "total": 215,
+  "tree_digest": "7e67242e99fc5304dd91af34bd756de618eb4be8c713a49458e4ca01b64b006f",
+  "version": "0.6.8"
+}

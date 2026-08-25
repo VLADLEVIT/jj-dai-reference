@@ -84,6 +84,8 @@ def _wait(ctx, base, tries=60):
 def test_security_alpha_live():
     _prev = os.environ.get("JJDAI_KEYSTORE_PASSPHRASE")
     os.environ["JJDAI_KEYSTORE_PASSPHRASE"] = "sec-alpha-pass"
+    _prev_being = os.environ.get("JJDAI_BEING_PASSPHRASE")
+    os.environ["JJDAI_BEING_PASSPHRASE"] = "sec-alpha-being-pass"
     procs = {}
     with tempfile.TemporaryDirectory() as tmp:
         pki = os.path.join(tmp, "pki")
@@ -132,6 +134,12 @@ def test_security_alpha_live():
                 for m, a, d, j in (("m:gen", "ar-a", "ds-g", "UA"),
                                    ("m:v1", "ar-b", "ds-1", "KR"),
                                    ("m:v2", "ar-c", "ds-2", "EE"))}
+        sys.path.insert(0, os.path.join(_ROOT, "tests"))
+        from artifact_fixtures import signed_artifact
+        _fx = signed_artifact(tmp, backend="hash", fingerprint="fp-a")
+        _man_path = os.path.join(tmp, "model-artifact.json")
+        with open(_man_path, "w", encoding="utf-8") as fh:
+            json.dump(_fx.envelope, fh)
         prov_path = os.path.join(tmp, "prov.json")
         json.dump(prov, open(prov_path, "w"))
         revoked_path = os.path.join(tmp, "revoked.txt")
@@ -153,6 +161,14 @@ def test_security_alpha_live():
                 "--challenge-windows", "3,3",
                 "--being-profile", "production",
                 "--being-provenance", prov_path,
+                # recut6: the artifact chain is a boot gate for production
+                "--substrates", json.dumps([_fx.substrate_id]),
+                "--substrate-artifacts", json.dumps({_fx.substrate_id:
+                                                     _fx.path}),
+                "--model-artifact-manifest", _man_path,
+                # recut5: a production node must hold its being's key and
+                # a hosting binding before it may witness under that name.
+                "--being-keystore", os.path.join(tmp, "a.being.keystore"),
                 "--being-workspace", os.path.join(tmp, "a.ws"),
                 "--being-journals", os.path.join(tmp, "a.being")],
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -275,6 +291,10 @@ def test_security_alpha_live():
                 os.environ.pop("JJDAI_KEYSTORE_PASSPHRASE", None)
             else:
                 os.environ["JJDAI_KEYSTORE_PASSPHRASE"] = _prev
+            if _prev_being is None:
+                os.environ.pop("JJDAI_BEING_PASSPHRASE", None)
+            else:
+                os.environ["JJDAI_BEING_PASSPHRASE"] = _prev_being
             for p in procs.values():
                 p.terminate()
             for p in procs.values():

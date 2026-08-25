@@ -1,4 +1,4 @@
-# JJ DAI testnet-0 — Operator Runbook (v0.6.3)
+# JJ DAI testnet-0 — Operator Runbook (v0.6.7)
 
 > **macOS node?** This runbook targets Ubuntu 24. The Mac node (launchd,
 > Keychain sealing, 24/7 power on a laptop chassis) is covered by
@@ -85,6 +85,45 @@ It lays out `/opt/jjdai`,
 
 * **Env file (fallback).** Append `JJDAI_KEYSTORE_PASSPHRASE=...` to
   `/etc/jjdai/<node>.env` (0640, root:jjdai). Record that you did this.
+
+### 2a. The BEING key is a SECOND secret (recut5)
+
+The node key answers *which machine*; the being key answers *which mind*.
+Both are required for a `production` node and both must be provisioned:
+
+    JJDAI_KEYSTORE_PASSPHRASE   -> /var/lib/jjdai/<node>.keystore
+    JJDAI_BEING_PASSPHRASE      -> /var/lib/jjdai/<node>.being.keystore
+
+Seal the second one exactly like the first (TPM, keychain with
+`--kind being`, or the 0640 env file). **The unit refuses to start
+without it**, and that refusal is deliberate: before recut5 a node
+started without a being keystore minted a NEW `being:<hash>` on every
+boot and then loaded the PREVIOUS being's task journal as its own. Every
+signature verified; two lives had simply been merged. Since recut5 that
+condition is a startup refusal, not a warning.
+
+Back up the being keystore separately and treat it as the more valuable
+of the two: a node can be rebuilt, a being's continuity cannot.
+`--being-journals` is that being's history and belongs with it.
+
+### 2b. The provenance map: what it is keyed by
+
+`--being-provenance` is a JSON object keyed by **route object id**
+(`m:self`), not by seat or node id (`n-self`), and every entry needs a
+`model_id`. A map keyed the other way, or an entry missing `model_id`,
+does not produce a clean refusal — it raises inside routing and the task
+ends `FAILED` / `internal_error`, which reads like a crash rather than
+like the configuration error it is.
+
+    {"m:self": {"model_id": "m:self", "base_family": "...",
+                "architecture_family": "...",
+                "training_data_families": ["..."],
+                "operator_domain": "...", "jurisdiction": "UA"}}
+
+Since recut5 a `production` node additionally refuses any decision it
+cannot bind to a signed **ModelArtifactManifest** — the provenance map
+says which model is *supposed* to be there, the manifest says which
+weights actually answered.
 
 ---
 
@@ -180,6 +219,32 @@ the fabric is built to make undeniable.
   not per-node.
 
 Verify anchoring is live: `GET /witness/anchors` lists held receipts.
+
+### Required vs configured backends
+
+`--anchor-backends` says what the node RUNS. `--required-anchor-backends`
+says what readiness HOLDS IT TO. The default for the second is every
+configured backend that is not `local`, which is the old behaviour.
+
+A backend that is configured but not required runs in **shadow**: it
+anchors, its receipts are kept, `/readyz` reports it under `shadow`, and it
+cannot make the node answer 503. That is how a backend is operated before
+the phase that makes it mandatory — without either lying about readiness or
+holding the node down for a policy nobody has adopted yet.
+
+```
+--anchor-backends local,peer-quorum,ots,xmr --required-anchor-backends ots
+```
+
+Naming a backend that is not configured refuses at startup. It would
+otherwise be dropped silently and the node would report green on a policy
+nobody serves.
+
+Since v0.6.7 readiness is evaluated PER REQUIRED BACKEND and every failing
+one is named in the reason. Before that a proof held in ordinary custody by
+one backend suppressed the verdict about another that had never anchored at
+all.
+
 
 ---
 

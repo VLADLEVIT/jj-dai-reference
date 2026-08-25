@@ -37,7 +37,10 @@ def phase_readiness(backend) -> dict:
     from .protocol import declared_attributes
     exec_min = all(implements(backend, m) for m in ("generate", "score"))
     attrs = declared_attributes(backend)
-    identified = attrs["backend"] is not None and attrs["fingerprint"] is not None
+    # recut9: `is not None` was true of `" "` before declared_attributes
+    # normalised it, and "identified" must mean NAMED, not merely present.
+    identified = all(isinstance(attrs.get(k), str) and attrs[k].strip()
+                     for k in ("backend", "fingerprint"))
     return {
         "phase_1": bool(exec_min and identified),
         "phase_2": bool(group_complete(backend, "lifecycle")

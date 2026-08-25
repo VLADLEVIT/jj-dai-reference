@@ -1,11 +1,11 @@
 # JJ DAI — Reference Trust, Governance & Agent Kernel
 
 <!-- VERSION:BEGIN (generated — the build owns this line and nothing else near it) -->
-**Version:** `0.6.6` (matches `jjdai.__version__`; enforced by the release-integrity test) · **Python:** ≥3.10, stdlib-only core · **Site:** [jj-dai.org](https://jj-dai.org)
+**Version:** `0.6.8` (matches `jjdai.__version__`; enforced by the release-integrity test) · **Python:** ≥3.10, stdlib-only core · **Site:** [jj-dai.org](https://jj-dai.org)
 <!-- VERSION:END -->
 
 <!--
-  README OWNERSHIP (v0.6.6)
+  README OWNERSHIP (v0.6.8)
   ------------------------
   Everything OUTSIDE a generated marker block is owned by the repository and
   is never written by the build. That includes the title, this notice, and
@@ -139,6 +139,9 @@ journals, replicas and the workspace.
 | Typed boundary and durability | Implemented |
 | External anchoring | Prototype |
 | Monero root-as-spend-key anchor | Prototype (Prototype, v0.5.2) |
+| Track V reserved vocabulary | Interface only (Interface only, ADR-018, reserved, non-emittable) |
+| Deferred-verification reserved vocabulary | Interface only (Interface only, ADR-019, reserved, non-emittable) |
+| Value-level refusal of both reserves | Implemented (Implemented, v0.6.8, P0-1) |
 | Smriti — continuity and memory | Implemented |
 | Viveka — discernment and deliberation | Implemented |
 | Karma — governed action | Implemented (Implemented, reference sandbox) |
@@ -164,9 +167,10 @@ journals, replicas and the workspace.
 | Tier-1 trust node daemon | Prototype |
 | Adapter layer — EngineBackend Protocol v1 | Implemented (Implemented, protocol v1 declared whole) |
 | NECS v0.1 + harness | Implemented |
-| Acceptance and CI | Implemented (145/145 green) |
+| Acceptance and CI | Implemented (215/215 green (recorded run on Python 3.11.15; stdlib runner, CI matrix 3.10-3.12)) |
 | Retired M1-M5 lineage | Implemented (Frozen) |
 | Deployment kit (Linux + macOS) | Implemented (Implemented, macOS kit v0.6.2) |
+| Release provenance — partial | Prototype (Partial, SBOM + pinning v0.6.8) |
 | Plane B canary lifecycle | Planned |
 | Knowledge graph / ontology semantics | Planned |
 | TEE / runtime attestation | Planned |
@@ -176,6 +180,10 @@ journals, replicas and the workspace.
 <!-- STATUS:END -->
 
 ## 4. What is NOT in this release
+
+> **New here?** `docs/README.md` is the documentation map, §2 below is what
+> you need to run it, §5 is a working node in four commands, and §6 has a
+> table of every directory and what belongs in it.
 
 No DIIP (governed self-improvement), no full Plane B canary lifecycle, no
 training federation, no TEE/runtime attestation (weight attestation proves
@@ -289,6 +297,32 @@ daemon. Three terms that used to share the word "adapter" now have separate
 names: **backend driver** (our code, connecting to an engine), **model
 profile** (a declarative description of a family), **weight adapter**
 (LoRA/DoRA over a checkpoint).
+
+### Where it lives
+
+The diagram above is the *shape*; this is the tree. Everything is Python
+without third-party imports, so a directory is a layer, not a build target.
+
+| Path | What it is | Read it when |
+|---|---|---|
+| [`docs/`](docs/) | **Start here.** `docs/README.md` is the documentation map: the status file that is the source of truth, the ADRs (a decision is not made until it is one), the roadmap, and the diagrams — labelled explanatory, not normative. | You want the reasoning, not the code |
+| `jjdai/` | The shared primitive layer, and the only part meant to be imported as a library: JCS canonicalization, Ed25519 and VRF, Merkle trees, the witness chain, durability, and `jjdai/adapters/` — the EngineBackend protocol, registry, drivers and model profiles | You are building on JJ DAI |
+| `core/` | Trust and governance services on top of those primitives: identity, the §9.9 reputation registry, sealed verdicts, the challenge round, containment, replication and segments, anchoring (local, peer-quorum, OTS, Monero), Plane H, routing, diversity, cross-verification, attestation | You are asking how a guarantee is enforced |
+| `kernel/` | The organ kernel — `smriti` (memory), `viveka` (discernment), `karma` (governed action) and `isolation` (the execution profiles Karma runs inside) | You are asking what an agent may do |
+| `node/` | The reference daemon: HTTP surface, authz, readiness, watchdog, clock watch, plus mock engines. **Not a package** — its modules import each other by bare name, which works because the daemon puts its own directory on `sys.path` | You are running or reading the node |
+| `runtime/` | `BeingRuntime` — the decision lifecycle, traces and semantic recovery. Prototype | You are following a decision end to end |
+| `necs/` | The NECS v0.1 specification and its conformance harness. **Apache-2.0**, unlike everything above it | You are certifying an engine |
+| `tests/` | `unit` · `integration` (spawns loopback daemons) · `conformance` · `adversarial` · `compatibility` (the frozen M1–M5 lineage) · `live` (opt-in, needs a real runtime) | Always — the suites are the specification that runs |
+| `deploy/` | Runbooks per host, the systemd and launchd kits, PKI generation, TPM and Keychain sealing, Prometheus rules, a Grafana dashboard, the wasm toolset manifest | You are standing a node up |
+| `scripts/` | The stdlib acceptance runner and the documentation generators that CI gates on | You are running checks or regenerating surfaces |
+| `m1m5/` | The retired M1–M5 lineage, kept **frozen** and verbatim for auditability. Nothing here describes the current build | You are auditing where something came from |
+| `LICENSES/` | Full texts: AGPL-3.0 for the core, Apache-2.0 for NECS | See §10 |
+
+Two directories are deliberately not what a newcomer might expect. `node/`
+is a script directory rather than a package, so it is absent from the wheel
+— packaging it would break the bare-name imports rather than fix anything.
+And `m1m5/` looks like live code but is not: it is the ancestor, frozen on
+purpose, and `tests/compatibility` exists to prove it still verifies.
 
 **INV-9 — Purusha is non-executive, not causally inert.**
 Purusha never commands, selects or executes a decision. What it witnesses
@@ -433,7 +467,7 @@ python scripts/run_acceptance.py [unit|integration|conformance|adversarial|legac
 CI runs the matrix on Python 3.10–3.12 (`.github/workflows/ci.yml`).
 
 <!-- ACCEPT:BEGIN (generated — do not edit by hand) -->
-Current status: 145/145 acceptance checks green (hermetic default groups).
+Current status: 215/215 acceptance checks green (hermetic default groups).
 
 The `live` group is opt-in and excluded from the default run: `python scripts/run_acceptance.py live` exercises the wasm-wasi
 boundary against a real `wasmtime` and is required by the Ф0 gate on each target host.
@@ -445,7 +479,20 @@ profiles) and G-1…G-8 (ingress hardening) for 111; v0.6.5 added A-1…A-11
 ownership) and X-1…X-3 (CHANGELOG attribution) for 133; v0.6.6 added
 R-1…R-9 (readiness rules), S-1…S-6 (notify and the beacon gate), C-1…C-4
 (suspension versus clock step), T-0…T-5 (toolset fault codes), A-1…A-5
-(the alert rules as a deliverable) and H-1…H-6 (the live split) for 140.
+(the alert rules as a deliverable) and H-1…H-6 (the live split) for 140;
+the v0.6.6 recut added the wheel-packaging checks for 145, and v0.6.7
+brought it to 179.
+
+**The badge is now backed by a recorded run, not by a count.** A count moves
+only when the NUMBER of checks moves, so a defect introduced without adding
+or removing a test left the old result matching and the badge green about a
+tree that no longer existed. `scripts/run_acceptance.py` writes
+`docs/evidence/hermetic.json` — the result plus a content digest of the tree
+it ran against — and the generator refuses to publish a green badge whose
+digest does not match the current tree. `README.md` and the badge-carrying
+surfaces are excluded from that digest on purpose: hashing them would let
+writing a result invalidate the run the result describes, and the pair could
+never converge.
 
 Each new check is written to fail against the previous release. Some are
 also written to fail against the FIRST CUT of their own drop, which is the
@@ -487,20 +534,58 @@ skips itself is not evidence.
 
 ## 9. Roadmap
 
-**v0.6.7 — law, supply chain and the toolset.** The canonical AGPL-3.0
-text byte-for-byte plus the CLA: `LICENSES/AGPL-3.0.txt` is still a
-placeholder, loudly marked, and **this is the PUBLICATION BLOCKER** — no
-distribution before it lands. Alongside it, the release-artifact stream:
-SBOM, pinned dependencies, signed artifacts, two-person release approval,
-and the starter wasm toolset with a signed manifest whose addition is
-witnessed. Repository hygiene rides in the same drop, since it is the same
-concern: the generated map's filename, the history/ move, tests/legacy,
-and the packaging question `pyproject.toml` still leaves open.
+The plan of record is
+[`docs/roadmap/JJ_DAI_Roadmap_r6_8_5.md`](docs/roadmap/JJ_DAI_Roadmap_r6_8_5.md).
+What follows is what it says about the tree you are reading — and `SYNC-2`
+fails the build if this section names a roadmap the tree does not carry.
 
-**v0.6.8 — reserved serializable values (track V)**, kept out of v0.6.7
-deliberately: law and supply chain are one concern and serialized forms
-are another, and merging them into one tag would mean losing the ability to
-roll back one without the other.
+This tree is **v0.6.8 — `code-complete · 215/215 recorded · untagged`**, with
+release debt open. It is not a release and does not pretend to be one.
+
+**v0.6.7 was declared as law, supply chain and the toolset. That is not what
+it turned out to be, and the roadmap says so rather than absorbing the gap.** Its actual content is the **live vertical**: a real engine inside
+`BeingRuntime`, a separate keystore per being, `BeingIdentity` surviving a
+daemon restart and mTLS, the artifact binding chain, the trace commitment.
+Of everything that *was* declared, only one item was built — the canonical
+AGPL — and the rest is carried forward as a **transfer**, named as such.
+The drop is `179/179 green, untagged`.
+
+The distinction matters because a divergence between what a release
+announced and what it contains is the same class of defect this codebase
+chases in code: it gets named, not folded into the next revision's plan.
+
+**Closed here:** the canonical AGPL-3.0 text byte-for-byte — the publication
+blocker that stood since v0.4.1 — with `R-LICENSE` now verifying the text and
+its digest rather than checking that a placeholder is loudly marked. Plus the
+repository hygiene batch and the documentation entry point in `docs/`.
+
+**Four debts remain, and they block four different things.** They used to be
+quoted as one list, which made all four look like one wall:
+
+| Debt | What it blocks | State in this tree |
+|---|---|---|
+| canonical AGPL | **publication** | closed in v0.6.7; the sha256 is pinned by a test |
+| CLA | **accepting outside contributions**; nothing to do with tagging | absent — and it does not hold the tag |
+| T-TOOLSET | a **Ф0 gate deliverable**; a tag claims nothing about a toolset existing | absent: `deploy/wasm-toolset/toolset.json` carries the mechanism with an empty `tools` |
+| supply chain | **the meaning of a release tag** — without signed artefacts and provenance a tag names a commit, not a release | partly closed in v0.6.8 |
+
+Supply chain is worth splitting, because "partly" is not a status anyone can
+act on. **Done and in the tree:** `.gitattributes` with `* -text`, a
+CycloneDX SBOM with a drift check in CI, test dependencies pinned by version
+*and* hash, workflow actions pinned by commit, the build backend pinned to an
+exact version, and `SYNC-6` verifying that the roadmap PDF is not stale
+against its markdown. **Still open:** a reproducible build, the build backend
+pinned **by hash** — PEP 517 gives `requires` no field for one, so this needs
+a different mechanism rather than a stricter string — signed artefacts,
+release provenance, and two-person release approval.
+
+**A green tree with open release debt can still be named.** r6.8.2 introduces
+the **pre-flight tag** — `v0.6.<n>-preflight` — for exactly that state: it
+must be annotated rather than lightweight so the caveat travels inside the
+tag, the commit must carry a `tree_digest` matching the recorded run, and no
+Release object is created nor `latest` moved. It **does not consume the
+version number**. Exactly one thing is forbidden: presenting an unclosed drop
+as a release.
 
 **Open, and named rather than implied.** No compiled wasm modules ship, so
 execution in practice is still the `reference` fence. The alert thresholds
@@ -535,10 +620,23 @@ AGPL-3.0-only** — nodes serve other nodes over a network, and §13 obliges
 operators of modified nodes to disclose their modifications to those they
 serve; the **NECS specification and harness are Apache-2.0** so that
 independent engine vendors can implement and certify without copyleft
-obligations. Contributions require a CLA; the contribution guide that
-described the process was withdrawn as outdated and its replacement has
-not landed yet, so ask before opening a pull request rather than assuming
-the old terms still apply.
+obligations.
+
+**On a CLA — it is an options question, not a formality (r6.8.2).** The usual
+argument for one is patents, and AGPL already closes that: it gives the
+project inbound = outbound and carries a patent grant in §11. The only thing
+a CLA buys here is **keeping the option to license the code as something
+other than AGPL** — dual licensing, a commercial licence, a Solo SKU, shipping
+with an ASIC. Without it, every accepted outside commit makes relicensing
+possible only with the named consent of every contributor, retroactively. If
+that option is not wanted, a DCO is enough. The decision is taken with a
+lawyer, and it needs a named legal entity to exist first.
+
+Until it is taken, **public contribution is not open** — that is what the CLA
+debt blocks, and it blocks nothing else. [`CONTRIBUTING.md`](CONTRIBUTING.md)
+carries the workflow and says the same thing in its own words: the CLA text
+is published before external contributions are accepted, and until then a
+pull request is received as review-only.
 
 ## 11. Responsible disclosure
 

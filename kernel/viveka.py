@@ -26,7 +26,16 @@ containment, and Smriti — now for the flow of will):
   * the journal is append-only; rollback appends a marker and restores an
     earlier state — history is never deleted, only extended;
   * the witness digest binds the run, step, node and resulting state:
-        "viveka:<run_id>:<step>:<node>:<state_hash>"
+        "kriya_gate:<run_id>:<step>:<node>:<state_hash>"
+    (v0.6.8: this organ is KriyaGate — the deterministic, non-cognitive
+    control of the passage of an intention into action, ADR-018 C11/C15.
+    "Viveka" is the COGNITIVE discrimination function inside Chitta and
+    authorizes nothing; one word had come to mean both. The serialized
+    values move now, because they are hash-chained and cannot move after
+    genesis; the MODULE rename to kernel/kriya_gate.py is Ф2, per the
+    roadmap r6.8.3 phase table. Records written before v0.6.8 carry the
+    "viveka:" prefix and keep verifying — see
+    verify_deliberation_against_chain.)
     state content rides in a hiding commitment (deliberation is private);
   * replaying the journal reproduces the current state and full checkpoint
     list — restart- and audit-safe.
@@ -48,7 +57,69 @@ from dataclasses import dataclass, field
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from jjdai.canonical import canonical                       # noqa: E402
-from jjdai.crypto import H_hex                              # noqa: E402
+from core.identity import entitled_to_witness               # noqa: E402
+from jjdai.cognitive import (KRIYA_GATE_DIGEST_PREFIX,      # noqa: E402
+                             KRIYA_GATE_EVENT_FIELD,
+                             KRIYA_GATE_ORGAN,
+                             LEGACY_VIVEKA_DIGEST_PREFIX,
+                             LEGACY_VIVEKA_EVENT_FIELD,
+                             LEGACY_VIVEKA_ORGAN)
+from jjdai.crypto import H_hex, open_commit                 # noqa: E402
+
+#: The organ's SERIALIZED identity. One row per spelling that may appear in
+#: a chain, mapping the digest prefix to the organ name and the committed
+#: event field that must go with it. A table rather than three loose
+#: constants, because these values are ONE fact and must never be checked
+#: independently: a record wearing one spelling in its digest and another in
+#: its provenance is not a record about this organ.
+#: v0.6.8 adds a ROW; it does not rewrite the table. That is what the table
+#: was built for in recut3. The legacy row STAYS: records written before
+#: v0.6.8 carry the `viveka:` prefix, they are hash-chained, and they must go
+#: on verifying forever. Reading resolves the organ through the prefix, so
+#: legacy verification needs no branch of its own — and dual acceptance is
+#: not blanket acceptance, because each prefix admits exactly ONE organ.
+ORGAN_BINDINGS = {
+    KRIYA_GATE_DIGEST_PREFIX: {"organ": KRIYA_GATE_ORGAN,
+                               "event_field": KRIYA_GATE_EVENT_FIELD},
+    LEGACY_VIVEKA_DIGEST_PREFIX: {"organ": LEGACY_VIVEKA_ORGAN,
+                                  "event_field": LEGACY_VIVEKA_EVENT_FIELD},
+}
+#: What is EMITTED from v0.6.8 onward. Never the legacy spelling again.
+EMITTED_PREFIX = KRIYA_GATE_DIGEST_PREFIX
+
+#: How much a verification actually established, weakest first. The previous
+#: return value was a COUNT — "12 records bound" — which said how much was
+#: checked and never what was proved. A caller reading an int cannot tell a
+#: digest match from an identity-bound chain, so every caller quietly
+#: treated the weakest result as the strongest.
+DIGEST_BOUND = "DIGEST_BOUND"              # the events produced these digests
+ATTRIBUTED = "ATTRIBUTED"                  # + provenance names this being/organ
+COMMITMENT_OPENED = "COMMITMENT_OPENED"    # + the committed request opens
+IDENTITY_BOUND = "IDENTITY_BOUND"          # + the signer may speak for it
+PROOF_LEVELS = (DIGEST_BOUND, ATTRIBUTED, COMMITMENT_OPENED, IDENTITY_BOUND)
+
+
+class DeliberationProof(tuple):
+    """(level, records). A tuple so `== n` comparisons fail loudly rather
+    than silently reading as a count."""
+    __slots__ = ()
+
+    def __new__(cls, level, records):
+        return super().__new__(cls, (level, int(records)))
+
+    @property
+    def level(self):
+        return self[0]
+
+    @property
+    def records(self):
+        return self[1]
+
+    def at_least(self, level) -> bool:
+        return PROOF_LEVELS.index(self.level) >= PROOF_LEVELS.index(level)
+
+    def __repr__(self):
+        return f"DeliberationProof({self.level}, {self.records})"
 
 END = "__END__"
 EXECUTIVE_SCOPE = "tools.side_effect"
@@ -236,11 +307,15 @@ class Viveka:
             sh = self._state_hash_of(event.get("state", self._state))
             node = event.get("node", event.get("ev"))
             step = event.get("step", self._step)
+            b = ORGAN_BINDINGS[EMITTED_PREFIX]
             self._witness.append(
                 "DELIBERATION",
-                request={"viveka_event": event},        # hiding commitment
-                provenance={"organ": "viveka", "being_id": self.being_id},
-                semantic_digest=f"viveka:{event['run_id']}:{step}:{node}:{sh}",
+                # hiding commitment. The field name is part of the committed
+                # preimage, so it travels with the organ name.
+                request={b["event_field"]: event},
+                provenance={"organ": b["organ"], "being_id": self.being_id},
+                semantic_digest=(f"{EMITTED_PREFIX}:{event['run_id']}"
+                                 f":{step}:{node}:{sh}"),
                 timestamp=time.strftime("%Y-%m-%dT%H:%M:%SZ",
                                         time.gmtime(event["t"])))
 
@@ -284,10 +359,51 @@ class Viveka:
 
 
 def verify_deliberation_against_chain(events: list, chain_records: list,
-                                      being_id: str) -> int:
+                                      being_id: str, *, chain=None,
+                                      binding=None) -> DeliberationProof:
     """Auditor: every step/rollback/blocked event that would be witnessed
-    appears, in order, as a DELIBERATION record whose digest binds run/step/
-    node/state. Returns the number of bound records."""
+    appears, in order, as a DELIBERATION record that binds BOTH what
+    happened and WHOSE deliberation it was. Returns the number of bound
+    records.
+
+    Until v0.6.7-recut3 this function accepted `being_id` and never used it.
+    It compared one string — the semantic digest — and nothing else. A chain
+    signed by a DIFFERENT node, attributed in its provenance to a different
+    being through a different organ, carrying a completely unrelated
+    request, verified clean against another being's events.
+
+    The digest binds run, step, node and resulting state: WHAT HAPPENED. It
+    is silent about WHO, and that silence was being read as attribution —
+    the one thing a witness plane exists to make impossible. Every act here
+    is an act by a named being, and a record that cannot say whose act it
+    was is not evidence of an act at all.
+
+    Three bindings are checked, and a fourth is honestly declined:
+
+      * the digest, as before — run, step, node, resulting state;
+      * the ORGAN, resolved from the digest prefix through `ORGAN_BINDINGS`,
+        so a record cannot wear one spelling in its digest and another in
+        its provenance;
+      * the BEING, by recomputing the provenance hash this record would
+        carry if it were this being acting through that organ. Provenance is
+        hashed into the record, so this needs nothing but the record itself;
+      * the committed request is opened ONLY when `chain` is supplied. That
+        commitment is HIDING and its salt is held off-chain by the writer,
+        so without the writer's chain object there is no honest way to know
+        which event was committed — and this function no longer implies
+        there is;
+      * the SIGNER's entitlement, only when a `binding` is supplied. This is
+        the hole the third audit found: provenance checking proves the
+        record is INTERNALLY consistent with a claim, not that the chain
+        writing it was ever entitled to speak for this being. A chain under
+        a foreign key, naming the right being and the right organ, passed.
+        A two-signature HostingBinding closes it — the being consented to be
+        hosted, the node accepted responsibility.
+
+    Returns a `DeliberationProof` naming the level reached, NOT a count. A
+    count answers "how much was checked" and is silent on "what was proved",
+    and every caller read the weakest result as the strongest.
+    """
     witnessed = [e for e in events if e["ev"] in ("step", "rollback", "blocked")]
     recs = [r for r in chain_records if r.get("kind") == "DELIBERATION"]
     if len(recs) != len(witnessed):
@@ -297,7 +413,47 @@ def verify_deliberation_against_chain(events: list, chain_records: list,
         sh = H_hex(canonical(ev.get("state", {})))
         node = ev.get("node", ev.get("ev"))
         step = ev.get("step", 0)
-        expected = f"viveka:{ev['run_id']}:{step}:{node}:{sh}"
-        if rec.get("semantic_digest") != expected:
+        tail = f":{ev['run_id']}:{step}:{node}:{sh}"
+        digest = rec.get("semantic_digest") or ""
+        prefix = digest.split(":", 1)[0]
+        organ_binding = ORGAN_BINDINGS.get(prefix)
+        if organ_binding is None or digest != prefix + tail:
             raise VivekaError(f"binding broken at event {i}")
-    return len(witnessed)
+        want = H_hex(canonical({"organ": organ_binding["organ"],
+                                "being_id": being_id}))
+        if rec.get("provenance_hash") != want:
+            raise VivekaError(
+                f"record {i} is not attributable to {being_id!r} acting "
+                f"through {organ_binding['organ']!r}: its provenance names "
+                f"some "
+                f"other being, some other organ, or nothing at all")
+        if chain is None:
+            continue
+        salt = getattr(chain, "_salts", {}).get((rec.get("index"), "request"))
+        if salt is None:
+            raise VivekaError(
+                f"record {i}: opening was asked for and no salt is held for "
+                f"it — an unopenable commitment is not evidence")
+        if not open_commit(rec.get("request_commitment") or "", salt,
+                           canonical({organ_binding["event_field"]: ev})):
+            raise VivekaError(
+                f"record {i}: the committed request does not open to this "
+                f"event under the {organ_binding['event_field']!r} field")
+    level = ATTRIBUTED if chain is None else COMMITMENT_OPENED
+    if binding is not None:
+        if chain is None:
+            raise VivekaError(
+                "a hosting binding was supplied without the chain it is "
+                "supposed to bind — nothing to compare the signer against")
+        if not chain.verify_chain():
+            raise VivekaError("the chain carrying these records does not "
+                              "verify under its own signer")
+        if not entitled_to_witness(binding, being_id=being_id,
+                                   node_id=chain.node_id):
+            raise VivekaError(
+                f"chain {chain.node_id!r} is not entitled to witness for "
+                f"{being_id!r}: no valid two-signature hosting binding says "
+                f"this node hosts this being. Self-consistent provenance is "
+                f"a claim, not an entitlement")
+        level = IDENTITY_BOUND
+    return DeliberationProof(level, len(witnessed))

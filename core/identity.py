@@ -134,6 +134,82 @@ class BeingIdentity:
         return body
 
 
+# --------------------------------------------------------------------------- #
+# Hosting binding — which node is entitled to witness for which Being
+# --------------------------------------------------------------------------- #
+#
+# A Being manifest says who the Being IS. It does not say which node may
+# write about it, and the difference is not academic: the v0.6.7 audit built
+# a witness chain under a FOREIGN signing key whose records named the right
+# being and the right organ, and the deliberation auditor accepted it. The
+# provenance was self-consistent and entirely unearned.
+#
+# What was missing is a statement, signed by BOTH parties, that this node
+# hosts this Being. Both signatures are load-bearing and for different
+# reasons:
+#
+#   the BEING signs   — hosting is pull-by-choice (Invariant IV). A node
+#                       cannot acquire the right to speak for a mind by
+#                       announcing that it has;
+#   the NODE signs    — the node accepts responsibility for what it witnesses
+#                       under that Being's name, and the binding is
+#                       attributable to a keystore rather than to a claim.
+#
+# A binding is not a permanent marriage: it carries `since_ts`, and migration
+# to another substrate produces a NEW binding rather than an edit of this one
+# (ADR-015: history is kept, never rewritten).
+
+
+def make_hosting_binding(being: "BeingIdentity", node: "NodeIdentity",
+                         *, since_ts: float) -> dict:
+    """The two-signature statement that `node` hosts `being`."""
+    body = {"kind": "HostingBinding",
+            "being_id": being.being_id, "being_pubkey": being.pubkey_hex,
+            "node_id": node.node_id, "node_pubkey": node.pubkey_hex,
+            "since_ts": float(since_ts), "version": IDENTITY_VERSION}
+    payload = canonical(body)
+    body["being_sig"] = being.sk.sign(payload).hex()
+    body["node_sig"] = node.sk.sign(payload).hex()
+    return body
+
+
+def verify_hosting_binding(binding: dict) -> bool:
+    """Both signatures valid, and both ids bound to the keys that signed.
+
+    The id checks are what stop a valid binding from being re-attributed:
+    without them a genuine pair of signatures could be copied under another
+    being_id or node_id and still verify.
+    """
+    try:
+        being_pub = bytes.fromhex(binding["being_pubkey"])
+        node_pub = bytes.fromhex(binding["node_pubkey"])
+        if binding["being_id"] != canonical_being_id(being_pub):
+            return False
+        if binding["node_id"] != canonical_node_id(node_pub):
+            return False
+        body = {k: v for k, v in binding.items()
+                if k not in ("being_sig", "node_sig")}
+        payload = canonical(body)
+        return (ed_verify(being_pub, payload,
+                          bytes.fromhex(binding["being_sig"]))
+                and ed_verify(node_pub, payload,
+                              bytes.fromhex(binding["node_sig"])))
+    except (KeyError, ValueError, TypeError):
+        return False
+
+
+def entitled_to_witness(binding: dict, *, being_id: str,
+                        node_id: str) -> bool:
+    """May THIS node write witness records about THIS being?
+
+    Fail-closed on every path: an absent, malformed or mismatched binding is
+    a no, never a shrug.
+    """
+    if not binding or not verify_hosting_binding(binding):
+        return False
+    return binding["being_id"] == being_id and binding["node_id"] == node_id
+
+
 def verify_manifest(manifest: dict) -> bool:
     """Verify a Being manifest: signature by the being key AND being_id bound
     to that key (so a manifest cannot be re-attributed to another being_id)."""

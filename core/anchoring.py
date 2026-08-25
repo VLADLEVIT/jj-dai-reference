@@ -42,6 +42,7 @@ next round — the ratchet, not a recursion.
 from __future__ import annotations
 
 import os
+import threading
 import time
 import urllib.request
 
@@ -210,20 +211,34 @@ class AnchorScheduler:
 
     BOOKKEEPING = ("ANCHOR_QUORUM", "ANCHOR_EXTERNAL", "PEER_ROOT")
 
-    #: Receipt statuses that MEAN the range is externally anchored. Nothing
-    #: else advances coverage. Split out in the v0.6.6 recut, where an audit
-    #: reproduced a failed XMR receipt advancing `_covered` and thereby
-    #: retiring the range forever: the anchor had not happened, the log said
-    #: it had failed, and the scheduler never tried again.
-    TERMINAL_SUCCESS = ("recorded",)
-    #: Attempted, outcome not yet known. Never coverage — a proof that may
-    #: arrive is not a proof that has.
-    PENDING = ("pending", "pending-attestation")
-    #: Attempted and known not to have worked. Never coverage; retried.
+    #: FOUR states, not two. The first recut had only "recorded counts,
+    #: everything else does not", which produced two opposite errors at
+    #: once: a node whose OTS calendar was working perfectly stayed NOT_READY
+    #: forever, because `pending-attestation` is the CORRECT steady-state
+    #: answer of that backend and had no path to terminal; and a node with
+    #: nothing but a local file read READY, because with no external backend
+    #: configured the local one was promoted to "required".
+    #:
+    #: Cryptographically settled. The range is anchored and independently
+    #: checkable by a third party.
+    TERMINAL_SUCCESS = ("recorded", "confirmed")
+    #: CUSTODY. The submission was accepted and a proof is held, but it is
+    #: not yet settled — an OTS calendar commitment before Bitcoin inclusion,
+    #: an XMR transaction before its confirmations. This DISCHARGES the
+    #: liveness duty (we submitted, on time, and hold the receipt) without
+    #: claiming the settlement. Readiness treats it as serving-but-degraded,
+    #: never as green and never as failed.
+    CUSTODY = ("pending-attestation", "pending-confirmation")
+    #: Attempted, no answer yet, nothing held. Neither coverage nor custody.
+    PENDING = ("pending",)
+    #: Attempted and known not to have worked. Retried.
     FAILED = ("failed",)
 
     #: A local file is evidence that WE wrote something down. It is not
-    #: external anchoring and cannot discharge an external-anchor policy.
+    #: external anchoring and can never discharge an external-anchor policy —
+    #: not even when it is the only backend configured. In that case the
+    #: honest report is that external anchoring is NOT CONFIGURED, which is
+    #: a different statement from "external anchoring is fine".
     LOCAL_BACKENDS = ("local",)
 
     def __init__(self, chain, backends: list, log: AnchorLog,
@@ -234,6 +249,13 @@ class AnchorScheduler:
         self.backends = list(backends)
         self.log = log
         self._lock = lock
+        # The chain lock guards snapshot and append. It does NOT guard the
+        # scheduler's own state, so two concurrent POSTs to /witness/anchor
+        # both read the same substantive range, both submitted, and both
+        # appended an ANCHOR_EXTERNAL — breaking the "one record per round"
+        # claim and burning two backend submissions on one range. The round
+        # is a logical transaction and needs its own lock.
+        self._round_lock = threading.RLock()
         self.retry_backoff_s = float(retry_backoff_s)
 
         names = [be.name for be in self.backends]
@@ -242,14 +264,18 @@ class AnchorScheduler:
             # only a local backend has no external policy to discharge, and
             # reporting it as permanently behind would be a false red as
             # surely as the false green this fixes.
-            external = [n for n in names if n not in self.LOCAL_BACKENDS]
-            required_backends = external or list(names)
+            required_backends = [n for n in names
+                                 if n not in self.LOCAL_BACKENDS]
         self.required_backends = [n for n in required_backends if n in names]
+        #: True when nothing but local backends are configured. NOT an error
+        #: and NOT readiness: external anchoring simply is not set up here.
+        self.external_configured = bool(self.required_backends)
 
         # Coverage is PER BACKEND. One number for all of them cannot express
         # "the calendar has it and Monero does not", which is the ordinary
         # state of a healthy node.
         self._covered_by = {n: 0 for n in names}
+        self._custody_by = {n: 0 for n in names}
         self._attempted_by = {n: 0 for n in names}
         self._last_success_at = {n: None for n in names}
         self._last_attempt_at = None
@@ -265,7 +291,10 @@ class AnchorScheduler:
             # Restart must NOT resurrect coverage from a failed receipt.
             if r.get("status") in self.TERMINAL_SUCCESS:
                 self._covered_by[be] = max(self._covered_by[be], cnt)
+                self._custody_by[be] = max(self._custody_by[be], cnt)
                 self._last_success_at[be] = r.get("ts")
+            elif r.get("status") in self.CUSTODY:
+                self._custody_by[be] = max(self._custody_by[be], cnt)
             elif r.get("status") in self.FAILED:
                 self._last_failure[be] = r.get("status")
 
@@ -297,8 +326,11 @@ class AnchorScheduler:
             recs, _ = self._snapshot()
         out = []
         for n in self.required_backends:
-            cov = self._covered_by[n]
-            if any(r["kind"] not in self.BOOKKEEPING for r in recs[cov:]):
+            # Custody counts here: a held OTS commitment means this range HAS
+            # been submitted, so resubmitting it every backoff interval would
+            # spam the calendar with proofs it already issued.
+            have = max(self._covered_by[n], self._custody_by[n])
+            if any(r["kind"] not in self.BOOKKEEPING for r in recs[have:]):
                 out.append(n)
         return out
 
@@ -307,6 +339,23 @@ class AnchorScheduler:
         recs, _ = self._snapshot()
         cov = self._covered
         return sum(1 for r in recs[cov:] if r["kind"] not in self.BOOKKEEPING)
+
+    def _depth_by(self, recs) -> dict:
+        """Substantive records each backend has neither settled nor submitted.
+
+        Measured past `max(covered, custody)`, the same point `_behind` uses:
+        a held proof means the range HAS been submitted, so counting it as
+        waiting would make a working calendar look permanently behind. PER
+        BACKEND, because one number cannot express "the calendar has it and
+        Monero does not" — which is exactly the fact the node-wide booleans
+        below could not carry.
+        """
+        out = {}
+        for n in self._covered_by:
+            have = max(self._covered_by[n], self._custody_by[n])
+            out[n] = sum(1 for r in recs[have:]
+                         if r["kind"] not in self.BOOKKEEPING)
+        return out
 
     def anchor_status(self) -> dict:
         """One thread-safe view of the facts readiness needs.
@@ -321,12 +370,18 @@ class AnchorScheduler:
         count = len(recs)
         cov = self._covered
         depth = sum(1 for r in recs[cov:] if r["kind"] not in self.BOOKKEEPING)
+        behind = self._behind(count, recs)
+        depth_by = self._depth_by(recs)
         succ = [self._last_success_at[n] for n in self.required_backends
                 if self._last_success_at[n]]
         return {
             "required_backends": list(self.required_backends),
             "backends": list(self._covered_by),
             "covered_by": dict(self._covered_by),
+            "custody_by": dict(self._custody_by),
+            "external_configured": self.external_configured,
+            "in_custody": [n for n in self.required_backends
+                           if self._custody_by[n] > self._covered_by[n]],
             "attempted_by": dict(self._attempted_by),
             "covered": cov,
             "count": count,
@@ -336,7 +391,7 @@ class AnchorScheduler:
                                 len(succ) == len(self.required_backends)
                                 else None),
             "last_success_by": dict(self._last_success_at),
-            "behind": self._behind(count, recs),
+            "behind": behind,
             "last_failure": dict(self._last_failure),
             "next_retry_at": self._next_retry_at,
             #: True when a required backend has NEVER succeeded. Distinct
@@ -344,6 +399,29 @@ class AnchorScheduler:
             #: report, and reporting `None` as healthy is how this broke.
             "never_succeeded": any(self._last_success_at[n] is None
                                    for n in self.required_backends),
+            #: Every configured backend, required or not. A backend running
+            #: in SHADOW is configured and not required, and the difference
+            #: has to be visible or readiness cannot honour it.
+            "configured_backends": list(self._covered_by),
+            "shadow_backends": [n for n in self._covered_by
+                                if n not in self.required_backends
+                                and n not in self.LOCAL_BACKENDS],
+            #: PER BACKEND, which is the whole point. The aggregates above
+            #: are kept for existing readers, but they cannot express a
+            #: mixed state: `never_succeeded` is one boolean over all
+            #: required backends while `in_custody` is per backend, so a
+            #: proof held by one backend suppressed the verdict about
+            #: ANOTHER backend that had never anchored at all.
+            "per_backend": {
+                n: {"required": n in self.required_backends,
+                    "never": self._last_success_at[n] is None,
+                    "in_custody": self._custody_by[n] > self._covered_by[n],
+                    "behind": n in behind,
+                    "last_success_at": self._last_success_at[n],
+                    "covered": self._covered_by[n],
+                    "custody": self._custody_by[n],
+                    "depth": depth_by.get(n, 0)}
+                for n in self._covered_by},
         }
 
     def _snapshot(self):
@@ -356,6 +434,13 @@ class AnchorScheduler:
         return recs, root
 
     def anchor_now(self, *, now=None) -> dict:
+        """SINGLE FLIGHT. The whole round — decide, submit, record, append —
+        holds `_round_lock`, so a second caller waits and then observes the
+        first round's coverage rather than repeating it."""
+        with self._round_lock:
+            return self._anchor_round(now)
+
+    def _anchor_round(self, now=None) -> dict:
         recs, root = self._snapshot()
         count = len(recs)
         now = time.time() if now is None else now
@@ -394,7 +479,13 @@ class AnchorScheduler:
             if rec.get("status") in self.TERMINAL_SUCCESS:
                 self._covered_by[be.name] = max(self._covered_by[be.name],
                                                 count)
+                self._custody_by[be.name] = max(self._custody_by[be.name],
+                                                count)
                 self._last_success_at[be.name] = rec.get("ts", now)
+                self._last_failure.pop(be.name, None)
+            elif rec.get("status") in self.CUSTODY:
+                self._custody_by[be.name] = max(self._custody_by[be.name],
+                                                count)
                 self._last_failure.pop(be.name, None)
             else:
                 self._last_failure[be.name] = rec.get("status", "failed")

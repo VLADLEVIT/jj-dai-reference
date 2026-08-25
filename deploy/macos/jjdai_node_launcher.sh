@@ -37,11 +37,29 @@ fi
 [ -n "${JJDAI_KEYSTORE_PASSPHRASE}" ] || {
     echo "empty keystore passphrase; refusing to start" >&2; exit 1; }
 
+# The BEING passphrase (recut5). Same source, same refusal: a production
+# node without its being key does not start, and one that quietly generated
+# a fresh being every boot was the P0.1 defect.
+if [ -z "${JJDAI_BEING_PASSPHRASE:-}" ]; then
+    JJDAI_BEING_PASSPHRASE="$(/usr/bin/python3 \
+        /opt/jjdai/deploy/macos/keychain_seal.py unseal \
+        --node "${NODE_NAME}" --kind being)" || {
+        echo "no being passphrase: keychain unseal failed and none in" \
+             "${ENV_FILE}; see RUNBOOK-macOS.md" >&2
+        exit 1
+    }
+    export JJDAI_BEING_PASSPHRASE
+fi
+[ -n "${JJDAI_BEING_PASSPHRASE:-}" ] || {
+    echo "no being passphrase; refusing to start (see RUNBOOK-macOS.md)" >&2
+    exit 1; }
+
 # --- exec the daemon (flag parity with deploy/jjdai-node@.service) -----------
 exec /usr/bin/python3 -m node.daemon \
     --host 0.0.0.0 --port "${JJDAI_PORT:?set JJDAI_PORT in ${ENV_FILE}}" \
     --name "${NODE_NAME}" --fingerprint "${JJDAI_FINGERPRINT:?set JJDAI_FINGERPRINT}" \
     --node-keystore "/var/lib/jjdai/${NODE_NAME}.keystore" \
+    --being-keystore "/var/lib/jjdai/${NODE_NAME}.being.keystore" \
     --log "/var/lib/jjdai/${NODE_NAME}.jsonl" \
     --tls-cert "/etc/jjdai/pki/${NODE_NAME}.crt" \
     --tls-key "/etc/jjdai/pki/${NODE_NAME}.key" \

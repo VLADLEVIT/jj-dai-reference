@@ -1,0 +1,22 @@
+# Byte-exact working tree. This file must be the FIRST commit, before any
+# clone exists.
+#
+# `scripts/run_acceptance.py:source_digest()` hashes the RAW BYTES of every
+# shipped file — over 200 paths, including `LICENSES/AGPL-3.0.txt`, which is
+# separately pinned by sha256 in tests/unit/test_release_integrity.py.
+# Git's default `text=auto` rewrites line endings on checkout on Windows and
+# on any host with core.autocrlf set. A rewritten tree produces a different
+# `tree_digest` and a different AGPL hash, and the failure surfaces as
+# ACC-TREE-1 "a different tree" and R-LICENSE "wrong licence text" — neither
+# of which says "line endings", so the cause is not discoverable from the
+# symptom.
+#
+# `* -text` disables all end-of-line conversion for every path. Nothing in
+# this repository wants normalisation: the digest is the point.
+* -text
+
+# Binary, marked so git never attempts a diff or a merge on them.
+*.pdf   binary
+*.png   binary
+*.zip   binary
+*.wasm  binary

@@ -1,8 +1,8 @@
-# JJ DAI — Code Architecture Map v0.6.6
+# JJ DAI — Code Architecture Map v0.6.8
 
 > GENERATED from `docs/architecture_status.json` by `scripts/gen_architecture_docs.py` — edit the JSON, not this file. `scripts/check_docs_drift.py` fails CI on divergence.
 
-Acceptance: 145/145 green (stdlib runner; CI matrix Python 3.10-3.12).
+Acceptance: 215/215 green (recorded run on Python 3.11.15; stdlib runner, CI matrix 3.10-3.12).
 
 ## #00 · The neurosymbolic stack
 
@@ -28,6 +28,9 @@ Mutable knowledge lives outside frozen weights; everything that touches a decisi
 | `jjdai/schema.py · jjdai/durable.py` | Typed boundary and durability: Fail-closed typed envelopes; fsynced journals, torn-tail repair and reload-time re-verification. | **Implemented** (Implemented) |
 | `core/anchoring.py` | External anchoring: Durable receipt log with local, peer-quorum and OTS-calendar backends. OTS is proof custody; standard tooling verifies the stored calendar proof. | **Prototype** (Prototype) |
 | `core/anchoring_xmr.py` | Monero root-as-spend-key anchor: The witness root deterministically becomes a Monero address; a dust payment timestamps the binding without storing the root in tx_extra. | **Prototype** (Prototype, v0.5.2) |
+| `jjdai/cognitive.py` | Track V reserved vocabulary: The serialized names of Chitta and reflexive cognition — fifteen record kinds, three cognitive namespaces, the REFLEXIVE and CONTEST_SCOPED access classes, four key-plane wrapping domains, prediction statuses, KriyaGate outcomes and the commitment and Merkle-leaf domain separators. Declared before genesis because a hash-chained value cannot be added or renamed afterwards; refused as an argument AND as a value, fail closed, until the specification in Ф2 and the runtime in Ф3. | **Interface only** (Interface only, ADR-018, reserved, non-emittable) |
+| `jjdai/custody.py` | Deferred-verification reserved vocabulary: The serialized names of ADR-019: eleven record kinds, the SELF_CHECKED admission state, the CUSTODY_ corroboration outcomes, the computed EVIDENCE_ status projection, the replay status and reason split, the verification_custody key domain, the CUSTODY_PRIVATE access class and two namespaces. Accepted authorises the reserve and nothing in the runtime — a lone production node still refuses with no_independent_panel because the custody machinery does not exist. Tool effect classes and node profiles are reserved by argument only: they are ordinary words and are deliberately outside the value scan. | **Interface only** (Interface only, ADR-019, reserved, non-emittable) |
+| `jjdai/reserved.py` | Value-level refusal of both reserves: One door over both pre-genesis vocabularies. A reserved token is refused as a VALUE and not only as an argument — whole strings, segments of a colon-compound digest, mapping keys and any path below a reserved namespace — on semantic_digest, provenance and entanglement. request and response are excluded on purpose: they enter the chain as hiding commitments over caller data, so no reserved value reaches a peer through them. | **Implemented** (Implemented, v0.6.8, P0-1) |
 
 ## #02 · The organ kernel — kernel/
 
@@ -76,6 +79,7 @@ Mutable knowledge lives outside frozen weights; everything that touches a decisi
 | `tests/ · .github/workflows/ci.yml` | Acceptance and CI: Acceptance functions across unit, integration, conformance, adversarial and legacy groups; CI matrix targets Python 3.10-3.12; docs drift is CI-checked. | **Implemented** (generated count) |
 | `m1m5/` | Retired M1-M5 lineage: Frozen legacy code retained for auditability and migration coverage. | **Implemented** (Frozen) |
 | `deploy/ · deploy/macos/` | Deployment kit (Linux + macOS): Ubuntu: hardened systemd unit, TPM-sealed passphrase, bootstrap, production PKI generator, operator RUNBOOK. macOS (roadmap Ф0): launchd daemon template, Keychain sealing under the documented macOS Keychain degraded profile (non-SE-resident), bootstrap with 24/7 power discipline, RUNBOOK-macOS. Flag parity between the two kits is enforced by unit acceptance (M-FLAGS). | **Implemented** (Implemented, macOS kit v0.6.2) |
+| `.github/workflows/ · requirements-dev.txt · scripts/gen_sbom.py` | Release provenance — partial: What EXISTS: a CycloneDX 1.5 bill of materials generated from the tree and re-checked in CI, so a hand-maintained inventory cannot drift from what ships; a hash-pinned CI toolchain installed with --require-hashes, so a green run names the collector that produced it; and .gitattributes with `* -text`, because source_digest() hashes raw bytes over 200+ paths including the sha256-pinned AGPL text and any end-of-line normalisation reports itself as 'a different tree'. What is OPEN and is not claimed here: reproducible build, signed artefacts, two-person release approval and T-TOOLSET — all four owed by v0.6.10. An SBOM is an inventory of the box, not evidence of who sealed it, and the generated document says so in its own metadata. | **Prototype** (Partial, SBOM + pinning v0.6.8) |
 
 ## #06 · Not yet in the codebase
 

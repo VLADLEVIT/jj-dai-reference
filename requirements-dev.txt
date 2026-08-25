@@ -1,0 +1,89 @@
+# PYTHON TEST DEPENDENCIES — pinned by version and by hash.
+#
+# SCOPE, stated first, because this file used to call itself "the CI
+# toolchain" and that claimed more than it delivered. A partial pin
+# described as a whole one is worse than an honest gap: it stops anyone
+# looking. What a CI job actually depends on, and where each stands:
+#
+#   * the Python test dependencies below — pinned by VERSION and by HASH,
+#     installed with --require-hashes;
+#   * the workflow's GitHub Actions — pinned by full COMMIT SHA in
+#     .github/workflows/ci.yml. A `@v4` tag is a branch in all but name;
+#   * `setuptools` in [build-system].requires — pinned by EXACT VERSION,
+#     but NOT by hash: PEP 517 gives `requires` nowhere to put one. This
+#     is the one input still resolved by name at build time, and it is
+#     carried as open debt under v0.6.10 (reproducible build).
+#
+#
+# This is NOT a runtime dependency list. The JJ DAI core is stdlib-only and
+# installs nothing; `scripts/run_acceptance.py` proves that by running the
+# whole hermetic suite on a bare interpreter, and CI runs it on every job
+# for exactly that reason. What is pinned here is the collector CI uses to
+# produce its result.
+#
+# WHY PINNED. `pip install pytest` resolves against whatever PyPI serves that
+# morning. A green CI run then means "this tree passed under an unknown
+# version of an unknown collector" — which is not the claim the badge makes.
+# The same argument the project already applied to model artefacts and to the
+# wasm toolset applies to the tool that produces the evidence.
+#
+# WHY HASHED. A version pin binds a NAME to a NUMBER; the hash binds it to
+# BYTES. `--require-hashes` also forces every transitive dependency to be
+# pinned, which is the property worth having: an unpinned transitive is the
+# same hole one level down.
+#
+# HOW TO CHANGE ONE. Never edit a hash by hand. Run, on the lowest supported
+# interpreter:
+#
+#     pip download --no-cache-dir -d /tmp/dl <pkg>==<ver>
+#     pip hash /tmp/dl/*.whl
+#
+# and paste the result. A hash you cannot reproduce from a download is a
+# hash nobody verified.
+#
+# Regenerating: see `scripts/gen_sbom.py`, which reads this file and records
+# these components in the SBOM — together with the pinned Actions, and with
+# the one remaining unhashed input named, so the bill of materials is not
+# read as a complete one.
+
+pytest==8.3.5 \
+    --hash=sha256:c69214aa47deac29fad6c2a4f590b9c4a9fdb16a403176fe154b79c0b4d4d820
+
+# --- transitive, pinned because --require-hashes requires it ---
+
+pluggy==1.6.0 \
+    --hash=sha256:e920276dd6813095e9377c0bc5566d94c932c33b27a3e3945d8389c374dd4746
+
+iniconfig==2.3.0 \
+    --hash=sha256:f631c04d2c48c52b84d0d0549c99ff3859c98df65b3101406327ecc7d53fbf12
+
+packaging==26.3 \
+    --hash=sha256:d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c
+
+# pytest needs these two only on the older interpreters in the CI matrix.
+# `exceptiongroup` until 3.11 gave it a builtin; `tomli` until 3.11 gave it
+# `tomllib`. The markers are load-bearing: without them pip installs
+# shadowing backports on 3.11 and 3.12.
+
+exceptiongroup==1.3.0 ; python_version < "3.11" \
+    --hash=sha256:4d111e6e0c13d0644cad6ddaa7ed0261a0b36971f6d23e7ec9b4b9097da78a10
+
+# exceptiongroup's OWN dependency, and the reason this file needs it: in
+# --require-hashes mode pip demands that EVERY requirement it resolves is
+# pinned with == and hashed, transitive ones included. Leaving this out made
+# the 3.10 job fail at `pip install` with "these do not: typing-extensions
+# >=4.6.0" while 3.11 and 3.12 passed — because exceptiongroup is only
+# installed below 3.11, so only there is this ever requested. Same marker for
+# the same reason. Both artefacts are named, wheel and sdist, so the pin holds
+# whichever pip picks; the wheel digest was cross-checked against the one
+# PyPI publishes rather than trusting the bytes that arrived.
+typing-extensions==4.16.0 ; python_version < "3.11" \
+    --hash=sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8 \
+    --hash=sha256:dc983d19a509c94dba722ee6abd33940f7c05a89e243c47e907eb4db6f1a43e5
+
+# Two hashes: tomli ships an arch-specific wheel per platform plus a portable
+# one. pip matches ANY listed hash, so the portable wheel and the sdist are
+# both named and the pin holds on a host that gets either.
+tomli==2.2.1 ; python_version < "3.11" \
+    --hash=sha256:cb55c73c5f4408779d0cf3eef9f762b9c9f147a77de7b258bef0a5628adc85cc \
+    --hash=sha256:cd45e1dc79c835ce60f7404ec8119f2eb06d38b1deba146f07ced3bbc44505ff

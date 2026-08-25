@@ -36,6 +36,13 @@ test_adapter_layer — v0.6.5 acceptance for jjdai/adapters/
        not content addresses, whose profile_hash is not a digest, whose
        protocol version is unsupported, or which carries an unknown key.
        (Audit P0-3.)
+
+  A-12 A BLANK ATTRIBUTE IS AN ABSENT ONE: a driver declaring an empty or
+       whitespace-only `backend` or `fingerprint` is NOT identified.
+       `declared_attributes` normalises it to None and `phase_readiness`
+       refuses to call it phase-1 ready. Absence must not read as a value
+       anywhere, or a comparison against it succeeds by default — the
+       fail-open the seventh audit found in the artifact binder.
 """
 from __future__ import annotations
 
@@ -315,6 +322,40 @@ def test_manifest_signature_does_not_certify_shape():
         raise AssertionError(f"signed manifest accepted despite: {why}")
 
 
+def test_a_blank_attribute_is_an_absent_one():
+    """A-12 (recut9, seventh audit)."""
+    from jjdai.adapters.capabilities import phase_readiness
+    from jjdai.adapters.protocol import declared_attributes
+
+    class _Named:
+        backend = "hash"
+        fingerprint = "fp-real"
+        determinism_level = "reproducible"
+        protocol_version = "1"
+
+        def generate(self, messages, sampling, adapter_ids=()):
+            return "x"
+
+        def score(self, messages, tokens, sampling, adapter_ids=()):
+            return {"ok": True}
+
+    named = _Named()
+    assert declared_attributes(named)["fingerprint"] == "fp-real"
+    assert phase_readiness(named)["phase_1"] is True, (
+        "A-12: a properly named driver must still read as identified")
+
+    for attr, blank in (("fingerprint", ""), ("fingerprint", "   "),
+                        ("backend", ""), ("backend", "\t")):
+        drv = _Named()
+        setattr(drv, attr, blank)
+        assert declared_attributes(drv)[attr] is None, (
+            f"A-12: {attr}={blank!r} survived as a declared value — "
+            "downstream it reads as 'this driver said something'")
+        assert phase_readiness(drv)["phase_1"] is False, (
+            f"A-12: a driver with a blank {attr} was called identified")
+    print("  [PASS] A-12  a blank attribute is an absent one, not a value")
+
+
 if __name__ == "__main__":
     tests = [test_contract_is_declared_whole,
              test_capability_is_derived,
@@ -326,7 +367,8 @@ if __name__ == "__main__":
              test_manifest_requires_its_artifact,
              test_adding_a_family_touches_nothing_else,
              test_daemon_selects_through_the_registry,
-             test_manifest_signature_does_not_certify_shape]
+             test_manifest_signature_does_not_certify_shape,
+             test_a_blank_attribute_is_an_absent_one]
     for t in tests:
         t()
         print(f"  ok  {t.__name__}")

@@ -36,6 +36,17 @@ from jjdai.crypto import SigningKey                                # noqa: E402
 from jjdai.witness import WitnessChain                             # noqa: E402
 from jjdai.durable import durable_append                           # noqa: E402
 from core.containment import ContainmentLedger                     # noqa: E402
+from core.identity import BeingIdentity                            # noqa: E402
+sys.path.insert(0, os.path.join(_ROOT, "tests"))
+from artifact_fixtures import bound_refs                           # noqa: E402
+
+
+class _FixtureEngine:
+    """What the reference seats stand in for, named so the manifest can
+    describe it: the binder checks backend and fingerprint agreement."""
+    backend = "hash"
+    fingerprint = "fp-fixture"
+    determinism_level = "reproducible"
 import core.router as R                                            # noqa: E402
 from core.router import RouteObject                                # noqa: E402
 from runtime import BeingRuntime, BeingRuntimeError                # noqa: E402
@@ -54,12 +65,20 @@ def _mk_runtime(tmp, profile="production", governor=None, chain=None,
                 sk=None):
     sk = sk or SigningKey.generate()
     chain = chain or WitnessChain(sk)
-    being = f"being:{chain.node_id[:16]}"
+    # recut5 (audit P0.3): the runtime signs what the BEING authors with
+    # the being key and witnesses with the node key. The harness therefore
+    # holds both, and the id is the canonical hash of the being key rather
+    # than a slice of the node id — an id that is not the hash of the key
+    # that signs for it cannot be checked against anything.
+    being_identity = BeingIdentity(SigningKey.generate())
+    being = being_identity.being_id
     gov = governor if governor is not None else ContainmentLedger(
         chain.node_id, witness=chain, evidence_resolver=None)
     topics = ["_generalist"]
-    engines = {n: R._mk_node(n, "sub-G", topics, origin="UA",
-                             noise=0.05 if n == "n-gen" else 0.0)
+    _refs = bound_refs(tmp, _FixtureEngine())
+    engines = {n: _BoundSeat(R._mk_node(n, "sub-G", topics, origin="UA",
+                                        noise=0.05 if n == "n-gen" else 0.0),
+                             _refs)
                for n in ("n-gen", "n-i1", "n-i2")}
     objects = [RouteObject("m:gen", "generalist", "_generalist", "n-gen"),
                RouteObject("m:i1", "generalist", "_generalist", "n-i1"),
@@ -69,12 +88,36 @@ def _mk_runtime(tmp, profile="production", governor=None, chain=None,
             "m:i2": _prov("m:i2", "arch-c", "ds-2", "EE")} \
         if profile == "production" else None
     rt = BeingRuntime(
-        sk=sk, chain=chain, being_id=being, governor=gov,
+        sk=sk, being_sk=being_identity.sk,
+        chain=chain, being_id=being, governor=gov,
         workspace=os.path.join(tmp, "ws"), profile=profile,
         route_objects=objects, engines=engines, provenance=prov,
         topics={"_generalist": []}, max_per_group=2,
         journal_dir=os.path.join(tmp, "j"))
     return rt, chain, gov, being
+
+
+class _BoundSeat:
+    """A reference seat that can also name its artifact — for real.
+
+    recut5 stubbed this: `model_artifact_manifest_hash = "0" * 64`,
+    `attested = False`, and `production` accepted it. That is how the fifth
+    audit found the gate — by reading what the fixture got away with. The
+    answer is not a better stub. This wraps a genuinely signed chain built
+    by tests/artifact_fixtures.py and verified by the same
+    `core.artifact_binding.bind_artifact` the daemon uses, so a broken
+    chain fails the fixture instead of passing the gate.
+    """
+
+    def __init__(self, inner, refs):
+        self._inner = inner
+        self._refs = refs
+
+    def __getattr__(self, name):
+        return getattr(self._inner, name)
+
+    def artifact_refs(self):
+        return self._refs
 
 
 def test_state_machine_legality():
@@ -144,7 +187,8 @@ def test_profiles():
         sk = SigningKey.generate()
         chain = WitnessChain(sk)
         try:
-            BeingRuntime(sk=sk, chain=chain, being_id="b", governor=None,
+            BeingRuntime(sk=sk, being_sk=SigningKey.generate(),
+                         chain=chain, being_id="b", governor=None,
                          workspace=tmp, profile="production",
                          provenance=None)
             assert False, "B-PROF: production without provenance accepted"

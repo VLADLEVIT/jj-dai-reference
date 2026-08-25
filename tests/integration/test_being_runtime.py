@@ -3,13 +3,24 @@
 """
 Being Composition Runtime, live (v0.5.3) — the audit's definition of done
 =========================================================================
-Three real daemon processes over mTLS. Node A runs the Being in the
-PRODUCTION profile; B and C replicate its evidence.
+Three real daemon processes over mTLS. B and C replicate A's evidence.
 
-  G-1  POST /v1/tasks over mTLS returns a full RECORDED DecisionTrace:
-       every pipeline state walked, plan hash, independent verifier panel
-       (selected + rejected with reasons), a governed fs_write receipt,
-       and a witness span on ONE chain that verifies end-to-end
+REWRITTEN for the vertical (v0.6.7). Until the vertical, node A ran the
+Being in the PRODUCTION profile and every task reached RECORDED — but only
+because the daemon built THREE synthetic engines with the router's own
+test helper, so the "independent verifier panel" was three copies of a
+fixture. With the real backend wired in there is ONE engine, one seat, and
+a lone node has no independent panel at all.
+
+So this file now pins BOTH truths, which is what the old version could not
+distinguish: the organism works end to end on the real engine (`dev`, with
+the trace saying `mode: "self"` out loud), and a lone node in `production`
+REFUSES rather than manufacturing a panel out of one engine.
+
+  G-1  POST /v1/tasks over mTLS returns a full RECORDED DecisionTrace on
+       the REAL configured backend: every pipeline state walked, plan hash,
+       a governed fs_write receipt, and a witness span on ONE chain that
+       verifies end-to-end
   G-2  the evidence replicates: B and C hold quorum receipts covering the
        task records (the Being's decisions are not private history)
   G-3  RESTART: node A is stopped and restarted on the same identity and
@@ -21,6 +32,10 @@ PRODUCTION profile; B and C replicate its evidence.
        a pure-answer task still ends RECORDED
   G-5  production boot without provenance refuses (exit 2) — the profile
        is a promise, not a suggestion
+  G-6  a lone node in `production`, with a well-formed provenance manifest
+       and one real engine, REFUSES the task and says why in a reason CODE
+       the network can read. Fails against recut3, where three fixtures
+       made a panel appear out of nothing
 """
 from __future__ import annotations
 
@@ -42,20 +57,16 @@ DAEMON = os.path.join(_ROOT, "node", "daemon.py")
 GEN_CERTS = os.path.join(_ROOT, "scripts", "gen_dev_certs.py")
 P_A, P_B, P_C = 8691, 8692, 8693
 
+#: One seat, because the node has one engine. The vertical removed the
+#: three fixtures; a provenance map naming objects that no longer exist
+#: would describe a router that is not there.
 PROVENANCE = {
-    "m:gen": {"model_id": "m:gen", "base_family": "fam-G",
-              "architecture_family": "arch-a",
-              "training_data_families": ["ds-gen"],
-              "operator_domain": "gen.example", "jurisdiction": "UA"},
-    "m:v1": {"model_id": "m:v1", "base_family": "fam-G",
-             "architecture_family": "arch-b",
-             "training_data_families": ["ds-v1"],
-             "operator_domain": "v1.example", "jurisdiction": "KR"},
-    "m:v2": {"model_id": "m:v2", "base_family": "fam-G",
-             "architecture_family": "arch-c",
-             "training_data_families": ["ds-v2"],
-             "operator_domain": "v2.example", "jurisdiction": "EE"},
+    "m:self": {"model_id": "m:self", "base_family": "fam-G",
+               "architecture_family": "arch-a",
+               "training_data_families": ["ds-gen"],
+               "operator_domain": "self.example", "jurisdiction": "UA"},
 }
+
 
 
 def _client_ctx(ca, cert, key):
@@ -101,7 +112,9 @@ def _spawn(port, name, fp, tmp, certdir, extra):
 
 def test_being_runtime_three_nodes():
     _prev = os.environ.get("JJDAI_KEYSTORE_PASSPHRASE")
+    _prev_being = os.environ.get("JJDAI_BEING_PASSPHRASE")
     os.environ["JJDAI_KEYSTORE_PASSPHRASE"] = "being-test-pass"
+    os.environ["JJDAI_BEING_PASSPHRASE"] = "being-key-pass"
     procs = {}
     with tempfile.TemporaryDirectory() as tmp:
         certdir = os.path.join(tmp, "certs")
@@ -118,10 +131,26 @@ def test_being_runtime_three_nodes():
             return _spawn(P_A, "being-A", "fp-being-A", tmp, certdir, [
                 "--log", os.path.join(tmp, "A.jsonl"),
                 "--node-keystore", os.path.join(tmp, "A.keystore"),
-                "--being-profile", "production",
-                "--being-provenance", prov_path,
+                # dev, deliberately: this node has ONE real engine, so it
+                # has no independent panel and `production` would refuse
+                # (G-6). `dev` is the labelled path — the trace carries
+                # mode="self" — and it is what lets G-1..G-4 exercise the
+                # organism on a real backend instead of on fixtures.
+                "--being-profile", "dev",
+                # deliberately NO --being-provenance: `dev` takes the
+                # labelled mode="self" path only when there is no
+                # provenance map to judge independence against. Given one,
+                # it demands a panel exactly like production — which on a
+                # one-seat node is the refusal G-6 pins.
+
                 "--being-workspace", ws,
                 "--being-journals", os.path.join(tmp, "A.being"),
+                # recut5 (audit P0.1): the keystore is what makes G-3 a
+                # continuity check at all. Without it every restart minted
+                # a fresh being:<hash> and then served the PREVIOUS being's
+                # traces out of this journal — the test passed because it
+                # only compared the trace, never the being.
+                "--being-keystore", os.path.join(tmp, "A.being.keystore"),
                 "--allow-test-hooks",
                 "--peers",
                 f"https://127.0.0.1:{P_B},https://127.0.0.1:{P_C}"])
@@ -138,7 +167,12 @@ def test_being_runtime_three_nodes():
                               os.path.join(certdir, "client.key"))
             base_a = f"https://127.0.0.1:{P_A}"
             caps = _wait_tls(ctx, base_a)
-            assert caps["being_runtime"] == "production", caps
+            assert caps["being_runtime"] == "dev", caps
+            # the being now has a CANONICAL identity of its own, derived
+            # from a key, rather than `being:` plus a slice of the node id
+            assert caps["being_id"].startswith("being:"), caps["being_id"]
+            assert len(caps["being_id"]) == len("being:") + 64, \
+                f"not a canonical being id: {caps['being_id']}"
             for port in (P_B, P_C):
                 _wait_tls(ctx, f"https://127.0.0.1:{port}")
 
@@ -154,9 +188,17 @@ def test_being_runtime_three_nodes():
             assert [t["to"] for t in tr["transitions"]] == [
                 "RECEIVED", "GROUNDED", "PLANNED", "GENERATED", "VERIFIED",
                 "AUTHORIZED", "ACTED", "RECORDED"]
-            assert tr["verifier_panel"]["mode"] == "panel" \
-                and sorted(tr["verifier_panel"]["selected"]) == \
-                ["m:v1", "m:v2"] and tr["plan_hash"] \
+            # The panel is `self` and the trace SAYS so. That is the whole
+            # point of the labelled path: a node with one engine does not
+            # get an independent panel, and the record admits it instead of
+            # naming two fixtures that were copies of the first.
+            assert tr["verifier_panel"]["mode"] == "self", tr["verifier_panel"]
+            assert tr["verifier_panel"]["verified"] is True
+            assert "selected" not in tr["verifier_panel"], (
+                "a self-verified trace listed panel members — the shape that "
+                "made three copies of one fixture look like independence")
+            assert tr["generator"]["object_id"] == "m:self", tr["generator"]
+            assert tr["plan_hash"] \
                 and tr["action"]["ok"] \
                 and tr["witness_span"][1] > tr["witness_span"][0], tr
             assert open(os.path.join(ws, "milestone.txt")).read() == \
@@ -168,8 +210,9 @@ def test_being_runtime_three_nodes():
             _probe.records = ch["records"]
             assert _probe.verify_chain(bytes.fromhex(ch["pubkey"])), \
                 "G-1: the ONE exported chain must verify offline"
-            print("  [PASS] G-1  mTLS task -> RECORDED trace: full path, "
-                  "panel [m:v1,m:v2], plan hash, action receipt, one chain")
+            print("  [PASS] G-1  mTLS task -> RECORDED on the REAL backend: "
+                  "full path, labelled self-verification, action receipt, "
+                  "one chain")
 
             # ---- G-2 ------------------------------------------------------ #
             code, rep = _req(ctx, base_a + "/replicate/push", {})
@@ -183,9 +226,18 @@ def test_being_runtime_three_nodes():
                   "records incl. the task lifecycle")
 
             # ---- G-3 ------------------------------------------------------ #
+            code, caps1 = _req(ctx, base_a + "/capabilities")
+            being_before = caps1["being_id"]
+            assert being_before.startswith("being:") \
+                and len(being_before) == len("being:") + 64, being_before
             procs["A"].terminate(); procs["A"].wait(timeout=15)
             procs["A"] = spawn_a()
             _wait_tls(ctx, base_a)
+            code, caps2 = _req(ctx, base_a + "/capabilities")
+            assert caps2["being_id"] == being_before, (
+                "G-3: the restart changed the BEING. Returning the same "
+                "trace is not continuity if a different mind is answering "
+                f"for it: {being_before} -> {caps2['being_id']}")
             code, resp2 = _req(ctx, base_a + f"/v1/tasks/{task_id}")
             assert code == 200, resp2
             tr2 = resp2["trace"]
@@ -199,8 +251,9 @@ def test_being_runtime_three_nodes():
             _probe2.records = ch["records"]
             assert _probe2.verify_chain(bytes.fromhex(ch["pubkey"])), \
                 "G-3: chain must verify"
-            print("  [PASS] G-3  restart on the same identity: the trace "
-                  "returns with citations, plan and receipts intact")
+            print("  [PASS] G-3  restart over mTLS on the same NODE and "
+                  "BEING keystores: the being id is unchanged and the "
+                  "trace returns with citations, plan and receipts intact")
 
             # ---- G-4 ------------------------------------------------------ #
             code, c = _req(ctx, base_a + "/admin/containment", {
@@ -233,11 +286,62 @@ def test_being_runtime_three_nodes():
             assert r.returncode == 2 and "provenance" in r.stderr, r.stderr
             print("  [PASS] G-5  production without provenance refuses "
                   "the boot — the profile is a promise")
+
+            # ---- G-6 ------------------------------------------------------ #
+            # A lone node in production, given everything it could possibly
+            # need EXCEPT a second independent place to verify from.
+            # recut6: production is a BOOT gate on the artifact chain, so
+            # this node gets what an operator gives one — a signed manifest
+            # and the weights, which it measures for itself.
+            sys.path.insert(0, os.path.join(_ROOT, "tests"))
+            from artifact_fixtures import signed_artifact
+            fx = signed_artifact(tmp, backend="hash", fingerprint="fp-being-D")
+            man_path = os.path.join(tmp, "model-artifact.json")
+            with open(man_path, "w", encoding="utf-8") as fh:
+                json.dump(fx.envelope, fh)
+            P_D = 8698
+            procs["D"] = _spawn(P_D, "being-B", "fp-being-D", tmp, certdir, [
+                "--log", os.path.join(tmp, "D.jsonl"),
+                "--node-keystore", os.path.join(tmp, "D.keystore"),
+                "--being-profile", "production",
+                "--being-provenance", prov_path,
+                "--substrates", json.dumps([fx.substrate_id]),
+                "--substrate-artifacts", json.dumps({fx.substrate_id:
+                                                     fx.path}),
+                "--model-artifact-manifest", man_path,
+                # recut5: production now demands a persistent being and a
+                # hosting binding before it will witness under a name.
+                "--being-keystore", os.path.join(tmp, "D.being.keystore"),
+                "--being-workspace", os.path.join(tmp, "D-ws"),
+                "--being-journals", os.path.join(tmp, "D.being")])
+            base_d = f"https://127.0.0.1:{P_D}"
+            caps_d = _wait_tls(ctx, base_d)
+            assert caps_d["being_runtime"] == "production", caps_d
+            code6, resp6 = _req(ctx, base_d + "/v1/tasks", {
+                "task": {"text": "verify something on your own"}})
+            tr6 = resp6.get("trace", {})
+            assert tr6.get("state") == "REFUSED", (code6, tr6.get("state"),
+                                                   tr6.get("outcome_reason"))
+            reason = tr6.get("outcome_reason") or ""
+            assert "independent" in reason, reason
+            # the CODE is what the network reads; the prose stays local
+            last = [t for t in tr6["transitions"] if t["to"] == "REFUSED"][-1]
+            assert last["detail"]["reason_code"] == "no_independent_panel", \
+                last["detail"]
+            assert "reason" not in last["detail"], (
+                "free text went into a transition detail again — the witness "
+                "plane refuses it and the refusal would not record at all")
+            print("  [PASS] G-6  a lone production node refuses and names "
+                  "the missing independence in a reason code")
         finally:
             if _prev is None:
                 os.environ.pop("JJDAI_KEYSTORE_PASSPHRASE", None)
             else:
                 os.environ["JJDAI_KEYSTORE_PASSPHRASE"] = _prev
+            if _prev_being is None:
+                os.environ.pop("JJDAI_BEING_PASSPHRASE", None)
+            else:
+                os.environ["JJDAI_BEING_PASSPHRASE"] = _prev_being
             for p in procs.values():
                 p.terminate()
             for p in procs.values():

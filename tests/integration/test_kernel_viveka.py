@@ -210,8 +210,8 @@ def test_kernel_viveka():
         verify_deliberation_against_chain(tampered_events, chain.records, BEING)
     except VivekaError:
         caught = True
-    check("W-10", bound == 1 and caught,
-          "auditor binds steps to records; tampered checkpoint caught")
+    check("W-10", bound.records == 1 and bound.level == "ATTRIBUTED" and caught,
+          "auditor binds steps to records at ATTRIBUTED; tamper caught")
 
     # ---- W-11 Smriti-grounded discernment -------------------------------------- #
     smr = SmritiContinuity(AgentIdentity(BEING, 0.0), now_fn=clk_new())

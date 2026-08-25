@@ -71,8 +71,15 @@ def test_weight_attestation():
         assert m["artifact_hash"] == "sha256:" + hashlib.sha256(data).hexdigest()
         assert m["size_bytes"] == len(data)
         cid = m["artifact_hash"]                     # true content address
+        # recut8: an attestation carries the engine it was taken under, and
+        # a deployment refuses to embed one that disagrees with its own
+        # declared engine. A-3 below builds a deployment from this
+        # attestation, so it is taken under the same fingerprint — an
+        # attestation with `engine_fingerprint: None` is not "unspecified",
+        # it is a measurement nobody can say which engine produced.
         att = make_weight_attestation(sk, manifest_id=cid,
-                                      artifact_path=path)
+                                      artifact_path=path,
+                                      engine_fingerprint="fp-x")
         assert att["body"]["binding"] == "content"
         other = _weights(tmp, "other.gguf", os.urandom(1024))
         try:
@@ -80,8 +87,13 @@ def test_weight_attestation():
             assert False, "A-1: a false content binding must be unsignable"
         except AttestationError:
             pass
+        # recut9: every attestation names the engine that measured. The
+        # BINDING class (content vs declared) is about the manifest id, not
+        # about the engine, so this case still exists — it just has to say
+        # who measured, like every other.
         sym = make_weight_attestation(sk, manifest_id="sha256:base-A",
-                                      artifact_path=path)
+                                      artifact_path=path,
+                                      engine_fingerprint="fp-x")
         assert sym["body"]["binding"] == "declared", \
             "A-1: symbolic ids are honest about their binding class"
         print("  [PASS] A-1  streamed measurement; content ids enforced at "
@@ -139,7 +151,8 @@ def test_weight_attestation():
         st.hold_weight(att)
         st.hold_weight(att)                          # idempotent
         conflicting = make_weight_attestation(
-            sk, manifest_id="sha256:base-A", artifact_path=other)
+            sk, manifest_id="sha256:base-A", artifact_path=other,
+            engine_fingerprint="fp-x")
         st.hold_weight(sym)
         try:
             st.hold_weight(conflicting)

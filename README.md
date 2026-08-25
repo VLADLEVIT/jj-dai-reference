@@ -1,11 +1,11 @@
 # JJ DAI — Reference Trust, Governance & Agent Kernel
 
 <!-- VERSION:BEGIN (generated — the build owns this line and nothing else near it) -->
-**Version:** `0.6.7` (matches `jjdai.__version__`; enforced by the release-integrity test) · **Python:** ≥3.10, stdlib-only core · **Site:** [jj-dai.org](https://jj-dai.org)
+**Version:** `0.6.8` (matches `jjdai.__version__`; enforced by the release-integrity test) · **Python:** ≥3.10, stdlib-only core · **Site:** [jj-dai.org](https://jj-dai.org)
 <!-- VERSION:END -->
 
 <!--
-  README OWNERSHIP (v0.6.7)
+  README OWNERSHIP (v0.6.8)
   ------------------------
   Everything OUTSIDE a generated marker block is owned by the repository and
   is never written by the build. That includes the title, this notice, and
@@ -139,6 +139,9 @@ journals, replicas and the workspace.
 | Typed boundary and durability | Implemented |
 | External anchoring | Prototype |
 | Monero root-as-spend-key anchor | Prototype (Prototype, v0.5.2) |
+| Track V reserved vocabulary | Interface only (Interface only, ADR-018, reserved, non-emittable) |
+| Deferred-verification reserved vocabulary | Interface only (Interface only, ADR-019, reserved, non-emittable) |
+| Value-level refusal of both reserves | Implemented (Implemented, v0.6.8, P0-1) |
 | Smriti — continuity and memory | Implemented |
 | Viveka — discernment and deliberation | Implemented |
 | Karma — governed action | Implemented (Implemented, reference sandbox) |
@@ -164,9 +167,10 @@ journals, replicas and the workspace.
 | Tier-1 trust node daemon | Prototype |
 | Adapter layer — EngineBackend Protocol v1 | Implemented (Implemented, protocol v1 declared whole) |
 | NECS v0.1 + harness | Implemented |
-| Acceptance and CI | Implemented (179/179 green (recorded run on Python 3.11.15; stdlib runner, CI matrix 3.10-3.12)) |
+| Acceptance and CI | Implemented (215/215 green (recorded run on Python 3.11.15; stdlib runner, CI matrix 3.10-3.12)) |
 | Retired M1-M5 lineage | Implemented (Frozen) |
 | Deployment kit (Linux + macOS) | Implemented (Implemented, macOS kit v0.6.2) |
+| Release provenance — partial | Prototype (Partial, SBOM + pinning v0.6.8) |
 | Plane B canary lifecycle | Planned |
 | Knowledge graph / ontology semantics | Planned |
 | TEE / runtime attestation | Planned |
@@ -463,7 +467,7 @@ python scripts/run_acceptance.py [unit|integration|conformance|adversarial|legac
 CI runs the matrix on Python 3.10–3.12 (`.github/workflows/ci.yml`).
 
 <!-- ACCEPT:BEGIN (generated — do not edit by hand) -->
-Current status: 179/179 acceptance checks green (hermetic default groups).
+Current status: 215/215 acceptance checks green (hermetic default groups).
 
 The `live` group is opt-in and excluded from the default run: `python scripts/run_acceptance.py live` exercises the wasm-wasi
 boundary against a real `wasmtime` and is required by the Ф0 gate on each target host.
@@ -530,12 +534,16 @@ skips itself is not evidence.
 
 ## 9. Roadmap
 
-The plan of record is [`docs/roadmap/`](docs/roadmap/) — revision **r6.8.2**.
-What follows is what it says about the tree you are reading.
+The plan of record is
+[`docs/roadmap/JJ_DAI_Roadmap_r6_8_5.md`](docs/roadmap/JJ_DAI_Roadmap_r6_8_5.md).
+What follows is what it says about the tree you are reading — and `SYNC-2`
+fails the build if this section names a roadmap the tree does not carry.
+
+This tree is **v0.6.8 — `code-complete · 215/215 recorded · untagged`**, with
+release debt open. It is not a release and does not pretend to be one.
 
 **v0.6.7 was declared as law, supply chain and the toolset. That is not what
-it turned out to be, and the roadmap now says so rather than absorbing the
-gap.** Its actual content is the **live vertical**: a real engine inside
+it turned out to be, and the roadmap says so rather than absorbing the gap.** Its actual content is the **live vertical**: a real engine inside
 `BeingRuntime`, a separate keystore per being, `BeingIdentity` surviving a
 daemon restart and mTLS, the artifact binding chain, the trace commitment.
 Of everything that *was* declared, only one item was built — the canonical
@@ -554,12 +562,22 @@ repository hygiene batch and the documentation entry point in `docs/`.
 **Four debts remain, and they block four different things.** They used to be
 quoted as one list, which made all four look like one wall:
 
-| Debt | What it blocks |
-|---|---|
-| canonical AGPL | **publication** — closed in v0.6.7 |
-| CLA | **accepting outside contributions**; nothing to do with tagging |
-| T-TOOLSET | a **Ф0 gate deliverable**; a tag claims nothing about the toolset existing |
-| supply chain | **the meaning of a release tag** — without signed artefacts and provenance a tag is a name for a commit, not a release |
+| Debt | What it blocks | State in this tree |
+|---|---|---|
+| canonical AGPL | **publication** | closed in v0.6.7; the sha256 is pinned by a test |
+| CLA | **accepting outside contributions**; nothing to do with tagging | absent — and it does not hold the tag |
+| T-TOOLSET | a **Ф0 gate deliverable**; a tag claims nothing about a toolset existing | absent: `deploy/wasm-toolset/toolset.json` carries the mechanism with an empty `tools` |
+| supply chain | **the meaning of a release tag** — without signed artefacts and provenance a tag names a commit, not a release | partly closed in v0.6.8 |
+
+Supply chain is worth splitting, because "partly" is not a status anyone can
+act on. **Done and in the tree:** `.gitattributes` with `* -text`, a
+CycloneDX SBOM with a drift check in CI, test dependencies pinned by version
+*and* hash, workflow actions pinned by commit, the build backend pinned to an
+exact version, and `SYNC-6` verifying that the roadmap PDF is not stale
+against its markdown. **Still open:** a reproducible build, the build backend
+pinned **by hash** — PEP 517 gives `requires` no field for one, so this needs
+a different mechanism rather than a stricter string — signed artefacts,
+release provenance, and two-person release approval.
 
 **A green tree with open release debt can still be named.** r6.8.2 introduces
 the **pre-flight tag** — `v0.6.<n>-preflight` — for exactly that state: it
@@ -615,9 +633,10 @@ that option is not wanted, a DCO is enough. The decision is taken with a
 lawyer, and it needs a named legal entity to exist first.
 
 Until it is taken, **public contribution is not open** — that is what the CLA
-debt blocks, and it blocks nothing else. The contribution guide that used to
-describe the process was withdrawn as outdated, so ask before opening a pull
-request rather than assuming the old terms still apply.
+debt blocks, and it blocks nothing else. [`CONTRIBUTING.md`](CONTRIBUTING.md)
+carries the workflow and says the same thing in its own words: the CLA text
+is published before external contributions are accepted, and until then a
+pull request is received as review-only.
 
 ## 11. Responsible disclosure
 

@@ -1,0 +1,2577 @@
+{
+  "bomFormat": "CycloneDX",
+  "components": [
+    {
+      "bom-ref": "pkg:pypi/exceptiongroup@1.3.0",
+      "description": "toolchain, applies when: python_version < \"3.11\"",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "4d111e6e0c13d0644cad6ddaa7ed0261a0b36971f6d23e7ec9b4b9097da78a10"
+        }
+      ],
+      "name": "exceptiongroup",
+      "purl": "pkg:pypi/exceptiongroup@1.3.0",
+      "scope": "excluded",
+      "type": "library",
+      "version": "1.3.0"
+    },
+    {
+      "bom-ref": "pkg:pypi/iniconfig@2.3.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "f631c04d2c48c52b84d0d0549c99ff3859c98df65b3101406327ecc7d53fbf12"
+        }
+      ],
+      "name": "iniconfig",
+      "purl": "pkg:pypi/iniconfig@2.3.0",
+      "scope": "excluded",
+      "type": "library",
+      "version": "2.3.0"
+    },
+    {
+      "bom-ref": "pkg:pypi/packaging@26.3",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c"
+        }
+      ],
+      "name": "packaging",
+      "purl": "pkg:pypi/packaging@26.3",
+      "scope": "excluded",
+      "type": "library",
+      "version": "26.3"
+    },
+    {
+      "bom-ref": "pkg:pypi/pluggy@1.6.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "e920276dd6813095e9377c0bc5566d94c932c33b27a3e3945d8389c374dd4746"
+        }
+      ],
+      "name": "pluggy",
+      "purl": "pkg:pypi/pluggy@1.6.0",
+      "scope": "excluded",
+      "type": "library",
+      "version": "1.6.0"
+    },
+    {
+      "bom-ref": "pkg:pypi/pytest@8.3.5",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "c69214aa47deac29fad6c2a4f590b9c4a9fdb16a403176fe154b79c0b4d4d820"
+        }
+      ],
+      "name": "pytest",
+      "purl": "pkg:pypi/pytest@8.3.5",
+      "scope": "excluded",
+      "type": "library",
+      "version": "8.3.5"
+    },
+    {
+      "bom-ref": "pkg:pypi/tomli@2.2.1",
+      "description": "toolchain, applies when: python_version < \"3.11\"",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "cb55c73c5f4408779d0cf3eef9f762b9c9f147a77de7b258bef0a5628adc85cc"
+        },
+        {
+          "alg": "SHA-256",
+          "content": "cd45e1dc79c835ce60f7404ec8119f2eb06d38b1deba146f07ced3bbc44505ff"
+        }
+      ],
+      "name": "tomli",
+      "purl": "pkg:pypi/tomli@2.2.1",
+      "scope": "excluded",
+      "type": "library",
+      "version": "2.2.1"
+    },
+    {
+      "bom-ref": "pkg:github/actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
+      "description": "GitHub Action, pinned by commit; v4.4.0 at pin time",
+      "hashes": [
+        {
+          "alg": "SHA-1",
+          "content": "11d5960a326750d5838078e36cf38b85af677262"
+        }
+      ],
+      "name": "actions/checkout",
+      "purl": "pkg:github/actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
+      "scope": "excluded",
+      "type": "library",
+      "version": "11d5960a326750d5838078e36cf38b85af677262"
+    },
+    {
+      "bom-ref": "pkg:github/actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
+      "description": "GitHub Action, pinned by commit; v4.4.0 at pin time",
+      "hashes": [
+        {
+          "alg": "SHA-1",
+          "content": "11d5960a326750d5838078e36cf38b85af677262"
+        }
+      ],
+      "name": "actions/checkout",
+      "purl": "pkg:github/actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
+      "scope": "excluded",
+      "type": "library",
+      "version": "11d5960a326750d5838078e36cf38b85af677262"
+    },
+    {
+      "bom-ref": "pkg:github/actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065",
+      "description": "GitHub Action, pinned by commit; v5.6.0 at pin time",
+      "hashes": [
+        {
+          "alg": "SHA-1",
+          "content": "a26af69be951a213d495a4c3e4e4022e16d87065"
+        }
+      ],
+      "name": "actions/setup-python",
+      "purl": "pkg:github/actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065",
+      "scope": "excluded",
+      "type": "library",
+      "version": "a26af69be951a213d495a4c3e4e4022e16d87065"
+    },
+    {
+      "bom-ref": "pkg:github/actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065",
+      "description": "GitHub Action, pinned by commit; v5.6.0 at pin time",
+      "hashes": [
+        {
+          "alg": "SHA-1",
+          "content": "a26af69be951a213d495a4c3e4e4022e16d87065"
+        }
+      ],
+      "name": "actions/setup-python",
+      "purl": "pkg:github/actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065",
+      "scope": "excluded",
+      "type": "library",
+      "version": "a26af69be951a213d495a4c3e4e4022e16d87065"
+    },
+    {
+      "bom-ref": "pkg:pypi/setuptools@80.9.0",
+      "description": "PEP 517 build backend",
+      "hashes": [],
+      "name": "setuptools",
+      "properties": [
+        {
+          "name": "jjdai:pin-strength",
+          "value": "version-only — PEP 517 `requires` has no field for a hash"
+        }
+      ],
+      "purl": "pkg:pypi/setuptools@80.9.0",
+      "scope": "excluded",
+      "type": "library",
+      "version": "80.9.0"
+    },
+    {
+      "bom-ref": "file:.gitattributes",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "a7d3ec5e79ca081d21acbfaeedaebb53278b8aa0aa44fee0086069abac7f4879"
+        }
+      ],
+      "name": ".gitattributes",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:.github/workflows/ci.yml",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "61a0861bef6bb605fa715cff8fe21e92aacaa2b5e99bf7cbd99ceb915d95dc0c"
+        }
+      ],
+      "name": ".github/workflows/ci.yml",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:.gitignore",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "623b3aa84574b53d14afb73966a4fcbabb5973728b94b27880e62e152efb88f8"
+        }
+      ],
+      "name": ".gitignore",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:CHANGELOG.md",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "ba0e07760586127c82ffbf0ac4fc9951ae924d3edc49d83cf6cecfb7a6dc6dbb"
+        }
+      ],
+      "name": "CHANGELOG.md",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:CONTRIBUTING.md",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "31c7c4260b0c59f1e328132182f1e0e77e3f55e419a831bf3f5b64b4fbfd9f53"
+        }
+      ],
+      "name": "CONTRIBUTING.md",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:LICENSE",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "919bc77cf5cb2359d7f7cdc98252c2a39b279e29fcfff6eb93a3b242f466cb1a"
+        }
+      ],
+      "name": "LICENSE",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:LICENSES/AGPL-3.0.txt",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0"
+        }
+      ],
+      "name": "LICENSES/AGPL-3.0.txt",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:LICENSES/Apache-2.0.txt",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "3b4fcb64f88a2dd883f18b180d7facf8ef62c7d07d2c130ffe708e4512766b37"
+        }
+      ],
+      "name": "LICENSES/Apache-2.0.txt",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:SECURITY.md",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "01098e25fb144014c342e099e864929186631be364afeb5c0e1b1cb99741955b"
+        }
+      ],
+      "name": "SECURITY.md",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:core/__init__.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "name": "core/__init__.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:core/anchoring.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "1afac52687ac29c3c9c35510e61e9f5e64fc283853de7e4e0cfa6a417d113960"
+        }
+      ],
+      "name": "core/anchoring.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:core/anchoring_xmr.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "7ff02917934c26c0fe04ffd9c95d41f9dffb3dff2d0fafa3fdfa3530783a4a6f"
+        }
+      ],
+      "name": "core/anchoring_xmr.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:core/artifact_binding.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "66bd75793c71ad9683244f4455d1f4f37b4eca7afb177493d75e4b005da837bb"
+        }
+      ],
+      "name": "core/artifact_binding.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:core/attestation.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "1227ea272e43ca7ad28c86cf8441ee1255426d1a90c1528c331bf02a14339a80"
+        }
+      ],
+      "name": "core/attestation.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:core/challenge.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "779f9fc96a7235ab5b081249a5bc98750355e8f612f27b8feeb5295dd4397252"
+        }
+      ],
+      "name": "core/challenge.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:core/containment.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "0e9d82df26d979a7bc6d52aa3ba948efe725f3c510a0c561dfba0acb4ff0659b"
+        }
+      ],
+      "name": "core/containment.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:core/crossverify.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "d47db0f97669b45e080532605931d0891b75078695f16a6d8d7169944eae016c"
+        }
+      ],
+      "name": "core/crossverify.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:core/diversity.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "8543031770666bdb3fc2cf78bcfb97a92e073688608a240a558fc11b6ba4b4dc"
+        }
+      ],
+      "name": "core/diversity.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:core/durable.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "5990bbd612154817003065f7b7747259c7b47f66dfa7b6189cf1ca78c174860d"
+        }
+      ],
+      "name": "core/durable.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:core/entanglement.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "c66a52bd544bcb6590cdedcfa1a4ade3448649aaac9438157b2933770e2d4ad8"
+        }
+      ],
+      "name": "core/entanglement.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:core/identity.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "096d391c9b840f58d8d8352c955892237b29c36e7842a060067c3fc0900d214d"
+        }
+      ],
+      "name": "core/identity.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:core/manifests.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "48f63b10a803b2b65d692bdbf305b3e47332b4ac40fbba05b5a642fe960f59b6"
+        }
+      ],
+      "name": "core/manifests.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:core/peers.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "202a9a023d4de22d04b8d7efbcba0d0134dca0f437636cab05b2b744a54b817c"
+        }
+      ],
+      "name": "core/peers.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:core/plane_h.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "ddbda6eb2677c447f8d2d46b42c1f90bf747df4bfbea134495ac52e658c4b7b2"
+        }
+      ],
+      "name": "core/plane_h.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:core/rag_store.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "e88f74a2f337112900aebb84cd3bd788e26aa4c91de5d50d176cf01a2eb68d18"
+        }
+      ],
+      "name": "core/rag_store.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:core/registry.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "bc96a683a191490327087b777d9dc52c4a512147fef55934cd44d34b09095c8b"
+        }
+      ],
+      "name": "core/registry.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:core/replication.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "68cb0e67e157296d70daf0637e91d6887d669867ceca7835d0d3f9ec4f76be99"
+        }
+      ],
+      "name": "core/replication.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:core/router.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "704f433c3f4dc8d083c37d48cad5b0a59d13d40feb401160f0ac7f41d074ea74"
+        }
+      ],
+      "name": "core/router.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:core/segments.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "1f1aacce9b10d32009ced4c2041f10a7de0825b545f0f2c834a14a9da76d0a9f"
+        }
+      ],
+      "name": "core/segments.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:core/smriti.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "878569aa1ee83b00874c3df31ee7914b09a7d02c2c759732bd2098795b0a1d56"
+        }
+      ],
+      "name": "core/smriti.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:core/verdict.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "f1c803426da45c070fa282e64c4f5982c21bf315f58bfa64695e86592120a756"
+        }
+      ],
+      "name": "core/verdict.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:deploy/RUNBOOK-macOS.md",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "cd20025640f58e7cd8de5d6eb3793a9d8d579e3eab5d579a05552db21e728718"
+        }
+      ],
+      "name": "deploy/RUNBOOK-macOS.md",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:deploy/RUNBOOK.md",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "3f0ec87238eb206664dc71f00476db297c5747e269017d43d7b79abc676791a3"
+        }
+      ],
+      "name": "deploy/RUNBOOK.md",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:deploy/authz.testnet.json",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "7adb6bb22d6e50b050c1dff4d6c992a988cd63004a0002cd5d3f2dc5bc28ab6b"
+        }
+      ],
+      "name": "deploy/authz.testnet.json",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:deploy/bootstrap_node.sh",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "4ff8aa41f46abca895a9d3a1ab623c10d4efa856d1baeb3678200811a69b2eb3"
+        }
+      ],
+      "name": "deploy/bootstrap_node.sh",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:deploy/gen_pki.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "a7655c4551eb9ef078aa4c49ff8deaa12e25e97ff388d4ac37015f0fefae36df"
+        }
+      ],
+      "name": "deploy/gen_pki.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:deploy/grafana/jjdai-node-dashboard.json",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "2b72203bb1b793b8c8977e5f1ba50506e56e8523b61434813d73b846b5677614"
+        }
+      ],
+      "name": "deploy/grafana/jjdai-node-dashboard.json",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:deploy/jjdai-node@.service",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "288d6ee73811391aa60f29cf9a4d8f67cd67f5abd4ebf5ac41909b33039fb3c1"
+        }
+      ],
+      "name": "deploy/jjdai-node@.service",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:deploy/macos/bootstrap_node_macos.sh",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "b7d6a944244aaac9c5a99e977907e4da74a8295522bb5ad5731e186b3ba13001"
+        }
+      ],
+      "name": "deploy/macos/bootstrap_node_macos.sh",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:deploy/macos/jjdai_node_launcher.sh",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "bf55e437eaf5f29d63d1f1fcc3e25f23ad61a00be05c26583c9ba3cb9550423f"
+        }
+      ],
+      "name": "deploy/macos/jjdai_node_launcher.sh",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:deploy/macos/keychain_seal.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "42aa9c47e9c919044b9e3815cfe11e694c71a0b36deb59cf05f734b3ac44d7a5"
+        }
+      ],
+      "name": "deploy/macos/keychain_seal.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:deploy/macos/org.jjdai.node.plist",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "f599d46c33a0375a302b93b423702e71e56d93f196766a73a95d229f596ad62b"
+        }
+      ],
+      "name": "deploy/macos/org.jjdai.node.plist",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:deploy/prometheus/README.md",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "eaaa4c14289afcad52922b2a089f7e565b88904a70f702d7ba2116e516ca1dd3"
+        }
+      ],
+      "name": "deploy/prometheus/README.md",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:deploy/prometheus/jjdai-alerts.yml",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "851e2f9628c138da2339a3360c3df858d6109abc4c46a2f307b9d484eb45fc3a"
+        }
+      ],
+      "name": "deploy/prometheus/jjdai-alerts.yml",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:deploy/tpm_seal.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "b9702d157531d5bce093f03e94cfc039edd974672aa27b954043ef398890f762"
+        }
+      ],
+      "name": "deploy/tpm_seal.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:deploy/wasm-toolset/README.md",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "95a3e0a30a6b0ffae9d9c54cef13fc3711031afc31d72b5a53a61d7ed00b10a6"
+        }
+      ],
+      "name": "deploy/wasm-toolset/README.md",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:deploy/wasm-toolset/toolset.json",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "4113acc68ede391881cd0c397ea174588b20a54cfc17646eceac0f9b534316e7"
+        }
+      ],
+      "name": "deploy/wasm-toolset/toolset.json",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:docs/README.md",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "095a0486443d6e03b4c6a8c39c6f4a454e5a678c9ec7c0c2ff9fcf0e0a0979aa"
+        }
+      ],
+      "name": "docs/README.md",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:docs/adr/ADR-014-Profile-Promotion-Being-Role-Contest.pdf",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "20bceb5b1d516a0ebf3eda6a1d50ba88888679c5847a89a04e0ddea7479247d1"
+        }
+      ],
+      "name": "docs/adr/ADR-014-Profile-Promotion-Being-Role-Contest.pdf",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:docs/adr/ADR-014-amendment-A1.md",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "c35ded606b2069634550e0c96946adc12fcd123c071c64d4808c19f1f560cc6e"
+        }
+      ],
+      "name": "docs/adr/ADR-014-amendment-A1.md",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:docs/adr/ADR-015-Cognitive-IR-Being.md",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "132ffafffe77de0846b9326d47faca640fe040e684b4476e8c7b22d3fe60654a"
+        }
+      ],
+      "name": "docs/adr/ADR-015-Cognitive-IR-Being.md",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:docs/adr/ADR-016-Purusha-Layer.md",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "20c09283a60e206eadeb0008605e617f5deff694bc0f8d5b9e1e974ff50a956a"
+        }
+      ],
+      "name": "docs/adr/ADR-016-Purusha-Layer.md",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:docs/adr/ADR-017-Key-Plane.md",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "a593fc8f3259ac2437f1ba773d1d53b41cc93fc765a7d24ae6ea58083566946d"
+        }
+      ],
+      "name": "docs/adr/ADR-017-Key-Plane.md",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:docs/adr/ADR-018-Chitta-Loop.md",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "167f7ec905f38f77d11f794b962dfa2c38d4c8546c88a5100320df4a76ab1dd6"
+        }
+      ],
+      "name": "docs/adr/ADR-018-Chitta-Loop.md",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:docs/adr/ADR-019-Deferred-Verification.md",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "7426ded67afbe13d7fe6d895d5b52e7bce268bf898989549415b19ce5118b7ee"
+        }
+      ],
+      "name": "docs/adr/ADR-019-Deferred-Verification.md",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:docs/adr/ADR-020-Agent-Alpha.md",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "983ff90b679926ccb7994b3d84a8d3e16a1faa7f5db92f0d4a0e9f0a375fd903"
+        }
+      ],
+      "name": "docs/adr/ADR-020-Agent-Alpha.md",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:docs/adr/ADR-021-Memory-Inheritance.md",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "7b04218e59ab42f70fc49f5e5c19bc846a90f469ba829d5eccff3cb4d3d2296f"
+        }
+      ],
+      "name": "docs/adr/ADR-021-Memory-Inheritance.md",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:docs/adr/README.md",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "02fe3dd9cd22c521e0f3c0f956501857d954eee0d576ea1cea0f1aee26a5111c"
+        }
+      ],
+      "name": "docs/adr/README.md",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:docs/architecture/README.md",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "c3a01a14b52b4c266b3424a787958e5f7806f5851aa66baf2b9014bd2c63d64e"
+        }
+      ],
+      "name": "docs/architecture/README.md",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:docs/architecture/jj-dai-cognition-reflection-external-interaction-r6.7.png",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "615c8fba423e59ca171679b6485ef53b3ca6c8b9ae976253d89139726250290f"
+        }
+      ],
+      "name": "docs/architecture/jj-dai-cognition-reflection-external-interaction-r6.7.png",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:docs/architecture/jj-dai-reference-node-r6.7.png",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "198db758229355078819bed1bdcc39085496ba1c002d91dc156d323696f07cbb"
+        }
+      ],
+      "name": "docs/architecture/jj-dai-reference-node-r6.7.png",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:docs/architecture_status.json",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "a12ae2a2b7c8a10757259f547806c90ee1276ffdeae1156520e3afa1a425f157"
+        }
+      ],
+      "name": "docs/architecture_status.json",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:docs/history/README_BUILD_v0.4.md",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "bf3008227abdc25b52e804f43526186edfb8ab2da531886ac1dddb622475e74a"
+        }
+      ],
+      "name": "docs/history/README_BUILD_v0.4.md",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:docs/roadmap/JJ_DAI_Roadmap_r6_8_5.md",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "6a8bbfb197a0cab2be3e19a99e1faf906c2ae4caab2b621b8c0b2d23856565ba"
+        }
+      ],
+      "name": "docs/roadmap/JJ_DAI_Roadmap_r6_8_5.md",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:docs/roadmap/JJ_DAI_Roadmap_r6_8_5.pdf",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "8ac0644fafae8c31e13a5ebc27daf6ef81398fb76df787e9fb2c07a2ab59f3bd"
+        }
+      ],
+      "name": "docs/roadmap/JJ_DAI_Roadmap_r6_8_5.pdf",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:docs/roadmap/README.md",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "25d89c33a7276727376b5ab27f8dd38398dc73a7f125fc6e2cf071532a8a2d40"
+        }
+      ],
+      "name": "docs/roadmap/README.md",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:docs/site/Appendix_A_v0.4.1_draft.md",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "5741e7259e96b424840964c6402db5b80e4e2fb3c0d75b2cb709abe0c0df2a97"
+        }
+      ],
+      "name": "docs/site/Appendix_A_v0.4.1_draft.md",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:jjdai/__init__.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "866cded1d19fd000aaa4ac250b36a0d035e5b29bd0c4adeaf4f1f9c2333e05d6"
+        }
+      ],
+      "name": "jjdai/__init__.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:jjdai/adapters/__init__.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "f013778507d335ff34134116811ca515edb90a919d8b6d29c8a98de8cfebd843"
+        }
+      ],
+      "name": "jjdai/adapters/__init__.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:jjdai/adapters/backends/__init__.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "b1f3f99240e828d7e96b4d079682af22b9530d3395337e0a1f129786ed4d03b2"
+        }
+      ],
+      "name": "jjdai/adapters/backends/__init__.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:jjdai/adapters/backends/asic.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "05d3adb6914c60b30dc6d97b9a76a5cd98edd6e43349c33f2d50beffa2be1809"
+        }
+      ],
+      "name": "jjdai/adapters/backends/asic.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:jjdai/adapters/backends/dwarfstar.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "c99400629fb9842d7d94aacfcbd21324299fc3d46f81d21e87f930635c4773d2"
+        }
+      ],
+      "name": "jjdai/adapters/backends/dwarfstar.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:jjdai/adapters/backends/hash.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "cd4b5b9a059d0a6bda18637168d79fea5b1ac6645189d5cbf338e0fba9ab3c06"
+        }
+      ],
+      "name": "jjdai/adapters/backends/hash.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:jjdai/adapters/backends/llama_cpp.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "4c444c7cb845838ae6bc25f81acf31f7958ced5dcbe35498c4aaea93af1f03dc"
+        }
+      ],
+      "name": "jjdai/adapters/backends/llama_cpp.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:jjdai/adapters/backends/mlx.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "f76c9a568dd25d215a16843f00e1aa0e5aa2edd5216aefbee3b553822215811e"
+        }
+      ],
+      "name": "jjdai/adapters/backends/mlx.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:jjdai/adapters/backends/sglang.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "a6e609f390495e8385fb574c097b4550d33d38ce578a5633f736162d2d45c89e"
+        }
+      ],
+      "name": "jjdai/adapters/backends/sglang.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:jjdai/adapters/backends/vllm.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "8f3461597fcbbd2ca1819d32e83b7ceca73baad129e391b0ab6dc90b249b9247"
+        }
+      ],
+      "name": "jjdai/adapters/backends/vllm.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:jjdai/adapters/capabilities.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "9248e2bc1bef030139e875d6a15c193509427e4ce9688b9004bdae1fe469d24a"
+        }
+      ],
+      "name": "jjdai/adapters/capabilities.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:jjdai/adapters/errors.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "a20e8b601d698c9b30b762efb01fe8427162e9a558f9447aa0b19d4de9c7ed3d"
+        }
+      ],
+      "name": "jjdai/adapters/errors.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:jjdai/adapters/formats/__init__.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "bbc2365e736b4588e97294823be1c1389f90768e51d9f5be60c47ee45fbfd955"
+        }
+      ],
+      "name": "jjdai/adapters/formats/__init__.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:jjdai/adapters/manifest.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "8fd3c86f3f478ff3e47a4172bf1b96772632269348279a0c66d0866d70db7c7c"
+        }
+      ],
+      "name": "jjdai/adapters/manifest.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:jjdai/adapters/models/README.md",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "01fbb11635165552269772172ce3c27d106ed58892cb456f8e195eabf1348f69"
+        }
+      ],
+      "name": "jjdai/adapters/models/README.md",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:jjdai/adapters/models/deepseek.json",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "d407465b62bb116313a7fefb9e631216150de3eddb9ead3d11c95ab42d85be9d"
+        }
+      ],
+      "name": "jjdai/adapters/models/deepseek.json",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:jjdai/adapters/protocol.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "00bad88ca93a810d0c44632b016fab0a75fbbda8321ef53cab3fe5f4095d4abd"
+        }
+      ],
+      "name": "jjdai/adapters/protocol.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:jjdai/adapters/registry.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "fca9b5106a963d3017ae494305bd52381bdbdbe3e897da1e632cd6aaf8f79cf9"
+        }
+      ],
+      "name": "jjdai/adapters/registry.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:jjdai/canonical.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "ca8e190cc9680db06e12235db4a3d27f5d529c272bb234bfb8d03d856b05bce2"
+        }
+      ],
+      "name": "jjdai/canonical.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:jjdai/cognitive.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "d287e3f0c9057c5e194082f2d4f229324f01623f020ba4132a441a20cf36261a"
+        }
+      ],
+      "name": "jjdai/cognitive.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:jjdai/crypto.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "2a558fa2f86c4d759b7723d51c9d4c32adc5d93498eb87e2cc79aaca5e7e3ad5"
+        }
+      ],
+      "name": "jjdai/crypto.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:jjdai/custody.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "f7a60bb00222644c3c6fc87ba9d2bcba98dde8569e00437ed9f557c40e130cd7"
+        }
+      ],
+      "name": "jjdai/custody.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:jjdai/durable.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "40aa6b06e9bdea6833704ae736463285a23007aa05f7221769828072809fe4cb"
+        }
+      ],
+      "name": "jjdai/durable.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:jjdai/merkle.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "02d0bbcc407d8c1459d55d06c0d2562a5d288cef48a3ee86b2344d558814c98c"
+        }
+      ],
+      "name": "jjdai/merkle.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:jjdai/reserved.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "806af97ad8c7fdaaf5a786c5bb7c5a9f7e9f48a06e337f325c6e86eb18456de7"
+        }
+      ],
+      "name": "jjdai/reserved.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:jjdai/schema.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "2173d7aaca0db34d0019f713f69404053815c81b85506d20eef00266498d7279"
+        }
+      ],
+      "name": "jjdai/schema.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:jjdai/witness.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "da13e47a7cf8ab909882435400342c94c82a1414f9cc06beeab9611b8de32b78"
+        }
+      ],
+      "name": "jjdai/witness.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:kernel/__init__.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "9db693f0831ce3f420b29df31e91643c727b2e73d848d76aa4c871133c010994"
+        }
+      ],
+      "name": "kernel/__init__.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:kernel/isolation.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "c63d4418653023894f25ed6c56a51c13b4d5bf9bd8c7a258182a63a9b8247268"
+        }
+      ],
+      "name": "kernel/isolation.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:kernel/karma.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "28c42315e1c040b3ae79ecb34e08c3b9f37b38f03bf75258207db2384fbaa727"
+        }
+      ],
+      "name": "kernel/karma.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:kernel/smriti.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "e4435f907766d777043f181be7688bd40c692d2bbdc8be5833e9a03b1e8b3a89"
+        }
+      ],
+      "name": "kernel/smriti.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:kernel/viveka.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "f4726fe3ea1c79d59ae62f6768b1b8db9bf9e9fa7f198b916470a22aaa1dc4d3"
+        }
+      ],
+      "name": "kernel/viveka.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:m1m5/RETIRED.md",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "7001fb7b51d5e8a8e8f74108a536fbed189085b7bfef7b31ef909dc0649ca37c"
+        }
+      ],
+      "name": "m1m5/RETIRED.md",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:m1m5/canary_store.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "9a5d05f6e57860d22c4fac71f192251a134181a59843bf4856485be6f92d864f"
+        }
+      ],
+      "name": "m1m5/canary_store.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:m1m5/canonical.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "cbdecb7ed98c4e4b5ae1cbd712479c4d9d8eb681fe195b8250f815cdbb6a9a24"
+        }
+      ],
+      "name": "m1m5/canonical.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:m1m5/crypto.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "b112287fb4025159e2baa92a5b9c368a572f0ecc4c7aea343372e7dd82d8969c"
+        }
+      ],
+      "name": "m1m5/crypto.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:m1m5/proto.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "07d15151178f88a233876606ccafff41a8d2da04ca65de58ea46104e4055a72e"
+        }
+      ],
+      "name": "m1m5/proto.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:m1m5/rag_store.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "4c0a91de9291be8febc82198a64761262ecbaf469a11339ad0ec92493974b8a7"
+        }
+      ],
+      "name": "m1m5/rag_store.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:m1m5/smriti.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "65956a5854f00b3664546d7c645e0385a87df88ebce4ca50f8435a5e53beb821"
+        }
+      ],
+      "name": "m1m5/smriti.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:m1m5/witness.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "69934431993da3fae71429863a459cf8b78fe39811e1f0aaab088bdd84197e3b"
+        }
+      ],
+      "name": "m1m5/witness.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:necs/LICENSE",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "5a40b14450cd8a37c8532c4d9d9725046bb25c6f213ce5cdc0d918485b45960b"
+        }
+      ],
+      "name": "necs/LICENSE",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:necs/necs-v0_1.html",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "b569daa5e718edfbc9e296f89e4e6401cece36c77e840e803bd6058d52680587"
+        }
+      ],
+      "name": "necs/necs-v0_1.html",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:necs/necs_harness.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "486b84c09f51ff5aff0a56fd8601ed6afd3b27148c270a4b49a7369bd2304e23"
+        }
+      ],
+      "name": "necs/necs_harness.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:node/authz.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "7c35291187dc57fbc3e9ec12a29e32bf99683ca41cfe301e97d9ea1f3b297cb4"
+        }
+      ],
+      "name": "node/authz.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:node/clockwatch.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "056ed6f67aefcb31f96f6c0e5784ce588ab8fbcc837112780ce8125e5d7d1673"
+        }
+      ],
+      "name": "node/clockwatch.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:node/daemon.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "aa747320300ac19340d6332ff9fc867748c8c428ced19f9ed27e166c3ca46def"
+        }
+      ],
+      "name": "node/daemon.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:node/mock_dwarfstar.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "80bce02ccc0ededc10381c0609da191e466e7e94527731ff9061a022cbb2219b"
+        }
+      ],
+      "name": "node/mock_dwarfstar.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:node/mock_sglang.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "7becb2f4d74a33ea49d73433076641b7ccb1b27c3902c834a8953237ab9951af"
+        }
+      ],
+      "name": "node/mock_sglang.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:node/readiness.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "994277283e6ad54c09677a43cd62ffd9a8ed7451d3d1830984166546a587f25b"
+        }
+      ],
+      "name": "node/readiness.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:node/sdnotify.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "80c92fbe81b94ca1c1e664d9f58721d5c091c50f4e99d784b732f42a87a3059e"
+        }
+      ],
+      "name": "node/sdnotify.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:node/smoke_two_nodes.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "0a4c175a96d3a2020d52dd09f22ee7cba5aafb0b47cadc002b7b53f852a41dca"
+        }
+      ],
+      "name": "node/smoke_two_nodes.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:pyproject.toml",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "04e23c9e811a2db13effe4aee3bc738b18640e62a18822763acb87e980e3d0b3"
+        }
+      ],
+      "name": "pyproject.toml",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:requirements-dev.txt",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "f167e4c2b6bac053acbe90e9790d1f66ccfe761d7988955c0f61457a58e98453"
+        }
+      ],
+      "name": "requirements-dev.txt",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:runtime/__init__.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "ce1c731fd8149e5b8338f001bd19317395ea9e350f813b3a3f4b2efb08edb222"
+        }
+      ],
+      "name": "runtime/__init__.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:runtime/being.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "636abe71dce47068757ab5d46ce3eb8441e4d24f24245e896c0fc8d69f50f1cf"
+        }
+      ],
+      "name": "runtime/being.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:runtime/decision_trace.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "55ddbb6f941727862dc8edd34c7c76d4b7f171b12125d1a7986809d42677fb7d"
+        }
+      ],
+      "name": "runtime/decision_trace.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:runtime/recovery.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "c0ba3ddb043cd57e5d2855321f0efe82085f5c13bcc54d19321acde184df9590"
+        }
+      ],
+      "name": "runtime/recovery.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:runtime/state_machine.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "5e3236186fc5ce7b2137a74df3dfb30192ab89cd3551a84b026fad55436437ed"
+        }
+      ],
+      "name": "runtime/state_machine.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:scripts/check_docs_drift.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "49e47e189e31bbafb32a7a69b3be741b1182d6e67ec0322049b5d6f88780a117"
+        }
+      ],
+      "name": "scripts/check_docs_drift.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:scripts/gen_architecture_docs.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "a6e04f1bbe2dc57895f07f2815f1f11682c40637de6e378a905915f04ffc09f0"
+        }
+      ],
+      "name": "scripts/gen_architecture_docs.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:scripts/gen_dev_certs.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "70df7784fcb1be10cdf869ec96b76889d236df87193748da3542891e00012eaf"
+        }
+      ],
+      "name": "scripts/gen_dev_certs.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:scripts/gen_sbom.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "58b2d556b1c07bb5ebfc22aef5f19ec24b730136e27b866e3338bf2f3d9d98cf"
+        }
+      ],
+      "name": "scripts/gen_sbom.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:scripts/live_engine_acceptance.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "a97f02dc10fd4cc3bd4c760f93d21ed713092a66252615c2f524432b37a6462f"
+        }
+      ],
+      "name": "scripts/live_engine_acceptance.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:scripts/roadmap_print.css",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "67b56e0104da51c12819bb71cd5abe6491695f1cae4c7a38b9d937200c2c4794"
+        }
+      ],
+      "name": "scripts/roadmap_print.css",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:scripts/run_acceptance.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "f10e4180de894a2971c77eea2f53f7440f2bbc8168ba18ca2b5d0d8e6506a8be"
+        }
+      ],
+      "name": "scripts/run_acceptance.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:scripts/typeset_roadmap.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "37e9f7b240be8f7f5e56762d3481fcf3d3fcf5420046411a0fbe7ee007bfc06e"
+        }
+      ],
+      "name": "scripts/typeset_roadmap.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/adversarial/test_drop5_hardening.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "f95a4989e1d4e4efa3aecbbe947925d2a4200f501af31da29210ee9b3680bd2d"
+        }
+      ],
+      "name": "tests/adversarial/test_drop5_hardening.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/adversarial/test_ingress_hardening.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "18f5e3f650c7b727f5d454009796b6e001c21337623a39eeb2cf3084df43fd78"
+        }
+      ],
+      "name": "tests/adversarial/test_ingress_hardening.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/adversarial/test_karma_flood.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "d727799b0cddd1fc5ef0bb6548ac7d0bfc452818362987a7c44092f184d55d44"
+        }
+      ],
+      "name": "tests/adversarial/test_karma_flood.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/artifact_fixtures.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "d096906d246f16c2623542862eaef744c302e417e5e06ad374084805a740482f"
+        }
+      ],
+      "name": "tests/artifact_fixtures.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/compatibility/test_canary_store.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "fda00c6d09b1387e7eff8933706eae7169db3cad8f2c4a5088337702254552ac"
+        }
+      ],
+      "name": "tests/compatibility/test_canary_store.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/compatibility/test_canon_merkle.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "e29183baabae83118a547fd4b2a10f2457585b2b8f2f5a3c154f862ec8f20b42"
+        }
+      ],
+      "name": "tests/compatibility/test_canon_merkle.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/compatibility/test_m1m5_smriti.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "9f1ddc569e573eb0adf83c8fff4cf3a72285a45c67eec734e9690f68d1249e81"
+        }
+      ],
+      "name": "tests/compatibility/test_m1m5_smriti.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/compatibility/test_witness_sig.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "72b6d95c67ab7a980c029bceb50e49c61a0aea46052673c2a6b65455461a3bf9"
+        }
+      ],
+      "name": "tests/compatibility/test_witness_sig.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/conformance/test_alert_rules.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "afa2983f782a8e71dc02463b02d366b2b18fbf80e873f20f0b0ab2feb88e6d14"
+        }
+      ],
+      "name": "tests/conformance/test_alert_rules.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/conformance/test_conformance.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "c746a81b5161712e08b72bf00daf489dfb4f94eec5e432450b336608bc41cd9e"
+        }
+      ],
+      "name": "tests/conformance/test_conformance.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/conformance/test_dwarfstar_adapter.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "e732163a2c08ddf4c76f91fe259cd3115f957cc889b816855d13fcabb86802c8"
+        }
+      ],
+      "name": "tests/conformance/test_dwarfstar_adapter.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/conformance/test_sglang_adapter.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "416eec6c78d2359e5195de914dbde6771e77c3a6c5572a604f3767acd9adb208"
+        }
+      ],
+      "name": "tests/conformance/test_sglang_adapter.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/conformance/test_wheel_pkg_recut.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "e2dcc43dedc71b6c8af1c755d6904fb89e8560c905313783cf6911cde36314ea"
+        }
+      ],
+      "name": "tests/conformance/test_wheel_pkg_recut.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/conftest.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "d6eeb95f002ba43bebd74a829b4ce6117ad241078f6f1f05be9461a2b6e2fbda"
+        }
+      ],
+      "name": "tests/conftest.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/integration/test_being_runtime.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "920f79e56c4abfe090ebeeea792fa61afb556a033d745b96fabea7a8172b11f3"
+        }
+      ],
+      "name": "tests/integration/test_being_runtime.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/integration/test_containment.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "898e0e06be847ac9253f1d7990cc930a960edac09ffc336298de7152b7a27005"
+        }
+      ],
+      "name": "tests/integration/test_containment.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/integration/test_crossverify_live.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "d4dc88de3036c79f46a235cc92ad38621a4ac9638926f0f9b3bc35de901540e9"
+        }
+      ],
+      "name": "tests/integration/test_crossverify_live.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/integration/test_entanglement_crosslink.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "dff0100def81469a593176cd4601e21f61aa3c7c55757e386a25bfc167ea7bf6"
+        }
+      ],
+      "name": "tests/integration/test_entanglement_crosslink.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/integration/test_entanglement_iff.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "99fe18d7dd4721876f82574a523279f8d7aa93937ab466860078150d48f09f35"
+        }
+      ],
+      "name": "tests/integration/test_entanglement_iff.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/integration/test_governor_live.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "b907a604721aea026dbd5a318c93d92fb0a54fcd92558850ce64679832e5b2d8"
+        }
+      ],
+      "name": "tests/integration/test_governor_live.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/integration/test_health_readiness_split.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "b4d207edf7997dbc4332dc289ede19d02b6847a6cc4da8dd22fa20034b096ae7"
+        }
+      ],
+      "name": "tests/integration/test_health_readiness_split.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/integration/test_identity_continuity.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "1f36b70af32a34c44ed27f0b91d8e67803e8a836226563abd9a2ec042131c3de"
+        }
+      ],
+      "name": "tests/integration/test_identity_continuity.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/integration/test_kernel_karma.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "1c2b62dba29d84a37278a1dc4fde920175b99fb58d3ead950213b93b9fa0d730"
+        }
+      ],
+      "name": "tests/integration/test_kernel_karma.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/integration/test_kernel_smriti.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "e6c572755153e6f2204087f5a0ced254e1e777188f42fabaf226f83a30ff3a30"
+        }
+      ],
+      "name": "tests/integration/test_kernel_smriti.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/integration/test_kernel_viveka.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "1a8b7ca8fcc991c640845aef728ddc6b0e660ea463ea63afbea5fad7b1f0ddbb"
+        }
+      ],
+      "name": "tests/integration/test_kernel_viveka.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/integration/test_plane_h_governed.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "f5abc123ebeccd84f77eecebea357929ae370a2a93959590a00c8e5a5b35db0e"
+        }
+      ],
+      "name": "tests/integration/test_plane_h_governed.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/integration/test_rate_limit_live.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "9ebf5c6d648c7d095366e03df4273028af3e24c0e96368293553b64e4ad8f244"
+        }
+      ],
+      "name": "tests/integration/test_rate_limit_live.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/integration/test_replication_soundness.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "f8a82ce75b64de9365aaf0c9a4b3861cd61eeec5010a2e088105d90b998faa89"
+        }
+      ],
+      "name": "tests/integration/test_replication_soundness.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/integration/test_router_diversity.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "7d4291277dece1870ab158dd141f10647fc92f2e97895d3fa2408348dfeae317"
+        }
+      ],
+      "name": "tests/integration/test_router_diversity.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/integration/test_router_live.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "61d69e2f41c7553b824ee90db93bcabb3829bce5365951bf0b9391562496d8e0"
+        }
+      ],
+      "name": "tests/integration/test_router_live.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/integration/test_security_alpha_live.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "c752a7bd661b73fbd23dac9e5d4f8b84bfac32016773fb279841301179a47b9a"
+        }
+      ],
+      "name": "tests/integration/test_security_alpha_live.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/integration/test_smoke_two_nodes.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "e7380debea8af4024857506bb69c528b43b557440e873ba198746411946468b4"
+        }
+      ],
+      "name": "tests/integration/test_smoke_two_nodes.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/integration/test_tls_attest_anchor.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "201c52e57e8f0fc6d5854d8904b25993ddf4efa84e5854cbfd628fa3ffebe6ac"
+        }
+      ],
+      "name": "tests/integration/test_tls_attest_anchor.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/integration/test_vertical.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "79d52ef54f464d839a00836560de596b2446ee40ac9e83b9bfbda3a3392f852b"
+        }
+      ],
+      "name": "tests/integration/test_vertical.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/integration/test_witness_replication.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "e056c1711b94a99af7026cb10f33a8e05efe59231c1245a356d8be6dc86500fa"
+        }
+      ],
+      "name": "tests/integration/test_witness_replication.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/integration/test_xmr_anchor_live.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "ab216c48d69b9307327cf934af78781fcf5b8e182b8265af3777b0f739610ba1"
+        }
+      ],
+      "name": "tests/integration/test_xmr_anchor_live.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/live/test_vertical_live.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "ae1691c700b612cc3eeddbe33be60eb8b66c704f1b2e373932f904e0fe54601d"
+        }
+      ],
+      "name": "tests/live/test_vertical_live.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/live/test_wasm_live.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "dd8ccf1b76a7470bb3459fd43f6f146918543557ab304f91d9ee2d57bfbdbbac"
+        }
+      ],
+      "name": "tests/live/test_wasm_live.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/unit/test_acceptance_provenance.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "cb02ec0cc4da0b6012c355c7d0455a0a1d0dabe24003d496f45ca7d2c71f1555"
+        }
+      ],
+      "name": "tests/unit/test_acceptance_provenance.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/unit/test_adapter_layer.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "7f5251d4e461dc977410216f3a61e7d23a4a269302fdf31a95751b32942e5233"
+        }
+      ],
+      "name": "tests/unit/test_adapter_layer.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/unit/test_anch_retry_recut.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "9f9a65a00b7985f39d2abf00f5e86bfbdc2ad38cb5510d2910ab14c98608b27b"
+        }
+      ],
+      "name": "tests/unit/test_anch_retry_recut.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/unit/test_anchor_required_backends.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "862e322c025a42614800758ac17fabb98ef92d2b3a71c2d9628c2d14aa8e7a47"
+        }
+      ],
+      "name": "tests/unit/test_anchor_required_backends.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/unit/test_authz_policy.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "4834dd9ba6e02ca20af559ffd0df2367dc04c72a56941d235874e257c89a64fe"
+        }
+      ],
+      "name": "tests/unit/test_authz_policy.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/unit/test_being_lifecycle.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "21464ae6f0c9825634606a24a33d3d36afc2071f8fc474197993952d2c7818c7"
+        }
+      ],
+      "name": "tests/unit/test_being_lifecycle.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/unit/test_challenge_round.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "59f31db9769f7b16b05954e858b3e4db6629673a0c3c0d2c0f5827093a17b9af"
+        }
+      ],
+      "name": "tests/unit/test_challenge_round.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/unit/test_changelog_attribution.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "97772429853eb2ca278dc1804870013e879610bfb60905ed30ed862606f6465d"
+        }
+      ],
+      "name": "tests/unit/test_changelog_attribution.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/unit/test_clock_seam_recut.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "3af7f74199c09f9a10f6e43b613a146f9394eb567557ea141c75587381e5317e"
+        }
+      ],
+      "name": "tests/unit/test_clock_seam_recut.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/unit/test_clockwatch_sleep.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "983dcf38c1669bfc8619af78e7e85ee1f36290218ccd2471361c04324bf341e0"
+        }
+      ],
+      "name": "tests/unit/test_clockwatch_sleep.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/unit/test_custody_reserve.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "628b91f140db49e44066f26338e7a187ed69fd999595babdbe7cbfe8cbcd0338"
+        }
+      ],
+      "name": "tests/unit/test_custody_reserve.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/unit/test_deliberation_attribution.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "d30accbba089975b0155b8a014a8f8d6f95d3f7fecd6d33a4a8a7db01937e374"
+        }
+      ],
+      "name": "tests/unit/test_deliberation_attribution.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/unit/test_docs_integrity.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "2387b3b41e349192ac37bf85a21d1635741226b03c64d00d09a217c7dc529232"
+        }
+      ],
+      "name": "tests/unit/test_docs_integrity.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/unit/test_drop6_primitives.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "246eb54d561f10ff483ec136e538ff5b750a0b86d8e6b1b95dcf16e354271c94"
+        }
+      ],
+      "name": "tests/unit/test_drop6_primitives.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/unit/test_durable.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "20253d01334c826cd795ee0a73756cd1bd915f4f51a7775a4bd82e38456d46a4"
+        }
+      ],
+      "name": "tests/unit/test_durable.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/unit/test_evidence_identity.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "d00b695a43a445a1db9b1986642cd91dfa070f686ea17f94c9174c6ecccbeab1"
+        }
+      ],
+      "name": "tests/unit/test_evidence_identity.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/unit/test_identity.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "5bdd3d81037ef3552e8f08abdf6a5aa42a4077e3137bd9d567a13f9d3f2ca65c"
+        }
+      ],
+      "name": "tests/unit/test_identity.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/unit/test_isolation_profiles.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "14c17f3ecfd8c39bcc0698e4c800c69ff6318c9fec9e55d06129395cf2deed9e"
+        }
+      ],
+      "name": "tests/unit/test_isolation_profiles.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/unit/test_kriya_gate_naming.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "f521489eb413d10c299b9aeb571590a03984e16ea8c6b551676c2eeddf006086"
+        }
+      ],
+      "name": "tests/unit/test_kriya_gate_naming.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/unit/test_macos_kit.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "9a9609f84a61bb8860771eee2bdce14328dfadb42121241171e26e8f9201a305"
+        }
+      ],
+      "name": "tests/unit/test_macos_kit.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/unit/test_manifests_diversity.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "b89054b7c07fe5c8373eca79dbd7319f6d0a6c45d83a442296f88f902a008c91"
+        }
+      ],
+      "name": "tests/unit/test_manifests_diversity.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/unit/test_migration.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "97da01c6f814e015d819f82aa85f1beaf9005eb4913dcddf25e7b77cce75067e"
+        }
+      ],
+      "name": "tests/unit/test_migration.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/unit/test_obs_watchdog_recut.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "25403fcdef0a07809f93fce460c9633a777bf3def3df96655fa7ce6b9eb6fd87"
+        }
+      ],
+      "name": "tests/unit/test_obs_watchdog_recut.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/unit/test_plane_schema.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "65fd937ea07724b25bef295f14e7d628fe79bc8fa5963655432a660c6720f271"
+        }
+      ],
+      "name": "tests/unit/test_plane_schema.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/unit/test_primitives.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "f7566840bff7409d9a589bf1da0bfb99b32f09a91f22918f663f3ad82d36fb4a"
+        }
+      ],
+      "name": "tests/unit/test_primitives.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/unit/test_readiness_rules.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "98f6ff7379e2e460b4e82d3b4034af02a773cadf9e2537ef74597bf204b792d0"
+        }
+      ],
+      "name": "tests/unit/test_readiness_rules.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/unit/test_readme_ownership.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "b6383d4ec5c958417da5aaf1b5d4ef17eba917a1eb64db63ad11e5f275a01365"
+        }
+      ],
+      "name": "tests/unit/test_readme_ownership.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/unit/test_ready_anch_recut.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "90420fc70af01f2345588152be5bfa7c6bbb48496c0147d854e452667ef55937"
+        }
+      ],
+      "name": "tests/unit/test_ready_anch_recut.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/unit/test_recut2_false_greens.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "ee43a6ef7166a498f3e542938f11f0732a1e207323d46214011e773b956e62b3"
+        }
+      ],
+      "name": "tests/unit/test_recut2_false_greens.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/unit/test_registry.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "c12b1f12ee0bc1b5e025e7fa85ae57dcc56b2ecc940f7274f4b8fcf821b49031"
+        }
+      ],
+      "name": "tests/unit/test_registry.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/unit/test_release_integrity.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "a22181cc9aa26d24dbc0513d75cb202bc8ca19b2fa2c6d4ee8a515078b443273"
+        }
+      ],
+      "name": "tests/unit/test_release_integrity.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/unit/test_reserved_values.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "bfacc75d74bd35a199716c92b27773a76d967a8071d1ebcd08bbfe7a5a7ec67b"
+        }
+      ],
+      "name": "tests/unit/test_reserved_values.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/unit/test_schema.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "a912038126d657df5af5691a52a01965001532e08a08f4afc77f96f5ad11bdfb"
+        }
+      ],
+      "name": "tests/unit/test_schema.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/unit/test_sdnotify_watchdog.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "988770c8702da255d208f4621de4cee28cf578746ea75f86e851f8a2db2d41f7"
+        }
+      ],
+      "name": "tests/unit/test_sdnotify_watchdog.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/unit/test_toolset_fault_codes.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "bad9642db4718aa405aa790bbac1508f0157611de4dbec2788227a1f11ba2fa8"
+        }
+      ],
+      "name": "tests/unit/test_toolset_fault_codes.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/unit/test_track_v_reserve.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "7c7a044bd2b216d263fa7f3f4013cc4b690dacbe5ce51236b276740d95a3f3a6"
+        }
+      ],
+      "name": "tests/unit/test_track_v_reserve.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/unit/test_tree_is_its_own_plan.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "f582f55fd801eec05e8533ba0a4569e1cae4e9bce809ab10a1a1b42c305a7b13"
+        }
+      ],
+      "name": "tests/unit/test_tree_is_its_own_plan.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/unit/test_v051_primitives.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "952e7fd4389067c083d34c201fefadf0633a06079dafb8ae1fca7debeedfc8b5"
+        }
+      ],
+      "name": "tests/unit/test_v051_primitives.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/unit/test_vectors.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "49df69a0eff0aaf6855d7b466e23dc9ecabc2b40657286e93ec9762a92f967f9"
+        }
+      ],
+      "name": "tests/unit/test_vectors.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/unit/test_verdict.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "9ea5a43f821d0565dd2048a1d29505387d0a33c20a3921e2133d8cb3a85798fd"
+        }
+      ],
+      "name": "tests/unit/test_verdict.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/unit/test_xmr_anchor.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "cb52943ae74137aa04f748827a9ad3deb13f15be14039771070171a845947122"
+        }
+      ],
+      "name": "tests/unit/test_xmr_anchor.py",
+      "type": "file"
+    }
+  ],
+  "metadata": {
+    "component": {
+      "bom-ref": "pkg:generic/jjdai@0.6.8",
+      "description": "JJ DAI reference trust, governance and agent kernel. Runtime core is stdlib-only.",
+      "licenses": [
+        {
+          "license": {
+            "id": "AGPL-3.0-only"
+          },
+          "properties": [
+            {
+              "name": "jjdai:text-sha256",
+              "value": "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0"
+            },
+            {
+              "name": "jjdai:text-path",
+              "value": "LICENSES/AGPL-3.0.txt"
+            }
+          ]
+        },
+        {
+          "license": {
+            "id": "Apache-2.0"
+          },
+          "properties": [
+            {
+              "name": "jjdai:text-sha256",
+              "value": "3b4fcb64f88a2dd883f18b180d7facf8ef62c7d07d2c130ffe708e4512766b37"
+            },
+            {
+              "name": "jjdai:text-path",
+              "value": "LICENSES/Apache-2.0.txt"
+            }
+          ]
+        }
+      ],
+      "name": "jjdai",
+      "purl": "pkg:generic/jjdai@0.6.8",
+      "type": "application",
+      "version": "0.6.8"
+    },
+    "properties": [
+      {
+        "name": "jjdai:inventory-digest",
+        "value": "b673ff7e3f92a41044eb8d337b02008e6df81d63c781dca11bca957f0575090e"
+      },
+      {
+        "name": "jjdai:inventory-scope",
+        "value": "source_digest() file set, minus docs/sbom.cdx.json"
+      },
+      {
+        "name": "jjdai:file-count",
+        "value": "212"
+      },
+      {
+        "name": "jjdai:runtime-dependencies",
+        "value": "0"
+      },
+      {
+        "name": "jjdai:generated-by",
+        "value": "scripts/gen_sbom.py"
+      },
+      {
+        "name": "jjdai:supply-chain-open",
+        "value": "reproducible-build, signed-artefacts, two-person-approval, T-TOOLSET, build-backend-unhashed"
+      },
+      {
+        "name": "jjdai:pinned-scope",
+        "value": "python-test-deps hash-pinned; github-actions commit-pinned; build-backend version-pinned only"
+      }
+    ]
+  },
+  "specVersion": "1.5",
+  "version": 1
+}

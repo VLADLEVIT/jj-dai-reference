@@ -26,7 +26,16 @@ containment, and Smriti — now for the flow of will):
   * the journal is append-only; rollback appends a marker and restores an
     earlier state — history is never deleted, only extended;
   * the witness digest binds the run, step, node and resulting state:
-        "viveka:<run_id>:<step>:<node>:<state_hash>"
+        "kriya_gate:<run_id>:<step>:<node>:<state_hash>"
+    (v0.6.8: this organ is KriyaGate — the deterministic, non-cognitive
+    control of the passage of an intention into action, ADR-018 C11/C15.
+    "Viveka" is the COGNITIVE discrimination function inside Chitta and
+    authorizes nothing; one word had come to mean both. The serialized
+    values move now, because they are hash-chained and cannot move after
+    genesis; the MODULE rename to kernel/kriya_gate.py is Ф2, per the
+    roadmap r6.8.3 phase table. Records written before v0.6.8 carry the
+    "viveka:" prefix and keep verifying — see
+    verify_deliberation_against_chain.)
     state content rides in a hiding commitment (deliberation is private);
   * replaying the journal reproduces the current state and full checkpoint
     list — restart- and audit-safe.
@@ -49,6 +58,12 @@ from dataclasses import dataclass, field
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from jjdai.canonical import canonical                       # noqa: E402
 from core.identity import entitled_to_witness               # noqa: E402
+from jjdai.cognitive import (KRIYA_GATE_DIGEST_PREFIX,      # noqa: E402
+                             KRIYA_GATE_EVENT_FIELD,
+                             KRIYA_GATE_ORGAN,
+                             LEGACY_VIVEKA_DIGEST_PREFIX,
+                             LEGACY_VIVEKA_EVENT_FIELD,
+                             LEGACY_VIVEKA_ORGAN)
 from jjdai.crypto import H_hex, open_commit                 # noqa: E402
 
 #: The organ's SERIALIZED identity. One row per spelling that may appear in
@@ -57,10 +72,20 @@ from jjdai.crypto import H_hex, open_commit                 # noqa: E402
 #: constants, because these values are ONE fact and must never be checked
 #: independently: a record wearing one spelling in its digest and another in
 #: its provenance is not a record about this organ.
+#: v0.6.8 adds a ROW; it does not rewrite the table. That is what the table
+#: was built for in recut3. The legacy row STAYS: records written before
+#: v0.6.8 carry the `viveka:` prefix, they are hash-chained, and they must go
+#: on verifying forever. Reading resolves the organ through the prefix, so
+#: legacy verification needs no branch of its own — and dual acceptance is
+#: not blanket acceptance, because each prefix admits exactly ONE organ.
 ORGAN_BINDINGS = {
-    "viveka": {"organ": "viveka", "event_field": "viveka_event"},
+    KRIYA_GATE_DIGEST_PREFIX: {"organ": KRIYA_GATE_ORGAN,
+                               "event_field": KRIYA_GATE_EVENT_FIELD},
+    LEGACY_VIVEKA_DIGEST_PREFIX: {"organ": LEGACY_VIVEKA_ORGAN,
+                                  "event_field": LEGACY_VIVEKA_EVENT_FIELD},
 }
-EMITTED_PREFIX = "viveka"
+#: What is EMITTED from v0.6.8 onward. Never the legacy spelling again.
+EMITTED_PREFIX = KRIYA_GATE_DIGEST_PREFIX
 
 #: How much a verification actually established, weakest first. The previous
 #: return value was a COUNT — "12 records bound" — which said how much was

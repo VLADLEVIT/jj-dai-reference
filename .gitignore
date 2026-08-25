@@ -9,3 +9,6 @@ build/
 *.keystore
 *.jsonl
 salt_vault*
+# scratch for scripts/typeset_roadmap.py — never shipped, and excluded
+# from source_digest() so its presence cannot invalidate a recorded run
+.typeset/

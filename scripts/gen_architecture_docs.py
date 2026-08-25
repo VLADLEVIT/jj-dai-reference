@@ -71,8 +71,13 @@ def load() -> dict:
 OPT_IN_GROUPS = ("live",)
 
 
-#: Where the runner records what actually happened.
-RESULT = os.path.join(ROOT, "docs", "acceptance_result.json")
+#: Where the runner records what actually happened: `docs/evidence/<suite>.json`,
+#: schema `jjdai.acceptance_result/v4`, keyed by suite since v0.6.7-recut3 so a
+#: `live` run can no longer overwrite the hermetic one. This module does not
+#: resolve the path itself — it calls `run_acceptance.read_result()` below, and
+#: a second constant here would be a second answer to the same question. The
+#: former `RESULT = docs/acceptance_result.json` was exactly that, kept pointing
+#: at a file the tree stopped writing two drops ago.
 
 #: One-element holder for the badge string. A module-level box rather than a
 #: new parameter on five signatures: the helpers below are also called by
@@ -89,7 +94,7 @@ def acceptance_badge() -> str:
     errored out. A count of functions is not a result, and an external audit
     reproduced exactly that: a red run under a green badge.
 
-    The runner writes `docs/acceptance_result.json` at the end of every run,
+    The runner writes `docs/evidence/<suite>.json` at the end of every run,
     green or red, with a digest over its own counts. Here we refuse to claim
     green without one, and we refuse to claim green when the recorded run was
     not: the artefact is evidence of a run, and this function decides what

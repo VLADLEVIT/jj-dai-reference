@@ -1,18 +1,22 @@
-# Byte-exactness of the tree is load-bearing, not hygiene.
+# Byte-exact working tree. This file must be the FIRST commit, before any
+# clone exists.
 #
-# scripts/run_acceptance.py:source_digest() hashes the RAW BYTES of every
-# shipped file, and tests/unit/test_release_integrity.py pins the sha256 of
-# LICENSES/AGPL-3.0.txt. Any line-ending conversion — core.autocrlf on
-# Windows, an edit through the web editor, a CI action that normalises —
-# breaks both at once: the recorded run stops describing this tree, and the
-# very file that closed the publication blocker stops matching its pin.
+# `scripts/run_acceptance.py:source_digest()` hashes the RAW BYTES of every
+# shipped file — over 200 paths, including `LICENSES/AGPL-3.0.txt`, which is
+# separately pinned by sha256 in tests/unit/test_release_integrity.py.
+# Git's default `text=auto` rewrites line endings on checkout on Windows and
+# on any host with core.autocrlf set. A rewritten tree produces a different
+# `tree_digest` and a different AGPL hash, and the failure surfaces as
+# ACC-TREE-1 "a different tree" and R-LICENSE "wrong licence text" — neither
+# of which says "line endings", so the cause is not discoverable from the
+# symptom.
 #
-# The failure does not say "line endings". It says the run was against a
-# different tree, and it takes a long time to diagnose. So conversion is
-# disabled outright rather than tuned.
-#
-# Required by roadmap r6.8.2 (supply chain), which asks for this BEFORE the
-# first clone by an outsider. Later normalisation is a deliberate decision
-# with the evidence recomputed, never a side effect of an editor setting.
+# `* -text` disables all end-of-line conversion for every path. Nothing in
+# this repository wants normalisation: the digest is the point.
+* -text
 
-*  -text
+# Binary, marked so git never attempts a diff or a merge on them.
+*.pdf   binary
+*.png   binary
+*.zip   binary
+*.wasm  binary

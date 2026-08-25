@@ -56,8 +56,14 @@ def test_result_names_the_tree_it_ran_against():
     assert res["tree_digest"] == source_digest(), (
         "ACC-TREE-1: the recorded run was against a different source tree "
         "than the one being tested — re-run scripts/run_acceptance.py")
-    assert res.get("schema", "").endswith("/v3"), \
-        "ACC-TREE-1: the artefact schema was not versioned with its shape"
+    # /v4 since v0.6.8-recut3, which added `collector`. The pin is on an
+    # EXACT version rather than a prefix, and that is the point: it is what
+    # forces a shape change to be acknowledged here instead of absorbed
+    # silently. A downstream reader parsing /v3 must be told the shape moved.
+    assert res.get("schema", "").endswith("/v4"), (
+        "ACC-TREE-1: the artefact schema was not versioned with its shape. "
+        "If a field was added or removed, bump the schema AND this pin — "
+        "they move together on purpose.")
     assert res.get("suite") == "hermetic", (
         "ACC-TREE-1: the recorded run does not say WHICH suite it is — one "
         "unnamed artefact is how hermetic and live evidence overwrote each "

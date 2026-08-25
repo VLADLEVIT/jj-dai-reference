@@ -5,11 +5,20 @@ scripts/run_acceptance.py — stdlib acceptance runner (v0.4.1)
 =============================================================
 Follows the pytest protocol: IMPORT each tests/**/test_*.py (imports must be
 side-effect-free), COLLECT test_* functions, RUN them, report. Use this where
-pytest is unavailable; under CI, `python -m pytest tests/` is the canonical
-entrypoint and collects the exact same functions.
+pytest is unavailable.
 
-    python3 scripts/run_acceptance.py                  # everything
+    python3 scripts/run_acceptance.py                  # the five hermetic groups
     python3 scripts/run_acceptance.py unit adversarial # chosen groups
+    python3 scripts/run_acceptance.py live             # opt-in, needs a real host
+
+**This runner and `pytest tests/` do NOT collect the same set.** The claim that
+they did stood in this docstring through v0.6.8 and was false in one direction:
+the runner's default is the five HERMETIC groups, `tests/live` is a sixth that
+needs a real wasm runtime and a real model, and a bare `pytest tests/` used to
+collect it and fail on a host that has neither. `pytest` now honours the same
+exclusion through `--ignore` in `pyproject.toml`, so the two agree on the
+DEFAULT set — and the sentence claiming they agree on ALL functions is gone,
+because selecting `live` in either tool changes what runs.
 """
 from __future__ import annotations
 
@@ -153,7 +162,13 @@ RESULT_PATH = result_path(DEFAULT_SUITE)
 
 
 #: Directories that hold no shipped artefact at all.
-_DIGEST_SKIP_DIRS = ("__pycache__", ".git", ".pytest_cache", "build", "dist",
+#: `.typeset` is the scratch directory scripts/typeset_roadmap.py builds
+#: the roadmap PDF through. Build scratch belongs outside the digest for
+#: the same reason __pycache__ does: it is not shipped, and whether it
+#: happens to exist when a run is recorded must not be able to decide
+#: whether a later clean unpack reads the same tree.
+_DIGEST_SKIP_DIRS = ("__pycache__", ".git", ".pytest_cache", ".typeset",
+                     "build", "dist",
                      ".eggs", ".mypy_cache", ".ruff_cache", "node_modules",
                      ".idea", ".vscode")
 
@@ -173,9 +188,14 @@ _DIGEST_SKIP_DIRS = ("__pycache__", ".git", ".pytest_cache", "build", "dist",
 #: hashed. They are excluded because they carry the badge itself — hashing
 #: them would let writing a result invalidate the run that result describes,
 #: and the pair could never converge.
+#: `docs/acceptance_result.json` was removed from this list in the v0.6.8
+#: remediation: the artefact moved to `docs/evidence/<suite>.json` in
+#: v0.6.7-recut3 and nothing has written that path since. A stale entry in an
+#: EXCLUSION list is the worst place for one — it silently un-hashes any file
+#: that later takes the name, and it reads to an auditor as a deliberate
+#: exemption rather than as a leftover.
 _DIGEST_SKIP_FILES = ("README.md",)
 _DIGEST_SKIP_PREFIXES = ("docs/evidence/",
-                         "docs/acceptance_result.json",
                          "docs/JJDAI_Code_Architecture_Map_v",
                          "docs/site/JJDAI_Architecture_Status_v")
 
@@ -244,8 +264,18 @@ def write_result(passed: int, total: int, groups, errors: int,
     know by itself.
     """
     suite = _suite_name(groups)
-    body = {"schema": "jjdai.acceptance_result/v3",
+    body = {"schema": "jjdai.acceptance_result/v4",
             "suite": suite,
+            # WHAT PRODUCED THIS RUN. Added in /v4 because ENTRY-3 reads
+            # green on a host with no pytest: it falls back to asserting
+            # configuration when it cannot run the collector, which is the
+            # correct behaviour for a suite that must run on a bare
+            # interpreter — but the artefact said nothing about WHICH of the
+            # two modes had happened. An audit round read the fallback as an
+            # exercised probe, and nothing in the evidence could correct it.
+            # A green number whose provenance is unrecorded is the shape of
+            # defect this file exists to prevent.
+            "collector": _collector(),
             "version": _version(),
             "passed": int(passed), "total": int(total),
             "import_errors": int(errors),
@@ -266,6 +296,25 @@ def write_result(passed: int, total: int, groups, errors: int,
         json.dump(body, fh, indent=2, sort_keys=True)
         fh.write("\n")
     return body
+
+
+def _collector():
+    """The stdlib runner is always the producer; pytest is a second one.
+
+    Recorded as a FACT ABOUT THE RUN, never as a requirement: this runner
+    has to work where pytest is absent, which is the whole reason it exists.
+    What must not happen is a host without pytest whose artefact reads as if
+    an entrypoint-parity claim had been exercised on it.
+    """
+    info = {"runner": "scripts/run_acceptance.py", "pytest": None}
+    try:
+        import pytest  # noqa: F401
+        info["pytest"] = getattr(pytest, "__version__", "unknown")
+    except Exception:
+        pass
+    info["entrypoint_probe_mode"] = ("collection" if info["pytest"]
+                                     else "configuration-only")
+    return info
 
 
 def read_result(suite: str = DEFAULT_SUITE):

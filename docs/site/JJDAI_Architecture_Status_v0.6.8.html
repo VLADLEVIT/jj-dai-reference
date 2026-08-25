@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>JJ DAI — Codebase Architecture Status · v0.6.7</title>
+<title>JJ DAI — Codebase Architecture Status · v0.6.8</title>
 <meta name="description" content="What exists in the JJ DAI reference codebase, and what does not yet. Generated from architecture_status.json.">
 <meta name="theme-color" content="#04060c">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -75,8 +75,8 @@ a{color:var(--iface);text-decoration:none}a:hover{text-decoration:underline}
 <h1>Architecture Status <span class="thin">/ what exists, what does not yet</span></h1>
 <p class="sub">Every component of the JJ DAI trust, governance and agent kernel, classified into exactly one of five honest statuses. This page follows the code, not the ambition.</p>
 <div class="badges">
-<span class="badge">build <b>v0.6.7</b></span>
-<span class="badge">acceptance <b>179/179 green (recorded run on Python 3.12.3; stdlib runner, CI matrix 3.10-3.12)</b></span>
+<span class="badge">build <b>v0.6.8</b></span>
+<span class="badge">acceptance <b>215/215 green (recorded run on Python 3.11.15; stdlib runner, CI matrix 3.10-3.12)</b></span>
 <span class="badge">stdlib-only core · Python ≥ 3.10</span>
 <span class="badge warn">status <b>experimental organism — NOT a security-alpha</b></span>
 </div><div class="legend">
@@ -141,6 +141,27 @@ a{color:var(--iface);text-decoration:none}a:hover{text-decoration:underline}
 <div class="cname">Monero root-as-spend-key anchor</div><div class="cdesc">The witness root deterministically becomes a Monero address; a dust payment timestamps the binding without storing the root in tx_extra.</div><div class="chips">
 <span class="chip proto">Prototype</span>
 <span class="chip proto">v0.5.2</span>
+</div></div>
+<div class="card iface">
+<div class="path">jjdai/cognitive.py</div>
+<div class="cname">Track V reserved vocabulary</div><div class="cdesc">The serialized names of Chitta and reflexive cognition — fifteen record kinds, three cognitive namespaces, the REFLEXIVE and CONTEST_SCOPED access classes, four key-plane wrapping domains, prediction statuses, KriyaGate outcomes and the commitment and Merkle-leaf domain separators. Declared before genesis because a hash-chained value cannot be added or renamed afterwards; refused as an argument AND as a value, fail closed, until the specification in Ф2 and the runtime in Ф3.</div><div class="chips">
+<span class="chip iface">Interface only</span>
+<span class="chip iface">ADR-018</span>
+<span class="chip iface">reserved, non-emittable</span>
+</div></div>
+<div class="card iface">
+<div class="path">jjdai/custody.py</div>
+<div class="cname">Deferred-verification reserved vocabulary</div><div class="cdesc">The serialized names of ADR-019: eleven record kinds, the SELF_CHECKED admission state, the CUSTODY_ corroboration outcomes, the computed EVIDENCE_ status projection, the replay status and reason split, the verification_custody key domain, the CUSTODY_PRIVATE access class and two namespaces. Accepted authorises the reserve and nothing in the runtime — a lone production node still refuses with no_independent_panel because the custody machinery does not exist. Tool effect classes and node profiles are reserved by argument only: they are ordinary words and are deliberately outside the value scan.</div><div class="chips">
+<span class="chip iface">Interface only</span>
+<span class="chip iface">ADR-019</span>
+<span class="chip iface">reserved, non-emittable</span>
+</div></div>
+<div class="card impl">
+<div class="path">jjdai/reserved.py</div>
+<div class="cname">Value-level refusal of both reserves</div><div class="cdesc">One door over both pre-genesis vocabularies. A reserved token is refused as a VALUE and not only as an argument — whole strings, segments of a colon-compound digest, mapping keys and any path below a reserved namespace — on semantic_digest, provenance and entanglement. request and response are excluded on purpose: they enter the chain as hiding commitments over caller data, so no reserved value reaches a peer through them.</div><div class="chips">
+<span class="chip impl">Implemented</span>
+<span class="chip impl">v0.6.8</span>
+<span class="chip impl">P0-1</span>
 </div></div>
 </div>
 </div></section>
@@ -298,7 +319,7 @@ a{color:var(--iface);text-decoration:none}a:hover{text-decoration:underline}
 <div class="card impl">
 <div class="path">tests/ · .github/workflows/ci.yml</div>
 <div class="cname">Acceptance and CI</div><div class="cdesc">Acceptance functions across unit, integration, conformance, adversarial and legacy groups; CI matrix targets Python 3.10-3.12; docs drift is CI-checked.</div><div class="chips">
-<span class="chip impl">179/179 green (recorded run on Python 3.12.3; stdlib runner, CI matrix 3.10-3.12)</span>
+<span class="chip impl">215/215 green (recorded run on Python 3.11.15; stdlib runner, CI matrix 3.10-3.12)</span>
 </div></div>
 <div class="card impl">
 <div class="path">m1m5/</div>
@@ -310,6 +331,12 @@ a{color:var(--iface);text-decoration:none}a:hover{text-decoration:underline}
 <div class="cname">Deployment kit (Linux + macOS)</div><div class="cdesc">Ubuntu: hardened systemd unit, TPM-sealed passphrase, bootstrap, production PKI generator, operator RUNBOOK. macOS (roadmap Ф0): launchd daemon template, Keychain sealing under the documented macOS Keychain degraded profile (non-SE-resident), bootstrap with 24/7 power discipline, RUNBOOK-macOS. Flag parity between the two kits is enforced by unit acceptance (M-FLAGS).</div><div class="chips">
 <span class="chip impl">Implemented</span>
 <span class="chip impl">macOS kit v0.6.2</span>
+</div></div>
+<div class="card proto">
+<div class="path">.github/workflows/ · requirements-dev.txt · scripts/gen_sbom.py</div>
+<div class="cname">Release provenance — partial</div><div class="cdesc">What EXISTS: a CycloneDX 1.5 bill of materials generated from the tree and re-checked in CI, so a hand-maintained inventory cannot drift from what ships; a hash-pinned CI toolchain installed with --require-hashes, so a green run names the collector that produced it; and .gitattributes with `* -text`, because source_digest() hashes raw bytes over 200+ paths including the sha256-pinned AGPL text and any end-of-line normalisation reports itself as &#x27;a different tree&#x27;. What is OPEN and is not claimed here: reproducible build, signed artefacts, two-person release approval and T-TOOLSET — all four owed by v0.6.10. An SBOM is an inventory of the box, not evidence of who sealed it, and the generated document says so in its own metadata.</div><div class="chips">
+<span class="chip proto">Partial</span>
+<span class="chip proto">SBOM + pinning v0.6.8</span>
 </div></div>
 </div>
 </div></section>
@@ -351,7 +378,7 @@ a{color:var(--iface);text-decoration:none}a:hover{text-decoration:underline}
 </div></div></section></main>
 <footer><div class="wrap"><div class="anchor">
 <div><span class="k">record</span> #08 · KIND: ANCHOR · prev: #07</div>
-<div><span class="k">source</span> docs/architecture_status.json @ v0.6.7 · generated by scripts/gen_architecture_docs.py</div>
+<div><span class="k">source</span> docs/architecture_status.json @ v0.6.8 · generated by scripts/gen_architecture_docs.py</div>
 <div><span class="k">site</span> <a href="https://jj-dai.org">jj-dai.org</a> · <span class="k">license</span> AGPL-3.0-only core / Apache-2.0 NECS</div>
 </div><p class="motto">truth is discovered, not decreed · Jai Guru Dev</p>
 </div></footer></body></html>

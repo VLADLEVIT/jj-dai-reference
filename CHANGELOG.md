@@ -2833,3 +2833,555 @@ Acceptance 179/179, docs drift clean.
 The recut3 residual (`README.md` outside the tree digest; file modes and
 symlink targets), supply chain, T-TOOLSET, CLA, and the live vertical still
 un-run on a host with a real model.
+
+---
+
+# JJ DAI v0.6.8 — two pre-genesis reserves, and a reserve that is actually a refusal
+
+Scope: the cross-cutting track V vocabulary (ADR-018 rev 2) rebased from
+v0.6.7-recut2 onto the accepted **v0.6.7-recut9**, the ADR-019 rev 3.1
+reserve that the ADR itself assigns to this drop, the audit's P0-1 against
+the first v0.6.8 cut, and the five missing ADRs placed in the tree.
+
+**The number stands, and the reason is now on the record.** The auditor's
+r6.8 re-prioritisation — v0.6.8 becomes "Agent Alpha", the track V reserve
+moves to v0.6.9 — was ruled on and **not adopted for this drop**. Two of
+Agent Alpha's three parts already shipped inside the v0.6.7 line (a real
+engine inside `BeingRuntime`, a separate Being keystore, continuity across
+an mTLS restart), and the third — guardian GOOD/BAD/UNKNOWN marking — is
+G-GUI, a Ф0 deliverable with its own guardian keystore and not a code drop
+at all. "Agent Alpha" becomes the named goal of roadmap r6.8, carried by
+**v0.6.9** as G-GUI plus the live run on a target host.
+
+## The rebase was a MERGE, not a copy
+
+The note carried forward from the first rebase — "no file is touched by both
+drops" — was true only against recut2. That is the tree the track V archive
+was still built on, and recut3 through recut9 changed **three of the four**
+files track V touches. Copying them across would have silently reverted the
+whole identity and artifact-binding vertical that seven recuts built.
+
+* `jjdai/cognitive.py`, `tests/unit/test_track_v_reserve.py`,
+  `tests/unit/test_kriya_gate_naming.py` and `docs/adr/ADR-018-Chitta-Loop.md`
+  carried over as they were;
+* `jjdai/witness.py` — both vocabularies folded into **one** canonical enum
+  rather than re-declared, with `RESERVED_TRACK_IV_KINDS` named separately so
+  the three declaration sites stay legible;
+* `core/plane_h.py` — the namespace refusal at grant, apply and ordinary
+  retrieve, added around recut5's `AUTHOR_DOMAIN` and `being_sk` author
+  signature, which are untouched;
+* `kernel/viveka.py` — **a row, not a rewrite.** `ORGAN_BINDINGS` became a
+  table in recut3 for exactly this case: v0.6.8 adds `kriya_gate` and
+  **keeps** `viveka`, because records written before this drop are
+  hash-chained and must go on verifying forever. The v0.6.8 copy of this
+  file was not usable — it predates `ORGAN_BINDINGS`, `DeliberationProof`
+  and the `entitled_to_witness` check.
+
+`KRIYA-1` and `KRIYA-2` were rewritten for the same reason: they asserted a
+COUNT, and recut5 replaced the count with `DeliberationProof(level,
+records)`. They now assert the proof LEVEL as well — a legacy record that
+still verifies but proves less than it used to would be a silent
+downgrade, and a test comparing an integer could not see it.
+
+## P0-1 — the reserve was bypassable
+
+The audit's finding against the first cut, reproduced here before it was
+fixed: an ordinary `INFER` record accepted six reserved tokens **in its
+body** — a KriyaGate outcome, a prediction resolution status, a CONTESTED
+reason code, the sealed lifecycle state, the prediction commitment domain
+separator and the hypothesis retrieval mode — and the chain stayed validly
+signed. Only function ARGUMENTS were refused. The v0.6.8 CHANGELOG had said
+"every entry point refuses, fail closed", and that sentence was wider than
+the code.
+
+New `jjdai/reserved.py` is one door over both vocabularies and refuses a
+reserved token as a VALUE: whole strings, **segments of a colon-compound
+digest**, mapping keys, and any path below a reserved namespace. It runs on
+the node-authored fields that reach the chain as content —
+`semantic_digest`, `provenance`, `entanglement`.
+
+**Where the line is drawn, and why not further.** `request` and `response`
+are NOT scanned. They enter the chain as hiding commitments over
+caller-supplied data; a task whose text contains one of these English words
+is not a node making a claim in a reserved vocabulary, and no serialized
+reserved value reaches a peer through a commitment. `RSV-5` asserts the
+exclusion so it is a decision on the record rather than an omission.
+
+## ADR-019 rev 3.1 reserve — same drop, because the ADR says so
+
+`jjdai/custody.py` holds the deferred-verification vocabulary: eleven record
+kinds, `SELF_CHECKED`, the `CUSTODY_*` outcomes, the rev 3.1 split of
+`custody_reason` from `replay_status`/`replay_reason`, the immutable
+`stored_status`, the computed `EVIDENCE_*` projection, the
+`verification_custody` key domain, the `CUSTODY_PRIVATE` access class, two
+namespaces and eleven leaf domains. §4 of the ADR names the carrier: the
+same drop as the track V reserve. Ф0 freezes **names**; schemas and canonical
+encoding are Ф2, before first emission.
+
+Accepted authorises the reserve and **nothing in the runtime**. A lone
+`production` node still refuses with `no_independent_panel` — now because
+the custody machinery does not exist, not because a document was under
+discussion.
+
+**A limitation named rather than discovered.** Two of the reserved groups —
+the tool effect classes (`pure` … `unknown`) and the two node profiles — are
+ordinary lowercase English words, and one of them already occurs about
+twenty times in this tree in unrelated senses. They are reserved and refused
+by their own checkers, but they are **excluded from the value scan**: a scan
+that refuses the bare word "unknown" anywhere in a record fails closed on
+honest records. This was not theoretical — widening `TRKV-8` to both
+vocabularies reported six legitimate files until the exclusion was applied.
+For these two groups the reserve is a declaration plus an argument check,
+and not a body-content check.
+
+## The ADRs are in the tree
+
+`docs/adr/` now holds 014 (as issued, PDF), amendment A-1, 015, 016, 017,
+018 and 019. Audit 0's documentary blocker is closed.
+
+**ADR-017 was flipped to Accepted before the reserve was built** — the same
+rule applied to ADR-018 in the first cut. A pre-genesis reserve must not rest
+on a Proposed decision, and four of its wrapping domains were already frozen
+in `jjdai/cognitive.py` while the document said Proposed.
+
+**ADR-014 arrives as a PDF and cannot be patched**, and its D6 is partly
+revoked by A-1.1: the round runs on replicas in two symmetric cells, not by
+direct attested participation. The ADR index states that above the table, so
+a reader does not implement a revoked mechanic on the strength of the
+document's own text.
+
+ADR-016 rev 2 remains **Proposed** and is now the only one; the index says so.
+
+## Acceptance
+
+New `RSV-1…7` (`tests/unit/test_reserved_values.py`) and `CUST-1…8`
+(`tests/unit/test_custody_reserve.py`). `TRKV-8` widened from one vocabulary
+to two. `KRIYA-1` and `KRIYA-2` rewritten onto `DeliberationProof`.
+
+Ten mutations, ten reds: the scan removed from `append()`; whole-string
+matching with no segment check; `provenance` dropped from the scanned
+fields; mapping keys not scanned; custody kinds not folded into
+`RESERVED_KINDS`; the namespace check dropped from `retrieve()`; the
+`EVIDENCE_*` projection reverted to the bare names review had proposed; the
+legacy `viveka` row removed from `ORGAN_BINDINGS`; `EMITTED_PREFIX` reverted
+to the legacy spelling; and the ambiguous tokens pulled INTO the scan.
+
+## Owed next, unchanged
+
+The recut3 residual (`README.md` outside the tree digest; file modes and
+symlink targets), supply chain (SBOM, pinned dependencies, signed artefacts,
+two-person release approval), T-TOOLSET, a CLA — which needs a named legal
+entity and cannot be produced by a build — and `tests/live/test_vertical_live.py`,
+still never run on a host with a real model.
+
+Drop order from here, to be fixed in r6.8: **v0.6.9** Agent Alpha (G-GUI plus
+the live run on the target hosts), **v0.6.10** T-TOOLSET together with supply
+chain, since a reproducible build, an SBOM entry, a signed manifest and a
+witnessed tool addition are one concern and the Ф0 gate depends on all four,
+**v0.6.11** the evidence-ID catalogue.
+
+---
+
+## v0.6.8 remediation — the tree becomes its own plan of record
+
+**Not a new version.** A number is spent by a TAG, and v0.6.8 has none. This
+is the same drop with its documentary and release debt reduced; the acceptance
+counter moves **206/206 → 211/211** because five checks were added, not because
+any behaviour changed. No production code path was touched.
+
+### Why
+
+The external audit of the pair «v0.6.8 archive + roadmap r6.8.2» found no P0
+in the shipped code and one P0 in the roadmap. The finding underneath both was
+the same: **the tree did not contain the plan its own evidence bound it to.**
+`tree_digest 7c797da15523` proved the code against the r6.7 roadmap and
+ADR-014…019, while the normative documents for that code were already r6.8.2,
+the ADR-017 amendment, ADR-020 and ADR-021. Nothing said so, because nothing
+looked at the documents.
+
+### Roadmap r6.8.2 → r6.8.3
+
+* **P0 closed** — the fourth reserve window carried the **ADR-020 rev 2**
+  composition: two domain separators of five, and no body-erasure reason,
+  while the document above it declared rev 4.1 Accepted. Replaced with the
+  verbatim §3 list from rev 4.1: five separators (`BINDING:v1`,
+  `BINDING:REVOKE:v1`, `FEEDBACK:BODY:v1` were the missing three),
+  `GUARDIAN_REQUEST` / `RETENTION_POLICY`, and the full binding lifecycle.
+* The **coordinated change set is named as four parts** — ADR-020 rev 4.1, the
+  ADR-017 / A-1 amendment, manifest schema `jjdai.model-artifact/v2`, and the
+  reserve — with the rule that none acts alone, and a precondition on the tree
+  before v0.6.9 may be cut.
+* The clause requiring "ADR-020 rev 2 Accepted before cutting v0.6.9" is
+  satisfied and replaced by the tree condition.
+* v0.6.8's status is one formula in all four places it appears. The changes
+  table said "closed (206/206)" against three other places saying untagged with
+  debt open.
+* **CLA removed from the reasons a tag is absent.** It was simultaneously named
+  as a tag blocker and, forty lines later, as having nothing to do with the tag.
+  The second is correct: CLA governs external contribution.
+* Recorded-run path corrected to `docs/evidence/hermetic.json`.
+* **Fourth precondition added to the preflight tag:** normative documents
+  synchronous with the tree.
+* SBOM, dependency pinning and `.gitattributes` moved out of v0.6.10 and into
+  this remediation; v0.6.10 keeps T-TOOLSET, reproducible build, signed
+  artefacts and two-person approval.
+
+### Into the tree
+
+* `docs/adr/ADR-020-Agent-Alpha.md` (rev 4.1, Accepted) and
+  `docs/adr/ADR-021-Memory-Inheritance.md` (rev 4, **Proposed** — the index
+  says so).
+* **ADR-017 / A-1 is INLINE, at a new `K4-bis`,** not a separate file. ADR-014's
+  A-1 is separate only because ADR-014 is a PDF and cannot be patched; ADR-017
+  is markdown, so the amendment sits where a reader of K4 will hit it. It names
+  a principal-local wrapping key for access class `GUARDIAN_PRIVATE` and only
+  that class, splits `guardian_sign` from `guardian_wrap`, and records the
+  resulting loss mode rather than leaving it to be discovered. The document
+  header no longer forbids all runtime in Ф0 without naming the exception.
+* **r6.7 removed, r6.8.3 added** (md + typeset PDF). Only the current revision
+  lives in `docs/roadmap/`: each revision contains the previous one whole, and
+  two self-contained roadmaps side by side is the "correct text beside a stale
+  table" defect this project has already paid for.
+* Every pointer at the departed r6.7 file was chased down — README, the docs
+  index, the roadmap README, and prose references inside `jjdai/cognitive.py`,
+  `kernel/viveka.py` and a test docstring.
+
+### Release and build hygiene
+
+* **`.gitattributes` with `* -text`.** `source_digest()` reads raw bytes over
+  200+ paths including the sha256-pinned AGPL text. A checkout that normalises
+  line endings breaks both the tree digest and the licence pin, and reports
+  itself as ACC-TREE-1 "a different tree" — which does not say "line endings",
+  so the cause is not discoverable from the symptom. **This must be the first
+  commit, before any clone exists.**
+* **`requirements-dev.txt`, pinned by version AND hash**, installed in CI with
+  `--require-hashes`. The runtime core remains stdlib-only; what is pinned is
+  the collector that produces the evidence. `pip install pytest` made a green
+  run mean "passed under an unknown version of an unknown collector".
+* **`scripts/gen_sbom.py` → `docs/sbom.cdx.json`** (CycloneDX 1.5), generated
+  and re-checked in CI rather than written by hand — this repository has twice
+  shipped a hand-maintained list that drifted from the tree. Deterministic by
+  construction: no timestamp, no serial number, sorted throughout. The document
+  describes the tree MINUS itself and says so, because a file containing its own
+  hash never converges; it stays inside `source_digest()` so tampering with it
+  still breaks the tree digest. Its metadata names what remains open, and a
+  check refuses to let that list quietly empty.
+
+### Two entrypoints, one suite
+
+`run_acceptance.py` claimed it and `pytest tests/` collected "the exact same
+functions". False: the runner's default is the five hermetic groups (211);
+`tests/live` is a sixth needing a real wasm runtime and a real model, and a bare
+`pytest tests/` collected it and failed on any host without them, while the
+runner reported clean. `pyproject.toml` now carries `--ignore=tests/live`, the
+claim is withdrawn in all three documents that made it, and README explains
+which number the badge is.
+
+### Two stale constants for `docs/acceptance_result.json`
+
+The artefact moved to `docs/evidence/<suite>.json` in v0.6.7-recut3 and nothing
+has written the old path since. It survived as a dead `RESULT` constant in
+`gen_architecture_docs.py` and — worse — as an entry in the tree-digest
+EXCLUSION list, where a leftover reads as a deliberate exemption and silently
+un-hashes any file that later takes the name.
+
+### New checks — `tests/unit/test_tree_is_its_own_plan.py`
+
+`SYNC-1…4` (every indexed ADR exists and every present ADR is indexed; exactly
+one roadmap revision, named identically in three documents; no surviving pointer
+at an absent roadmap; ADR-017's inline A-1 present and reachable from the index),
+`ENTRY-1/2`, `SBOM-1…3`, `PIN-1`, `ATTR-1`.
+
+**Thirteen mutations, thirteen reds.** One of them found a defect in this drop's
+own code: `gen_sbom` refused an unhashed pin by raising `SystemExit`, which
+killed the acceptance runner during import instead of failing one check. A
+library refuses by raising; only `main()` may exit.
+
+`SYNC-3` also went red against its own docstring on first run — it scans for
+pointers at absent roadmap files and does not exempt itself. The docstring was
+reworded rather than the check narrowed.
+
+### Status unchanged where it matters
+
+`code-complete · 211/211 recorded · untagged · release debt open`. The SBOM does
+not unlock the release tag: what makes a release tag mean anything is signed
+artefacts and two-person approval, both still owed by v0.6.10. What this drop
+does unlock is the **preflight tag** — the tree now satisfies the fourth
+precondition it did not satisfy before.
+
+---
+
+## v0.6.8-recut2 — a status is not a presence
+
+Still v0.6.8, still untagged. **211/211 → 213/213**: two checks added, nothing
+behavioural changed.
+
+### P0 — ADR-020 was Proposed and Accepted at the same time
+
+recut1 put ADR-020 rev 4.1 into the tree carrying `Status: Proposed`, and its
+own closing paragraph said that until it is Accepted it authorises neither the
+ADR-017 amendment nor the pre-genesis reserve. Meanwhile the roadmap, the docs
+index, the CHANGELOG and **ADR-017's own K4-bis** — whose text says the
+amendment took effect on ADR-020's adoption — all treated it as Accepted. The
+coordinated set was resting on a document that declared itself unadopted.
+
+* ADR-020 header → **Accepted · rev 4.1 · 25 August 2026**.
+* Its closing paragraph rewritten. The old sentence drew the line at "until
+  Accepted, nothing is authorised", which is the wrong line now: adoption
+  authorises the coordinated IMPLEMENTATION, and what stays closed is
+  EMISSION — new record kinds, the `guardian_feedback` key domain, the
+  `GUARDIAN_PRIVATE` access class, `GuardianBinding`, `JaiGuruDev` — until all
+  four parts of the set are in the tree. Acceptance moves the boundary from
+  "the document is not adopted" to "the set is not built"; it does not remove
+  it.
+* K4-bis in ADR-017 now says on what it rests and when that became true.
+
+**SYNC-5 added.** SYNC-1 asked whether a file EXISTS and stopped there, which
+is exactly how this passed. SYNC-5 parses the status word out of every markdown
+ADR's own header and compares it with the status the docs index publishes for
+it — eight documents — and additionally pins ADR-020 to Accepted by name,
+because K4-bis and the roadmap's v0.6.9 precondition both depend on it.
+ADR-014 is skipped: it ships as the PDF it was issued as, and the index carries
+its status in prose with a warning.
+
+### The pytest finding — the diagnosis was wrong, the fix was right
+
+The audit read `addopts = "-q --ignore=tests/live"` as blocking an explicit
+`pytest tests/live`, leaving the opt-in group unreachable. **Verified against
+the tree, and it does not:** `--ignore` prunes during RECURSION, so a path named
+on the command line is still collected. Measured on pytest 9.1.1 — bare 211,
+`pytest tests/` 211, `pytest tests/live` 6.
+
+The proposed change went in anyway, on a different and better argument.
+`testpaths = ["tests"]` made the default set a SUBTRACTION: everything under
+`tests/`, minus whatever `--ignore` removed. A subtractive default silently
+adopts the next directory somebody adds. `testpaths` now names the five
+hermetic groups positively, and `--ignore` stays, because the two cover
+different commands — `testpaths` governs a bare `pytest`, `--ignore` governs
+`pytest tests/`, where an explicit directory argument makes `testpaths`
+irrelevant.
+
+**ENTRY-3 added**, and it RUNS the three documented commands rather than
+reasoning about them, because a reading this subtle is one a later pytest
+release could change and one a careful reader already got wrong. Where pytest
+is absent it asserts the configuration and says which mode it ran in, rather
+than skipping — a check that skips itself quietly is not evidence.
+
+### Roadmap r6.8.3 → r6.8.4 — four blocks describing the tree before the work
+
+The revision that closes a P0 by citing "correct text beside a stale table is
+worse than one wrong text" left four instances of exactly that:
+
+1. § byte-precision still said the repository has no `.gitattributes`;
+2. the Ф0 exit criteria still listed CLA, SBOM and pinning as release debt,
+   forty lines after establishing that CLA does not block a tag and that the
+   other two were done;
+3. the preflight tag annotation still required the words "SBOM absent";
+4. § where-we-are listed four items as absent, of which one actually is.
+
+All four corrected, and the release debt rewritten as a list of what is open
+rather than a mix of closed, non-blocking and open: reproducible build, signed
+artefacts, release provenance, two-person approval, T-TOOLSET, README outside
+`tree_digest`, file modes and symlink targets. "Three conditions" for the
+preflight tag became four — the fourth was added in r6.8.3 and the heading was
+not.
+
+### Editorial, ADR-021 rev 4 (still Proposed)
+
+Two instances of the project's own named defect, in a document a pre-genesis
+reserve will be read off:
+
+* the domain-separator list has three entries and the sentence under it said
+  "two separators, not one" — `SOURCE-ROOT:v1` arrived in rev 4 with
+  `proof_mode` and the count stayed at rev 3;
+* the envelope schema declares `root_attestation` / `root_attestation_signature`
+  while the prose two hundred lines earlier called the same fields
+  `source_being_root_attestation` / `source_being_signature`. Not synonymy —
+  two names for one field in one document. **A field that is not in the
+  canonicalised structure does not exist**, so the schema wins and the prose
+  was corrected to it.
+
+### One more stale evidence path
+
+`acceptance_badge()`'s docstring in `gen_architecture_docs.py` still described
+the runner as writing `docs/acceptance_result.json`. The constant above it was
+fixed in the previous recut and the docstring below it was not — the same file,
+two truths, which is the shape of the defect rather than an instance of bad
+luck.
+
+---
+
+## v0.6.8-recut3 — the artefact answers for itself
+
+Still v0.6.8, still untagged. **213/213 → 215/215**: two checks added.
+
+### Provenance note, recorded because it is the kind of thing that must be
+
+The working tree this recut was cut from was found to contain changes with no
+author in this session — coherent, on-topic work responding to the recut2
+audit, timestamped after the previous recut had been packaged and delivered.
+It was not built on. The base was re-taken from the SHIPPED recut2 archive
+(`tree_digest ef19874a8424`), whose digest an external audit had independently
+confirmed against a clean unpack, and every change below was read, decided on
+and re-applied deliberately, with its own mutation round.
+
+Two of the decisions differ from what was found, and one is a straight
+reversal — see the pinning section. The precedent is v0.6.5, where a
+ready-made `jjdai/adapters/` skeleton appeared in a copied tree and the
+response was to discard the working tree and rebuild from the shipped
+artefact. A tree of unknown provenance defeats the entire purpose of a
+`tree_digest`.
+
+### P0 — the roadmap PDF disagreed with its own markdown
+
+recut2 shipped `JJ_DAI_Roadmap_r6_8_4.pdf` saying **211/211** beside
+`JJ_DAI_Roadmap_r6_8_4.md` saying **213/213**, in the same three places:
+current state, the numbering rules, and where-we-are. The PDF was typeset
+before the counter edit and never rebuilt. `docs/roadmap/README.md` says the
+PDF is the same document typeset; that sentence was false.
+
+Nothing in the tree could see it. `check_docs_drift.py` verifies the surfaces
+generated from `architecture_status.json`, and the roadmap PDF is not one of
+them, so it reported clean throughout.
+
+`scripts/typeset_roadmap.py` now builds the PDF and stamps the **sha256 of
+the source markdown into the PDF's own metadata**, as a literal ASCII marker
+so a stdlib check can find it in the raw bytes without a PDF parser. The
+object streams are deliberately left unpacked for the same reason. A sidecar
+file recording which markdown a PDF came from was rejected: a sidecar is a
+third thing to keep in sync, and a claim about an artefact kept beside the
+artefact is exactly what went stale here.
+
+**SYNC-6** verifies the stamp. CI runs the same check. What it proves is that
+the PDF was typeset from the markdown in the tree now; what it does not prove
+is that the rendering is faithful — a stamp is not a comparison of glyphs and
+would not catch a typesetter that dropped a table. It catches the failure that
+actually happened, and says so rather than letting a reader assume more.
+
+### The pinning claim was wider than the pin — closed by pinning, not by narrowing
+
+Documents said "hash-pinned CI toolchain" while `actions/checkout@v4` and
+`actions/setup-python@v5` were moving major tags — branches in all but name —
+and `[build-system].requires` carried `setuptools>=68`, a floor. Two closures
+were available. **The actions are now pinned by full commit SHA**, resolved
+with `git ls-remote --tags --refs` and cross-checked against the exact release
+tag pointing at the same commit (`v4.4.0`, `v5.6.0`); `setuptools` is pinned to
+an exact version.
+
+What remains is one gap and it is declared rather than implied: PEP 517 gives
+`[build-system].requires` no field for a hash, so the build backend is
+version-pinned only. It is named in the SBOM as `build-backend-unhashed`,
+carried as open debt under v0.6.10, and **SBOM-2 now permits a hashless
+component only if it declares why AND the gap appears among the open items** —
+otherwise that exception becomes the door every unpinned thing walks through.
+
+The SBOM also grew the components an audit round found missing: both Actions
+(with their commit as the hash) and the build backend. An inventory listing
+only the Python packages read as the whole dependency surface. **PIN-2** now
+fails if any `uses:` is not a 40-hex SHA.
+
+### ENTRY-3 could read green without pytest, and the evidence did not say so
+
+The fallback itself is correct — the hermetic suite must run on a bare
+interpreter, so a check that needs pytest must assert configuration when
+pytest is absent rather than skip. What was wrong is that the recorded
+artefact said nothing about which of the two modes had happened, so an audit
+reading `docs/evidence/hermetic.json` could not tell an exercised claim from
+an asserted one, and reported it as green-without-running.
+
+Schema **`jjdai.acceptance_result/v4`** adds `collector`:
+`{runner, pytest, entrypoint_probe_mode}` where the mode is `collection` or
+`configuration-only`. ENTRY-3 verifies the artefact describes the host it is
+running on, before branching, so it holds in both modes. `ACC-TREE-1`'s schema
+pin moved to `/v4` — on an exact version, not a prefix, which is what forces a
+shape change to be acknowledged rather than absorbed.
+
+### Roadmap r6.8.4 → r6.8.5
+
+* **`.gitattributes` operational norm rewritten.** "First commit, before any
+  clone" described a repository that does not exist yet; for one that does it
+  is retroactively impossible, and a requirement nobody can satisfy is a
+  requirement nobody checks. The norm is now: the file is in the commit the
+  preflight tag names; evidence is re-taken from a clean clone of that commit;
+  copies made earlier are re-cloned or separately validated against
+  `tree_digest`.
+* Pinning boundaries stated across all three build inputs.
+* PDF freshness recorded as a checkable property.
+
+### README
+
+"five cross-cutting tracks" against six, and SBOM and dependency pinning still
+listed in remaining debt after both were done. The same defect class r6.8.4
+was issued to close — correct status beside stale text.
+
+### `.typeset`
+
+Added to `_DIGEST_SKIP_DIRS` and `.gitignore`. Build scratch belongs outside
+the digest for the same reason `__pycache__` does: it is not shipped, and
+whether it happens to exist when a run is recorded must not decide whether a
+later clean unpack reads the same tree.
+
+---
+
+## v0.6.8-recut4 — an artefact describes the run that produced it
+
+Still v0.6.8, still untagged, still **215/215**. No check added; one check
+corrected, and a CI job added that proves something no existing job did.
+
+### P0 — ENTRY-3 made CI fail by construction
+
+recut3 asserted that the RECORDED artefact described the CURRENT host:
+
+    expected = "collection" if have_pytest else "configuration-only"
+    assert mode == expected
+
+The shipped tree's evidence was recorded on a bare interpreter, so it carries
+`configuration-only`. The workflow installs `pytest==8.3.5` and then runs the
+suite. Evidence says `configuration-only`, host is `collection`, assertion
+fails — every time, on every push.
+
+**No value of the field fixes it.** Re-recording in `collection` mode moves
+the failure to the bare interpreter the stdlib runner exists to serve. The
+question was wrong, not the answer: an artefact describes the run that
+produced it, and coupling it to whoever reads it later makes evidence expire
+on contact with a different machine. That is the opposite of what a recorded
+run is for.
+
+Split into the two questions it always was:
+
+* **the artefact, on its own terms** — `runner` is this repository's runner,
+  `entrypoint_probe_mode` is one of the two known values, and the single
+  binding between the fields holds: `configuration-only` implies
+  `pytest: null` (a run that fell back did so because pytest was absent), and
+  `collection` implies a named pytest version (a collection probe that cannot
+  say what collected is not evidence of a collection). Checkable from the
+  artefact alone, on any host, forever;
+* **this host, on its own terms** — with pytest, the three documented
+  commands are actually run; without it, the configuration is asserted.
+
+Verified against one unchanged artefact in both environments: green on a bare
+interpreter, green with pytest 9.1.1 present.
+
+**This was visible and was misread.** The previous recut demonstrated exactly
+this assertion firing when the tree was checked with pytest against evidence
+recorded without it, and reported it as proof that the field discriminated
+between hosts. It was the defect, presented as the feature.
+
+### CI — a step named for something it was not doing
+
+`Stdlib runner parity (no-pytest environments)` ran in a job that pip-installs
+pytest before reaching it. It proves the stdlib runner and pytest agree on a
+host that has both, which is worth proving and is not what the name said. It
+is now `Stdlib runner agrees with pytest on this host`, with a comment saying
+what it does not prove.
+
+The claim that the runtime core is stdlib-only is made in the README, in
+`requirements-dev.txt` and in the SBOM as `runtime-dependencies: 0`. Nothing
+tested it. New job **`bare-interpreter`** installs nothing, refuses to run if
+`import pytest` succeeds, and runs the full hermetic suite. If any import in
+the suite grows a third-party dependency, that job goes red on the import
+rather than three drops later on a machine with no package index.
+
+It also runs the same tree with the same evidence file in the opposite
+environment from the matrix job — which is the property recut3 broke: whichever
+mode the evidence carried, one of the two jobs was guaranteed to fail.

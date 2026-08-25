@@ -1,10 +1,15 @@
 [build-system]
-requires = ["setuptools>=68"]
+# EXACT, not a floor. `setuptools>=68` resolved to whatever PyPI served at
+# build time, which makes the wheel a function of the calendar. This is a
+# version pin and NOT a hash pin: PEP 517 gives `requires` no place to put
+# one, so the remaining gap is real and is carried as open debt under
+# v0.6.10 (reproducible build) rather than papered over here.
+requires = ["setuptools==80.9.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "jjdai"
-version = "0.6.7"
+version = "0.6.8"
 description = "JJ DAI reference trust, governance and agent kernel (stdlib-only)"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -39,5 +44,34 @@ packages = [
 "jjdai.adapters" = ["models/*.json", "models/*.yaml"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
-addopts = "-q"
+# testpaths names the DEFAULT set POSITIVELY, group by group. It used to be
+# the single entry `tests`, which made the default set a subtraction —
+# everything under tests/, minus whatever --ignore removed. A subtractive
+# default is silently wrong the moment somebody adds a directory: a new
+# group is collected and counted before anyone decides it should be. This
+# form fails the other way, which is the way that gets noticed.
+testpaths = [
+    "tests/unit",
+    "tests/integration",
+    "tests/conformance",
+    "tests/adversarial",
+    "tests/compatibility",
+]
+# `tests/live` is the OPT-IN group: it needs a real wasm runtime and a real
+# model on the host and RAISES rather than skipping when they are absent.
+# scripts/run_acceptance.py has excluded it from the default run since
+# v0.6.4; pytest did not, so `pytest tests/` collected 212 and failed on any
+# host without wasmtime while the runner reported a clean 206. Two entrypoints
+# that disagree about what "the suite" means produce two different truths
+# about the same tree.
+#
+# BOTH mechanisms are here on purpose and they cover different commands:
+#   * testpaths above governs a bare `pytest` — five groups, no live;
+#   * --ignore governs `pytest tests/`, where the explicit directory argument
+#     makes testpaths irrelevant and recursion would otherwise reach live.
+# --ignore prunes during RECURSION only, so an explicitly named path still
+# collects: `pytest tests/live` runs the six live checks with this line in
+# force. That is verified by ENTRY-3 rather than assumed — an audit round
+# read the same line as blocking the explicit command, which is the reading
+# to expect from anyone who has not run it.
+addopts = "-q --ignore=tests/live"

@@ -1,5 +1,5 @@
 {
-  "version": "0.6.7",
+  "version": "0.6.8",
   "acceptance": null,
   "legend": {
     "impl": "Implemented — live, tested",
@@ -122,6 +122,39 @@
             "v0.5.2"
           ],
           "desc": "The witness root deterministically becomes a Monero address; a dust payment timestamps the binding without storing the root in tx_extra."
+        },
+        {
+          "path": "jjdai/cognitive.py",
+          "name": "Track V reserved vocabulary",
+          "status": "iface",
+          "chips": [
+            "Interface only",
+            "ADR-018",
+            "reserved, non-emittable"
+          ],
+          "desc": "The serialized names of Chitta and reflexive cognition — fifteen record kinds, three cognitive namespaces, the REFLEXIVE and CONTEST_SCOPED access classes, four key-plane wrapping domains, prediction statuses, KriyaGate outcomes and the commitment and Merkle-leaf domain separators. Declared before genesis because a hash-chained value cannot be added or renamed afterwards; refused as an argument AND as a value, fail closed, until the specification in Ф2 and the runtime in Ф3."
+        },
+        {
+          "path": "jjdai/custody.py",
+          "name": "Deferred-verification reserved vocabulary",
+          "status": "iface",
+          "chips": [
+            "Interface only",
+            "ADR-019",
+            "reserved, non-emittable"
+          ],
+          "desc": "The serialized names of ADR-019: eleven record kinds, the SELF_CHECKED admission state, the CUSTODY_ corroboration outcomes, the computed EVIDENCE_ status projection, the replay status and reason split, the verification_custody key domain, the CUSTODY_PRIVATE access class and two namespaces. Accepted authorises the reserve and nothing in the runtime — a lone production node still refuses with no_independent_panel because the custody machinery does not exist. Tool effect classes and node profiles are reserved by argument only: they are ordinary words and are deliberately outside the value scan."
+        },
+        {
+          "path": "jjdai/reserved.py",
+          "name": "Value-level refusal of both reserves",
+          "status": "impl",
+          "chips": [
+            "Implemented",
+            "v0.6.8",
+            "P0-1"
+          ],
+          "desc": "One door over both pre-genesis vocabularies. A reserved token is refused as a VALUE and not only as an argument — whole strings, segments of a colon-compound digest, mapping keys and any path below a reserved namespace — on semantic_digest, provenance and entanglement. request and response are excluded on purpose: they enter the chain as hiding commitments over caller data, so no reserved value reaches a peer through them."
         }
       ]
     },
@@ -415,6 +448,16 @@
             "macOS kit v0.6.2"
           ],
           "desc": "Ubuntu: hardened systemd unit, TPM-sealed passphrase, bootstrap, production PKI generator, operator RUNBOOK. macOS (roadmap Ф0): launchd daemon template, Keychain sealing under the documented macOS Keychain degraded profile (non-SE-resident), bootstrap with 24/7 power discipline, RUNBOOK-macOS. Flag parity between the two kits is enforced by unit acceptance (M-FLAGS)."
+        },
+        {
+          "path": ".github/workflows/ · requirements-dev.txt · scripts/gen_sbom.py",
+          "name": "Release provenance — partial",
+          "status": "proto",
+          "chips": [
+            "Partial",
+            "SBOM + pinning v0.6.8"
+          ],
+          "desc": "What EXISTS: a CycloneDX 1.5 bill of materials generated from the tree and re-checked in CI, so a hand-maintained inventory cannot drift from what ships; a hash-pinned CI toolchain installed with --require-hashes, so a green run names the collector that produced it; and .gitattributes with `* -text`, because source_digest() hashes raw bytes over 200+ paths including the sha256-pinned AGPL text and any end-of-line normalisation reports itself as 'a different tree'. What is OPEN and is not claimed here: reproducible build, signed artefacts, two-person release approval and T-TOOLSET — all four owed by v0.6.10. An SBOM is an inventory of the box, not evidence of who sealed it, and the generated document says so in its own metadata."
         }
       ]
     },

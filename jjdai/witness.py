@@ -29,6 +29,9 @@ import threading
 from .canonical import canonical
 from .crypto import H_hex, SigningKey, verify, node_id, canonical_node_id, commit
 from .merkle import merkle_root
+from .cognitive import COGNITIVE_KINDS, check_kind_emittable as _cognitive_kind
+from .custody import CUSTODY_KINDS, check_kind_emittable as _custody_kind
+from .reserved import check_no_reserved_values
 
 GENESIS = "0" * 64
 KINDS = ("INFER", "SANDBOX", "GROUNDING", "REGISTRY", "CONTAINMENT", "MEMORY",
@@ -73,10 +76,16 @@ KINDS = ("INFER", "SANDBOX", "GROUNDING", "REGISTRY", "CONTAINMENT", "MEMORY",
                             # (bhoktritva: a being must be able to compare
                             # itself before and after)
 
+#: v0.6.8: the two pre-genesis vocabularies are folded in here rather than
+#: re-declared. ONE canonical enum, three declaration sites — a second copy
+#: of a name is how two spellings of one value get into a hash-chained store.
+KINDS = KINDS + COGNITIVE_KINDS + CUSTODY_KINDS
+
 #: Kinds nothing may emit yet. Reserving a NAME is cheap and pre-genesis;
 #: emitting a record whose semantics are not yet defined is not.
-RESERVED_KINDS = ("SESSION_OPEN", "SESSION_CLOSE", "LEDGER_ANCHOR",
-                  "SNAPSHOT")
+RESERVED_TRACK_IV_KINDS = ("SESSION_OPEN", "SESSION_CLOSE", "LEDGER_ANCHOR",
+                           "SNAPSHOT")
+RESERVED_KINDS = RESERVED_TRACK_IV_KINDS + COGNITIVE_KINDS + CUSTODY_KINDS
 
 #: Cognitive IR schema version carried by records that reference IR events.
 #: Declared now for the same reason as the kinds above.
@@ -244,6 +253,11 @@ class WitnessChain:
                ir_schema_version=None) -> dict:
         if kind not in KINDS:
             raise ValueError(f"unknown record kind {kind!r}")
+        # v0.6.8: the ADR-specific refusals run FIRST, so a refusal cites the
+        # decision that owes the semantics instead of the generic v0.6.5
+        # sentence below. Both paths refuse; only the message differs.
+        _cognitive_kind(kind)
+        _custody_kind(kind)
         if kind in RESERVED_KINDS:
             raise ValueError(
                 f"record kind {kind!r} is RESERVED in v0.6.5: the name is "
@@ -252,6 +266,13 @@ class WitnessChain:
                 f"(ADR-015). Emitting a record whose meaning is undefined is "
                 f"worse than not having the name.")
         check_plane_value("semantic_digest", semantic_digest)
+        # v0.6.8 P0-1: a reserved name must be refused as a VALUE and not
+        # only as an argument. Scanned on the node-authored fields that reach
+        # the chain as content; `request`/`response` are excluded on purpose
+        # (jjdai.reserved explains why).
+        check_no_reserved_values("semantic_digest", semantic_digest)
+        check_no_reserved_values("provenance", provenance)
+        check_no_reserved_values("entanglement", entanglement)
         # v0.6.5 audit (P0-2): the reserved FIELDS must refuse for the same
         # reason the reserved KINDS do. Declaring a name before genesis is
         # cheap; letting it carry a value whose grammar is not yet defined

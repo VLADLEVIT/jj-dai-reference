@@ -39,6 +39,7 @@ import time
 from jjdai.canonical import canonical
 from jjdai.crypto import (H_hex, SigningKey, verify, node_id,
                           canonical_being_id, canonical_node_id)
+from jjdai.reserved import check_namespace_free
 from core.rag_store import RagStore, sha256_text
 
 PROPOSAL_DOMAIN = b"jjdai/plane-h/proposal/v1:"
@@ -179,6 +180,9 @@ class WritePolicy:
         self._grants: dict = {}      # ns -> op -> set(node_id)
 
     def grant(self, ns: str, author_node: str, ops=OPS):
+        # v0.6.8: a reserved namespace is refused at the door where authority
+        # over it would be created, not only where a write arrives.
+        check_namespace_free(ns, op="grant")
         for op in ops:
             if op not in OPS:
                 raise ValidationError(f"unknown op {op!r}")
@@ -239,6 +243,7 @@ class GovernedPlaneH:
             raise ValidationError(f"proposal rejected: {reason}")
         b = env["body"]
         ns, op, author = b["ns"], b["op"], b["author_node"]
+        check_namespace_free(ns, op=op)          # v0.6.8, pre-genesis reserve
         if not self.policy.permits(ns, op, author):
             raise AuthorizationError(
                 f"author {author[:16]}… not authorized for {op!r} in {ns!r}")
@@ -377,6 +382,12 @@ class GovernedPlaneH:
         expired and above-access chunks; results carry provenance + proof."""
         if access not in ACCESS_LEVELS:
             raise ValidationError(f"unknown access level {access!r}")
+        # v0.6.8: ordinary retrieval never reaches a reserved namespace. A
+        # draft reflection is reachable only through `hypothesis_retrieval`,
+        # marked UNVALIDATED — and that mode does not exist yet, so there is
+        # no way in at all. Temporary memory is refused here for the same
+        # reason: its evidentiary status has no grammar before Ф2.
+        check_namespace_free(ns, op="retrieve")
         now = now if now is not None else time.time()
         raw = self.store.retrieve(ns, query, k=k * 4 or 12)
         out = []

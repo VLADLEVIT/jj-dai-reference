@@ -37,10 +37,17 @@ import json
 import time
 
 from jjdai.canonical import canonical
-from jjdai.crypto import H_hex, SigningKey, verify, node_id, canonical_node_id
+from jjdai.crypto import (H_hex, SigningKey, verify, node_id,
+                          canonical_being_id, canonical_node_id)
 from core.rag_store import RagStore, sha256_text
 
 PROPOSAL_DOMAIN = b"jjdai/plane-h/proposal/v1:"
+#: The AUTHOR's statement, separate from the node's (recut5, audit P0.3).
+#: A proposal is authored by a BEING and witnessed by a NODE; before this
+#: the being key existed and signed nothing, so even a Being-authored
+#: knowledge write carried only the node signature and "authored by the
+#: being" was a sentence with no cryptography behind it.
+AUTHOR_DOMAIN = b"jjdai/plane-h/author/v1:"
 
 OPS = ("add", "supersede", "redact")
 ACCESS_LEVELS = ("public", "internal", "restricted")
@@ -68,10 +75,21 @@ def make_write_proposal(sk: SigningKey, *, op: str, ns: str, doc_id: str,
                         source: dict = None, jurisdiction: str = "UA",
                         confidence: float = 1.0, evidence_refs: list = None,
                         access_policy: str = "internal",
-                        retention: dict = None) -> dict:
+                        retention: dict = None,
+                        being_sk: SigningKey = None) -> dict:
     """Author-side construction of a signed proposal. The TEXT itself is not
     inside the signed body — only its hash — so redaction can later remove
-    content without invalidating the historical envelope."""
+    content without invalidating the historical envelope.
+
+    TWO SIGNATURES, TWO DIFFERENT CLAIMS (recut5, audit P0.3). `sk` is the
+    NODE key: it says this node accepted the write and will carry it. When
+    `being_sk` is given the body additionally names `author_being` and the
+    envelope carries that being's own signature over the same payload: the
+    being says it authored this. The being's signature is INSIDE what the
+    node then witnesses, which is the shape INV-9 requires — the witness
+    plane is never signed BY the being, and what the being authored is
+    never merely attributed to it.
+    """
     if op not in OPS:
         raise ValidationError(f"unknown op {op!r}")
     if op in ("add", "supersede") and not text:
@@ -92,10 +110,18 @@ def make_write_proposal(sk: SigningKey, *, op: str, ns: str, doc_id: str,
         "access_policy": access_policy,
         "retention": retention or {"policy": "indefinite", "until": None},
         "author_node": canonical_node_id(sk.public),
+        "author_being": (canonical_being_id(being_sk.public)
+                         if being_sk is not None else None),
         "created_at": time.time(),
     }
-    sig = sk.sign(PROPOSAL_DOMAIN + canonical(body))
-    return {"body": body, "pub": sk.public.hex(), "sig": sig.hex()}
+    payload = PROPOSAL_DOMAIN + canonical(body)
+    env = {"body": body, "pub": sk.public.hex(),
+           "sig": sk.sign(payload).hex()}
+    if being_sk is not None:
+        env["being_pub"] = being_sk.public.hex()
+        env["being_sig"] = being_sk.sign(AUTHOR_DOMAIN
+                                         + canonical(body)).hex()
+    return env
 
 
 def verify_write_proposal(env: dict, text: str = None) -> tuple:
@@ -122,6 +148,22 @@ def verify_write_proposal(env: dict, text: str = None) -> tuple:
             return False, "content hash mismatch"
     if not verify(pub, PROPOSAL_DOMAIN + canonical(body), sig):
         return False, "bad signature"
+    # The author statement, when the body claims one. Fail-closed: a body
+    # that NAMES an authoring being without the being's signature is worse
+    # than one that names none, because it reads as authored.
+    author_being = body.get("author_being")
+    if author_being is not None:
+        try:
+            bpub = bytes.fromhex(env["being_pub"])
+            bsig = bytes.fromhex(env["being_sig"])
+        except (KeyError, TypeError, ValueError):
+            return False, "author_being named without a being signature"
+        if canonical_being_id(bpub) != author_being:
+            return False, "author_being does not match the being public key"
+        if not verify(bpub, AUTHOR_DOMAIN + canonical(body), bsig):
+            return False, "bad being signature"
+    elif "being_sig" in env:
+        return False, "being signature without an author_being in the body"
     return True, "ok"
 
 

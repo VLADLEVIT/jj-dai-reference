@@ -12,7 +12,7 @@ Please include, as far as you can:
 
 ```
 Component:   (e.g. jjdai/witness.py, node/daemon.py, deploy kit)
-Version:     (git commit or release tag, e.g. v0.6.6)
+Version:     (git commit or release tag, e.g. v0.6.7)
 Class:       forgeability / identity bypass / sandbox escape /
              containment bypass / canonicalization / other
 Impact:      what an attacker gains; preconditions (network position,
@@ -28,9 +28,9 @@ Triage: we confirm severity within 72 h of acknowledgment; P0 issues
 may trigger the Emergency Security Procedure (reversible containment
 outside DIIP, witnessed, ratified afterwards — roadmap r5, Ф2).
 
-## Scope notes for this release (v0.6.6)
+## Scope notes for this release (v0.6.7)
 
-This is a REFERENCE implementation (v0.6.6). Known, documented
+This is a REFERENCE implementation (v0.6.7). Known, documented
 non-goals of this build — not reportable as vulnerabilities:
 weight attestation proves the operator MEASURED and signed the artifact
 it claims to serve — without TEE/secure-boot it cannot prove the engine
@@ -58,10 +58,15 @@ under the stated assumption that the issuer chain is honest/anchored
 (use m-of-n distinct issuers) and degrades to evidential without the
 cross-link; the dev CA script issues DEVELOPMENT certificates (loopback
 and lab use); the Karma sandbox is not a hardened isolation boundary;
-rate limiting exists (token-bucket per endpoint class) but is keyed by
-client IP, not certificate identity, and there are no request-body
-size caps or concurrency limits yet (scheduled with ingress
-hardening); the macOS deployment kit runs under
+rate limiting is keyed by CERTIFICATE IDENTITY, with a namespaced
+address key used only where no client certificate was presented, and
+ingress carries a request-body ceiling enforced before the body is
+read, a connection ceiling admitted on the accept loop, and a
+per-connection clock (all since v0.6.4 — this paragraph described the
+pre-v0.6.4 state until v0.6.7 and contradicted both the code and the
+acceptance suite); the wasm-wasi isolation profile ships as a
+mechanism with NO compiled toolset, so execution in practice remains
+the reference process fence; the macOS deployment kit runs under
 the documented macOS Keychain degraded profile (non-SE-resident) — Keychain-stored
 passphrase readable by root, no launchd equivalent of
 seccomp/MemoryDenyWriteExecute/ProtectSystem (RUNBOOK-macOS.md §6) —

@@ -20,7 +20,7 @@ jobs:
       - name: Install test runner
         run: pip install pytest
       - name: Unit / adversarial / legacy
-        run: python -m pytest tests/unit tests/adversarial tests/legacy -q
+        run: python -m pytest tests/unit tests/adversarial tests/compatibility -q
       - name: Integration (live daemons, loopback)
         run: python -m pytest tests/integration -q
       - name: Conformance (NECS + adapter mocks)

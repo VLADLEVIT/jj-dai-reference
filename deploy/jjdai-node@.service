@@ -20,12 +20,19 @@ WorkingDirectory=/opt/jjdai
 # TPM, fall back to an 0600 EnvironmentFile owned by jjdai (documented in
 # RUNBOOK.md). Never bake the passphrase into this unit.
 ExecStartPre=/bin/sh -c 'test -n "$JJDAI_KEYSTORE_PASSPHRASE" || (echo "no keystore passphrase in environment; see RUNBOOK.md" >&2; exit 1)'
+# recut5: the BEING's key is a second secret with a second lifetime. The
+# node key answers "which machine"; this one answers "which mind". Without
+# it a production node refuses to start at all — since recut5 an ephemeral
+# being cannot be bound to a host, and before recut5 it silently minted a
+# NEW being on every restart and inherited the old one's journal.
+ExecStartPre=/bin/sh -c 'test -n "$JJDAI_BEING_PASSPHRASE" || (echo "no being passphrase in environment; see RUNBOOK.md" >&2; exit 1)'
 EnvironmentFile=/etc/jjdai/%i.env
 
 ExecStart=/usr/bin/python3 -m node.daemon \
     --host 0.0.0.0 --port ${JJDAI_PORT} \
     --name %i --fingerprint ${JJDAI_FINGERPRINT} \
     --node-keystore /var/lib/jjdai/%i.keystore \
+    --being-keystore /var/lib/jjdai/%i.being.keystore \
     --log /var/lib/jjdai/%i.jsonl \
     --tls-cert /etc/jjdai/pki/%i.crt \
     --tls-key /etc/jjdai/pki/%i.key \

@@ -1,8 +1,8 @@
-# JJ DAI — Code Architecture Map v0.6.6
+# JJ DAI — Code Architecture Map v0.6.7
 
 > GENERATED from `docs/architecture_status.json` by `scripts/gen_architecture_docs.py` — edit the JSON, not this file. `scripts/check_docs_drift.py` fails CI on divergence.
 
-Acceptance: 145/145 green (stdlib runner; CI matrix Python 3.10-3.12).
+Acceptance: 179/179 green (recorded run on Python 3.11.15; stdlib runner, CI matrix 3.10-3.12).
 
 ## #00 · The neurosymbolic stack
 

@@ -13,12 +13,13 @@ claims cannot rot:
             "degraded / secure-enclave profile" wording)
   R-ACCEPT  acceptance count printed in generated docs == tests actually
             collected by the runner
-  R-LICENSE the AGPL placeholder is loudly marked as a publication
-            blocker until the canonical text lands (reported, not
-            silently tolerated)
+  R-LICENSE LICENSES/AGPL-3.0.txt is the canonical AGPL-3.0 text
+            BYTE-FOR-BYTE, pinned by sha256 (v0.6.7: was a placeholder
+            guard while the text was missing)
 """
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import os
 import re
@@ -84,11 +85,31 @@ def test_acceptance_count_matches_collected():
     genarch = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(genarch)
     counted = genarch.count_acceptance()
-    mapdoc = _read("docs", "JJDAI_Code_Architecture_Map_v0.5.md")
-    m = re.search(r"Acceptance:\s*(\d+)/(\d+)\s+green", mapdoc)
+    mapdoc = _read("docs", os.path.basename(genarch.MAP))
+    # v0.6.7 recut: the badge no longer has to read "N/N green", because it
+    # no longer INVENTS that phrase. It is rendered from the recorded run, so
+    # a red run publishes a red badge — and demanding the word "green" here
+    # would make this check unsatisfiable exactly when it matters, which is
+    # also a circular dependency: the badge could never go green while the
+    # check that goes red is this one.
+    m = re.search(r"Acceptance:\s*(\d+)/(\d+)", mapdoc)
     assert m, "R-ACCEPT: Architecture Map lacks an acceptance badge"
-    assert int(m.group(1)) == counted, \
-        f"R-ACCEPT: map says {m.group(1)}, runner collects {counted}"
+    assert int(m.group(2)) == counted, \
+        f"R-ACCEPT: map says {m.group(2)} total, runner collects {counted}"
+    sys.path.insert(0, os.path.join(_ROOT, "scripts"))
+    from run_acceptance import read_result
+    res = read_result()
+    assert res is not None, (
+        "R-ACCEPT: no recorded acceptance run — a badge without a run behind "
+        "it is a claim about nothing")
+    assert int(m.group(1)) == res["passed"] and \
+        int(m.group(2)) == res["total"], (
+        f"R-ACCEPT: badge says {m.group(1)}/{m.group(2)}, the recorded run "
+        f"says {res['passed']}/{res['total']}")
+    assert ("green" in mapdoc.split("Acceptance:")[1][:120]) == \
+        (res["passed"] == res["total"] and not res["import_errors"]), (
+        "R-ACCEPT: the badge's wording and the recorded run disagree about "
+        "whether the run was green")
     # v0.6.4 audit: the GENERATED badge was correct while a HAND-WRITTEN
     # one in the README still said 68/68 — drift the checker could not see,
     # because it only ever compared generated surfaces.
@@ -107,23 +128,42 @@ def test_acceptance_count_matches_collected():
           f"{counted} tests")
 
 
-def test_license_placeholder_is_loud():
-    lic = _read("LICENSES", "AGPL-3.0.txt")
-    canonical = "GNU AFFERO GENERAL PUBLIC LICENSE" in lic and len(lic) > 30000
-    if canonical:
-        print("  [PASS] R-LICENSE canonical AGPL-3.0 text present")
-        return
-    assert "PUBLICATION BLOCKER" in lic, \
-        "R-LICENSE: AGPL placeholder exists but is not marked as a " \
-        "publication blocker — it could be shipped silently"
-    print("  [PASS] R-LICENSE placeholder is loudly marked as a "
-          "publication blocker (canonical text still REQUIRED before "
-          "any distribution — open audit item #4)")
+#: sha256 of the canonical AGPL-3.0 text as published at
+#: https://www.gnu.org/licenses/agpl-3.0.txt — 34523 bytes, 661 lines,
+#: fetched twice and compared before being pinned here.
+AGPL_SHA256 = "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0"
+
+
+def test_license_is_the_canonical_text():
+    """R-LICENSE, rewritten in v0.6.7 from a placeholder guard into a text
+    guard.
+
+    The old check asked whether a placeholder was loudly marked. That was
+    the right check while the text was missing and the wrong one the moment
+    it landed: "contains the title and is over 30000 bytes" is satisfied by
+    the canonical text and also by a truncated, edited or wrong-version
+    copy of it. `pyproject.toml` declares AGPL-3.0-only, so the file is a
+    legal instrument and BYTE-EXACT is the requirement — which means a
+    hash, not a heuristic.
+    """
+    raw = open(os.path.join(_ROOT, "LICENSES", "AGPL-3.0.txt"), "rb").read()
+    assert b"PUBLICATION BLOCKER" not in raw, \
+        "R-LICENSE: the AGPL placeholder is back"
+    got = hashlib.sha256(raw).hexdigest()
+    assert got == AGPL_SHA256, (
+        f"R-LICENSE: LICENSES/AGPL-3.0.txt is not the canonical AGPL-3.0 "
+        f"text byte-for-byte (sha256 {got[:16]}…, expected "
+        f"{AGPL_SHA256[:16]}…). A licence that has been reformatted is a "
+        f"licence that has been modified.")
+    assert raw.startswith(b"                    GNU AFFERO GENERAL PUBLIC "
+                          b"LICENSE\n"), "R-LICENSE: unexpected header"
+    print(f"  [PASS] R-LICENSE canonical AGPL-3.0 text, byte-exact "
+          f"({len(raw)} bytes, sha256 {got[:12]}…)")
 
 
 if __name__ == "__main__":
     test_versions_agree_everywhere()
     test_no_outgrown_claims()
     test_acceptance_count_matches_collected()
-    test_license_placeholder_is_loud()
+    test_license_is_the_canonical_text()
     print("\nRELEASE INTEGRITY UNIT: all groups green  ✓ certified")

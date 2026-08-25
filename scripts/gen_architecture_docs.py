@@ -6,7 +6,7 @@ scripts/gen_architecture_docs.py — one source of truth, three surfaces
 Reads docs/architecture_status.json and generates:
 
   1. the README status table (between STATUS:BEGIN/END markers)
-  2. docs/JJDAI_Code_Architecture_Map_v0.5.md   (fully generated)
+  2. docs/JJDAI_Code_Architecture_Map_v<version>.md  (fully generated)
   3. docs/site/JJDAI_Architecture_Status_v<version>.html
 
 Motivation (v0.5.2 audit): three hand-edited surfaces drifted three
@@ -27,7 +27,30 @@ import sys
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 STATUS = os.path.join(ROOT, "docs", "architecture_status.json")
 README = os.path.join(ROOT, "README.md")
-MAP = os.path.join(ROOT, "docs", "JJDAI_Code_Architecture_Map_v0.5.md")
+#: The map is GENERATED, so its name must not be a constant that outlives the
+#: release it was named after. It froze at v0.5 in May and rode three months of
+#: drops while the title inside it tracked the version correctly — a drift no
+#: check could see, because nothing compared the FILENAME to anything.
+MAP_PREFIX = "JJDAI_Code_Architecture_Map_v"
+
+
+def map_path(version: str) -> str:
+    return os.path.join(ROOT, "docs", f"{MAP_PREFIX}{version}.md")
+
+
+def map_files() -> list:
+    """Every map file present, newest name last. There must be exactly one."""
+    docs = os.path.join(ROOT, "docs")
+    return sorted(os.path.join(docs, f) for f in os.listdir(docs)
+                  if f.startswith(MAP_PREFIX) and f.endswith(".md"))
+
+
+def _declared_version() -> str:
+    with io.open(STATUS, encoding="utf-8") as fh:
+        return json.load(fh)["version"]
+
+
+MAP = map_path(_declared_version())
 
 STATUS_WORD = {"impl": "Implemented", "proto": "Prototype",
                "iface": "Interface only", "plan": "Planned",
@@ -48,10 +71,68 @@ def load() -> dict:
 OPT_IN_GROUPS = ("live",)
 
 
+#: Where the runner records what actually happened.
+RESULT = os.path.join(ROOT, "docs", "acceptance_result.json")
+
+#: One-element holder for the badge string. A module-level box rather than a
+#: new parameter on five signatures: the helpers below are also called by
+#: check_docs_drift, and changing their shape would fork the two paths that
+#: MUST agree byte for byte.
+BADGE = [""]
+
+
+def acceptance_badge() -> str:
+    """The badge, FROM A REAL RUN. Never from a count of declarations.
+
+    Counting `def test_*` produced the same "145/145 green" whether anything
+    had run or not, and produced it identically on a host where a check
+    errored out. A count of functions is not a result, and an external audit
+    reproduced exactly that: a red run under a green badge.
+
+    The runner writes `docs/acceptance_result.json` at the end of every run,
+    green or red, with a digest over its own counts. Here we refuse to claim
+    green without one, and we refuse to claim green when the recorded run was
+    not: the artefact is evidence of a run, and this function decides what
+    that evidence licenses.
+    """
+    declared = count_acceptance()
+    tree = None
+    try:
+        sys.path.insert(0, os.path.join(ROOT, "scripts"))
+        from run_acceptance import read_result, source_digest
+        res = read_result()
+        tree = source_digest()
+    except Exception:
+        res = None
+    if res is None:
+        return (f"{declared} acceptance checks collected — NO RECORDED RUN "
+                f"(run scripts/run_acceptance.py)")
+    if res.get("total") != declared:
+        return (f"{res['passed']}/{res['total']} from the last run, but "
+                f"{declared} checks are collected now — the tree has changed "
+                f"since; re-run scripts/run_acceptance.py")
+    # The count is a weak signal: it moves only when the NUMBER of checks
+    # moves, so a defect introduced without touching a test function left
+    # the badge green about code that no longer existed (v0.6.7 audit). The
+    # recorded run now names the source tree it ran against.
+    if tree is None or res.get("tree_digest") != tree:
+        recorded = (res.get("tree_digest") or "none")[:12]
+        return (f"{res['passed']}/{res['total']} from a run against source "
+                f"tree {recorded}, but this tree is {(tree or '?')[:12]} — "
+                f"NOT EVIDENCE ABOUT THIS CODE; re-run "
+                f"scripts/run_acceptance.py")
+    if res.get("passed") != res.get("total") or res.get("import_errors"):
+        return (f"{res['passed']}/{res['total']} passed with "
+                f"{res.get('import_errors', 0)} import error(s) on Python "
+                f"{res.get('python', '?')} — NOT GREEN")
+    return (f"{res['passed']}/{res['total']} green (recorded run on Python "
+            f"{res.get('python', '?')}; stdlib runner, CI matrix 3.10-3.12)")
+
+
 def count_acceptance() -> int:
     """Count acceptance test functions the same way run_acceptance collects
-    them by default (def test_* at top level of tests/**/test_*.py, opt-in
-    groups excluded)."""
+    them by default. Used to detect that the tree has MOVED since the last
+    recorded run — never as the badge itself."""
     n = 0
     for dirpath, _dirs, files in os.walk(os.path.join(ROOT, "tests")):
         rel = os.path.relpath(dirpath, os.path.join(ROOT, "tests"))
@@ -79,7 +160,7 @@ def gen_readme_table(st: dict, acceptance: int) -> str:
             extra = f" ({chips})" if chips and chips != status else ""
             name = c["name"]
             if "generated count" in c["chips"]:
-                extra = f" ({acceptance}/{acceptance} green)"
+                extra = f" ({BADGE[0]})"
             rows.append(f"| {name} | {status}{extra} |")
     return "\n".join(rows)
 
@@ -91,8 +172,7 @@ def gen_map(st: dict, acceptance: int) -> str:
            "`scripts/gen_architecture_docs.py` — edit the JSON, not this "
            "file. `scripts/check_docs_drift.py` fails CI on divergence.",
            "",
-           f"Acceptance: {acceptance}/{acceptance} green (stdlib runner; "
-           "CI matrix Python 3.10-3.12).", ""]
+           f"Acceptance: {BADGE[0]}.", ""]
     for sec in st["sections"]:
         out.append(f"## #{sec['id']} · {sec['title']}")
         if sec.get("note"):
@@ -198,7 +278,7 @@ def gen_html(st: dict, acceptance: int) -> str:
 <p class="sub">Every component of the JJ DAI trust, governance and agent kernel, classified into exactly one of five honest statuses. This page follows the code, not the ambition.</p>
 <div class="badges">
 <span class="badge">build <b>v{v}</b></span>
-<span class="badge">acceptance <b>{acceptance}/{acceptance} green</b></span>
+<span class="badge">acceptance <b>{BADGE[0]}</b></span>
 <span class="badge">stdlib-only core · Python ≥ 3.10</span>
 <span class="badge warn">status <b>experimental organism — NOT a security-alpha</b></span>
 </div><div class="legend">""")
@@ -233,7 +313,7 @@ def gen_html(st: dict, acceptance: int) -> str:
                            f'<div class="chips">')
                 for ch in c["chips"]:
                     if ch == "generated count":
-                        ch = f"{acceptance}/{acceptance} green"
+                        ch = BADGE[0]
                     out.append(f'<span class="chip {c["status"]}">{e(ch)}</span>')
                 out.append("</div></div>")
             out.append("</div>")
@@ -301,6 +381,7 @@ def gen_accept_block(acceptance: int) -> str:
 def generate(write: bool = True) -> dict:
     st = load()
     acceptance = count_acceptance()
+    BADGE[0] = acceptance_badge()
     table = gen_readme_table(st, acceptance)
     readme = io.open(README, encoding="utf-8").read()
     new_readme = splice(readme, "STATUS", table)
@@ -310,12 +391,19 @@ def generate(write: bool = True) -> dict:
     page = gen_html(st, acceptance)
     html_path = os.path.join(ROOT, "docs", "site",
                              f"JJDAI_Architecture_Status_v{st['version']}.html")
+    map_md_path = map_path(st["version"])
     if write:
         io.open(README, "w", encoding="utf-8").write(new_readme)
-        io.open(MAP, "w", encoding="utf-8").write(map_md)
+        io.open(map_md_path, "w", encoding="utf-8").write(map_md)
+        # A map named after a previous release is not history — the HTML pages
+        # carry the snapshots. Leaving it would mean two maps disagreeing, and
+        # the reader has no way to tell which one the release stands behind.
+        for stale in map_files():
+            if os.path.abspath(stale) != os.path.abspath(map_md_path):
+                os.remove(stale)
         io.open(html_path, "w", encoding="utf-8").write(page)
-        print(f"generated: README table · map · {os.path.basename(html_path)}"
-              f"  (acceptance {acceptance})")
+        print(f"generated: README table · {os.path.basename(map_md_path)} · "
+              f"{os.path.basename(html_path)}  (acceptance {acceptance})")
     return {"readme": new_readme, "map": map_md, "html": page,
             "html_path": html_path, "acceptance": acceptance}
 

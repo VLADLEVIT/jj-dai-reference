@@ -1677,3 +1677,1159 @@ Acceptance 140 → 144, all green. Docs drift clean.
   frozen. Owner: architecture.
 - **`/readyz` witness verification depth** — the cached verdict is
   structural, not a full replay. Owner: runtime, Ф3, with the ledger.
+
+---
+
+# JJ DAI v0.6.7 — repo hygiene, a CI-visible flake, and a documentation entry point
+
+**INCOMPLETE DROP — DO NOT TAG.** v0.6.7 still owes the supply-chain stream
+and T-TOOLSET. The canonical AGPL text landed in the second audit response
+below, closing the PUBLICATION BLOCKER that had stood since v0.6.3.
+
+## Hygiene: five of the six items accepted 26 July
+
+**The generated map's filename tracks the version.** `MAP` was a constant
+naming v0.5 while the title *inside* the file tracked the version correctly,
+so the name rode three months of drops — the file was regenerated every build
+and only its name was frozen. It derives from `architecture_status.json` now;
+the generator writes the version-named file and removes the stale one; drift
+check 5 asserts exactly one map exists and its NAME matches the declared
+version. Verified to fail on all three shapes: name behind the version, two
+maps at once, no map at all. Checks 2 and 3 had to be guarded against a
+missing file first — a gate whose contract is "every finding is named" must
+not exit through a traceback.
+
+`docs/README_BUILD_v0.4.md` → `docs/history/`. `tests/legacy` →
+`tests/compatibility`, with `GROUPS`, the CI invocation and CONTRIBUTING's
+group list following, and `run_acceptance` now **refuses an unknown group**
+instead of running everything: typing the retired name printed a full green
+count, which reads as a pass for a group that no longer exists.
+
+`cv="legacy"` in `jjdai/witness.py` and `m1m5/witness.py` is a canonicalization
+version that has entered the chain. Unrelated, deliberately untouched.
+
+`experimental/plane_b/` stays undone, as a decision rather than a gap: both
+files it names are load-bearing for the frozen m1m5 lineage, and Plane B
+canary lifecycle is still Planned, so the folder would contain nothing that is
+actually Plane B. It arrives with the canary-protocol drop.
+
+## The recut reddened CI on Python 3.10, and the recut's own check was why
+
+`tests/conformance/test_wheel_pkg_recut.py` imported `tomllib` unguarded.
+`tomllib` arrived in **3.11**; the project declares `requires-python = ">=3.10"`
+and CI runs 3.10, so the new check left that job with an import error rather
+than a verdict. It uses `tomllib` where it exists and reads the two literal
+arrays it needs directly where it does not.
+
+Skipping on 3.10 would have been worse: a check that does not run on the
+oldest supported version is not evidence about that version, and this one
+guards a wheel that precisely those users would install. Both paths verified
+to return identical values, package data included.
+
+## The challenge-round flake was real
+
+CI went red on 3.10 with `only 2 seats; rerun-worthy`. `_verifiers()` built
+keys with `SigningKey.generate()`, so every run drew fresh ones. Sortition is
+deterministic *given* the keys — which is what C-SORT asserts — but the NUMBER
+of seats was a fresh binomial draw. At n=12 with k=6 it lands under the 3
+seats C-RND needs about 2% of the time: roughly one CI run in seventeen across
+a three-job matrix, on nothing. Keys derive from a fixed seed now, pinned to a
+fixture drawing 6 of 12 — the expected value, with margin. A fixture that
+merely cleared the threshold would trade a flake for a cliff.
+
+## SECURITY.md was describing a node we no longer ship
+
+The scope-notes paragraph still said rate limiting was keyed by client IP and
+that there were no body-size or concurrency caps. Both stopped being true in
+**v0.6.4**: the budget moved to certificate identity, the body ceiling is
+enforced before the body is read, and the connection ceiling is admitted on
+the accept loop. For a security document, describing absent defences that are
+in fact present is not a harmless lag — it invites a reporter to spend time on
+a finding that is already closed, and it makes every other claim in the
+document less trustworthy.
+
+The corrected paragraph also states what is genuinely still open: the
+wasm-wasi profile ships as a mechanism with no compiled toolset, so execution
+in practice remains the reference process fence.
+
+Both operator runbooks were titled v0.6.3 while their contents had been
+updated through v0.6.6. Retitled.
+
+## A documentation entry point
+
+External onboarding review scored the repository around 5.5/10 for a newcomer:
+strong quick start and test discipline, but no architectural source of truth
+in the tree, and no path from a diagram to the decision behind it. `docs/`
+gains a map, an ADR index, the roadmap and the architecture diagrams.
+
+Three points of discipline in it:
+
+- **the diagrams are labelled explanatory, not normative**, with the solid /
+  dashed convention stated on the page rather than only in the image. The
+  diagrams show `ChittaRuntime`, the cognitive ledger, Self-Model and the
+  Skill Gate — none of which exist in code today;
+- **the ADR index names what is missing.** ADR-014, ADR-015 and ADR-017 are
+  referenced by the roadmap and by ADR-018 but are not in this tree yet. An
+  index that silently omits its own gaps is worse than no index;
+- **the diagrams' divergences from this build are listed, not silently
+  corrected**: the merged `Health / Readiness` block, the engine placed inside
+  the deterministic action boundary, the complete absence of anchoring from
+  both diagrams, `Vector DB · Qdrant` against a sqlite-vec Smriti and a
+  stdlib-only core, and key-plane domain names that do not match the reserved
+  values. The last is a serialized-value drift and must be resolved before
+  genesis.
+
+Acceptance 145/145, docs drift clean, retired group name refused with exit 2.
+
+## Still owed by this drop
+
+Canonical AGPL text byte-for-byte plus CLA; SBOM, pinned dependencies, signed
+artefacts, two-person release approval; T-TOOLSET — the starter wasm toolset
+with a reproducible build, an operator-signed manifest and a witness record on
+tool addition.
+
+*(The AGPL half of that line is closed below. The rest stands.)*
+
+## v0.6.7 — audit response: four false greens
+
+The external audit rejected both the v0.6.6 recut and the first v0.6.7 tree.
+Its finding is one sentence: **readiness kept reporting states that were not
+true, and anchoring did not serialize concurrent rounds.** Four defects, three
+of them mine, and all four share a shape — a probe written from a guess about
+an API, or a policy with a state missing from it.
+
+| Finding | Root cause | Evidence |
+|---|---|---|
+| a corrupted witness chain read READY | `_chain_verdict()` probed `verify_head` (does not exist) then `verify` (exists, returns a **tuple**, takes a resolver) — so the tuple matched neither branch and every chain read clean | `WIT-VERIFY-1..2` |
+| healthy DwarfStar/SGLang read NOT READY | Protocol v1 declares the contract whole, so every driver HAS `readiness()` and unimplemented ones raise `NotSupported`; the loop caught it as a failure and never reached the working `healthy()` | `ENG-READY-1..2` |
+| two concurrent anchor rounds | the chain lock guards snapshot and append, not the scheduler's own state; both callers saw the same range, both submitted, both appended | `ANCH-LOCK-1` |
+| local-only READY, working OTS NOT_READY forever | one policy with two states where four are needed | `ANCH-POLICY-1..2` |
+
+### The witness probe is the same mistake as the anchor attributes
+
+The first recut fixed `/readyz` reading `last_anchor_at` and
+`unanchored_depth`, which did not exist — and in the same change introduced a
+verifier probe under two names, one of which does not exist and one of which
+has a different signature and return type. Both were written from memory of
+what the API probably looked like. The lesson is not "check names"; it is that
+a probe must be tested against **the real object**, which is why every check
+in `test_recut2_false_greens.py` corrupts or configures something real instead
+of feeding a hand-built dict to the rule engine. The first recut's readiness
+tests proved the rules and nothing about whether the daemon could gather the
+facts. It could not.
+
+### Anchoring needed four states, not two
+
+`recorded` counts. `failed` does not. That leaves no room for the ordinary,
+correct, steady-state answer of an OpenTimestamps calendar —
+`pending-attestation` — which means *the submission was accepted and a proof
+is held, settlement is not yet final*. Under two states it fell in with
+`failed`, so a node whose calendar was working perfectly stayed NOT_READY
+forever and resubmitted the same range every backoff interval, spamming the
+calendar with proofs it had already issued.
+
+The states are now: **settled** (`recorded`, `confirmed`) · **custody**
+(`pending-attestation`, `pending-confirmation`) · **pending** · **failed**.
+Custody discharges the duty to submit — so it clears `behind` and stops the
+resubmission — without discharging the settlement claim, so readiness reads
+DEGRADED, never green.
+
+The opposite error sat in the same function. With no external backend
+configured the local one was promoted to "required", so a node with nothing
+but a local file reported anchoring READY — while the code's own comment said
+a local file is not external anchoring. `required_backends` no longer falls
+back to local, and a local-only node reports external anchoring
+**NOT_CONFIGURED**: not set up is a different statement from fine, and the
+whole point of that fourth state is to be able to say so.
+
+### The badge now means something
+
+`gen_architecture_docs` counted `def test_*` declarations and published
+"N/N green" — the same string whether anything had run, and the same string
+on a host where a check errored out. The audit reproduced exactly that: a red
+run under a green badge.
+
+`run_acceptance` writes `docs/acceptance_result.json` at the end of **every**
+run, green or red, digested over its own counts. The generator reads it and
+refuses to claim green without it; if the collected count no longer matches
+the recorded one it says the tree has moved; if the recorded run was red it
+publishes the red numbers and the words NOT GREEN. Recording only green runs
+was rejected — that would leave the last green artefact standing after a red
+run, which is worse than no artefact.
+
+This exposed a circular dependency worth naming: `R-ACCEPT` demanded the
+literal phrase "N/N green" in the map, which an honest badge cannot produce
+during a red run — so the check that goes red could never go green again. It
+now compares the badge against the recorded run and asserts the wording and
+the result agree, in both directions.
+
+### Also in this drop
+
+`__pycache__` shipped inside the v0.6.6-recut archive: 143 files, 1.7 MB.
+Cleaned before packaging, then re-created by the verification run that ran
+after the clean. Packaging now happens from a tree that is cleaned last.
+
+README: the newcomer entry point the onboarding review asked for — the
+architecture diagram with the solid/dashed convention stated beside it, a
+quick-links table, a direct link to Roadmap r6.7 and to `docs/README.md`. The
+stale citation of the map by its versioned filename now points at
+`architecture_status.json`; the retired `legacy` group is gone from the
+commands; the rate-limiting paragraph no longer describes a pre-v0.6.4 node.
+
+Roadmap r6.7 no longer says v0.6.6 is both closed and not closed. It records
+what is true: v0.6.6 was rejected, its fixes were absorbed here, and v0.6.7 is
+itself incomplete.
+
+Acceptance 145 → 146, green from a recorded run.
+
+### Still owed
+
+Canonical AGPL text plus CLA; SBOM, pinned dependencies, signed artefacts,
+two-person release approval; T-TOOLSET. And from the audit, unchanged as
+accepted debt: the evidence-ID catalogue (v0.6.9), the Guardian Action
+Envelope, the cognitive-ledger recovery contradiction, ADR-017 absent from the
+tree, and guardian outcome labels needing an explicit UNKNOWN.
+
+**ClockWatch on macOS remains unproven.** `CLOCK_BOOTTIME` settles it on
+Linux; on Darwin the code falls back to wall-versus-monotonic, which can still
+mistake a forward correction for a sleep — and the Ф1 gate names the Mac node
+explicitly. `CLOCK-2` is evidence about the boottime seam, not about every
+target host. Named here rather than left to be discovered.
+
+
+## v0.6.7 — audit response 2: the audit baseline
+
+Two findings, one licence, and one check of mine that measured the wrong
+thing. The two findings share a shape with everything this codebase has
+gotten wrong in readiness so far: **an aggregate stood in for a per-item
+fact, and the aggregate was greener than any of its parts.**
+
+### P0-1 — a proof in custody made another backend's failure invisible
+
+`anchor_status()` published `never_succeeded` as ONE boolean over all
+required backends, while `in_custody` was per backend — and the NOT_READY
+branch was gated on `not custody`. So an OpenTimestamps proof sitting in
+perfectly ordinary custody suppressed the verdict about a DIFFERENT required
+backend that had never anchored at all. The same node, the same five
+thousand unanchored records, answered **503 without** the custody proof and
+**200 with** it.
+
+No better boolean fixes that, because a node-wide boolean cannot carry a
+per-backend fact. So:
+
+- `AnchorScheduler.anchor_status()` publishes `per_backend` — required,
+  never, in_custody, behind, last success and its own unanchored depth —
+  plus `configured_backends` and `shadow_backends`;
+- `readiness.anchor_facts()` is now the ONE converter from scheduler state
+  to rule input. It lives with the rules and imports nothing from the
+  daemon. Before this, the shape was assembled twice — once in the daemon
+  and once by hand in every test — and the two could disagree with nothing
+  failing. `READY-ANCH-5` and `ANCH-POLICY-2` now go through the converter
+  the daemon uses, which is what they always claimed to be doing;
+- `evaluate_anchoring` evaluates **each required backend**, takes the worst
+  state, and names every failing backend in the reason. Order of checks:
+  policy breach → never anchored → custody → behind. Custody now covers
+  neither another backend's failure nor its own breach;
+- a required backend with **no measurement** is NOT_READY, not skipped.
+  An absent fact has become a green light twice in this codebase already.
+
+### Shadow backends, and why the fix needed a flag
+
+`required_backends` already existed as an `AnchorScheduler` parameter, and
+the daemon never passed it — so every configured backend was automatically
+required, and running one before its phase was impossible without lying
+about readiness. `--required-anchor-backends` closes that: a backend that is
+configured but not required anchors, is reported under `shadow`, and cannot
+make `/readyz` answer 503. Naming an unconfigured backend refuses at
+startup, because the scheduler drops unknown names and the node would
+otherwise report green on a policy nobody serves.
+
+This is the mechanism a backend needs in order to be operated before the
+phase that makes it mandatory. It changes no default: omit the flag and
+every non-local backend is required, exactly as before.
+
+### P0-2 — a green badge about which code?
+
+The first recut fixed half of this: the badge stopped being a count of
+`def test_*` and started coming from a recorded run. What it never recorded
+is the TREE that run happened against. `total` moves only when the NUMBER of
+checks moves, so any defect introduced without adding or removing a test
+function left the recorded result matching and the badge green about code
+that no longer existed.
+
+Demonstrated rather than argued: on the v0.6.8 tree an entire reserve was
+short-circuited to accept everything it exists to refuse, no test function
+changed, and the generator printed **158/158 green** with a clean drift
+check.
+
+The run now records `tree_digest` — a content address over every `.py` file,
+tests included, sorted by relative path (artefact schema `/v2`). The
+generator refuses to print green for a different tree and names both
+digests. `docs/` is excluded on purpose: it holds the generated surfaces
+*and the result artefact itself*, so a digest covering it would invalidate
+the run the badge describes and the two could never converge.
+
+Known limit, stated rather than discovered later: the digest is over file
+bytes, so a checkout that rewrites line endings produces a different tree
+than the one the recorded run names. That is a true statement about the
+checkout and the badge is right to say so, but on such a host the first
+action is a fresh run.
+
+### The licence
+
+`LICENSES/AGPL-3.0.txt` now holds the canonical text from
+`https://www.gnu.org/licenses/agpl-3.0.txt` — 34 523 bytes, 661 lines,
+fetched twice and compared before use. `pyproject.toml` has declared
+`AGPL-3.0-only` since v0.4, so this file is a legal instrument and the
+requirement is byte-exactness.
+
+`R-LICENSE` was rewritten with it. The old check asked whether a placeholder
+was loudly marked — right while the text was missing, wrong the moment it
+landed, because "contains the title and is over 30000 bytes" is satisfied by
+the canonical text and equally by a truncated, reformatted or wrong-version
+copy. It now pins sha256
+`0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0`.
+
+A CLA is still owed and the build cannot produce one: it names a legal
+entity. `README` §8 says so instead of listing the licence as open.
+
+### Acceptance
+
+| Check | What it pins |
+|---|---|
+| `ANCH-REQ-1…ANCH-REQ-6` (`tests/unit/test_anchor_required_backends.py`) | the audited scenario against a real scheduler; every failing backend named; a shadow backend reported and never blocking; an absent measurement not green; custody covering submission but never a breach; the flag reaching the scheduler and refusing an unconfigured name |
+| `ACC-TREE-1…ACC-TREE-4` (`tests/unit/test_acceptance_provenance.py`) | the recorded run names this tree; the digest follows content and path; a stale digest costs the badge its green and both digests are printed; generated surfaces and byte-caches stay outside the digest |
+
+Three existing files were rewritten rather than patched, because they
+encoded the defective rule: `test_readiness_rules.py`,
+`test_ready_anch_recut.py` and the anchoring half of
+`test_recut2_false_greens.py`.
+
+### Two of my own errors, named here rather than found later
+
+**The first cut of `ACC-TREE-3` asserted that the current badge is green
+before breaking it.** That is a circular dependency and this project has
+already shipped it once — `R-ACCEPT` demanded the literal phrase "N/N
+green", which an honest badge cannot produce during a red run, so the check
+that goes red could never go green again. Rewritten as two synthetic runs
+differing only in the tree they name, so the check about the rule does not
+depend on the state of the tree it runs in.
+
+**`ANCH-REQ-1` passed under the mutation that disabled the branch it is
+named after.** With the depth ceiling on, the policy breach produced
+NOT_READY and the never-anchored branch never ran — a check named after a
+claim while measuring something adjacent to it, written in the drop whose
+subject is that exact defect. Both ceilings are switched off in that check
+now, leaving one path to the verdict, and a mirror case asserts that the
+same "never" state with nothing waiting is only DEGRADED.
+
+Every new check was run against a deliberately broken tree: the
+never-anchored branch disabled, the custody gate restored to its old global
+form, a shadow backend forced back to required, a missing measurement
+treated as green, custody moved ahead of the policy breach, the badge's tree
+comparison disabled, and the digest removed from the recorded result. All
+went red — the first only after `ANCH-REQ-1` was repaired.
+
+Acceptance 156/156, docs drift clean.
+
+### Still owed for a v0.6.7 tag
+
+Supply chain — SBOM, pinned dependencies, signed artefacts, two-person
+release approval — and T-TOOLSET. A CLA, which needs a named entity.
+
+
+## v0.6.7 — audit response 3: what the evidence covers, and whose act it was
+
+Three findings from the recut2 audit. Two of them are mine, both introduced
+in recut2, and they are the same mistake twice: **an inclusion list where an
+exclusion list was needed, and a shared path where an identity was needed.**
+The third is older and worse.
+
+### C — whose deliberation was it?
+
+`verify_deliberation_against_chain(events, records, being_id)` accepted a
+being and never used it. It compared one string — the semantic digest — and
+nothing else.
+
+The audit built a chain **signed by a different node**, attributed in its
+provenance to a different being through a different organ, carrying a
+completely unrelated request, and the auditor accepted it as a correct
+binding for another being's events. Reproduced here before any code moved.
+
+The digest binds run, step, node and resulting state: WHAT HAPPENED. It is
+silent about WHO, and that silence was being read as attribution — which is
+the one thing a witness plane exists to make impossible. Every act in this
+system is an act by a named being; a record that cannot say whose act it was
+is not evidence of an act at all.
+
+Three bindings are checked now, and a fourth is honestly declined:
+
+- the digest, as before;
+- the **organ**, resolved from the digest prefix through a new
+  `ORGAN_BINDINGS` table. A table rather than three loose constants, because
+  the prefix, the organ name and the committed event field are ONE fact
+  about one organ and must never be checked independently — a record cannot
+  wear one spelling in its digest and another in its provenance;
+- the **being**, by recomputing the provenance hash this record would carry
+  if it were this being acting through that organ. Provenance is hashed into
+  the record, so this needs nothing but the record;
+- the committed request opens only when a `chain` is passed. That commitment
+  is HIDING and its salt is held off-chain by the writer, so without the
+  writer's chain there is no honest way to know which event was committed.
+  The function no longer implies there is. When opening IS asked for and the
+  salt is absent, it refuses rather than passing — an unopenable commitment
+  is not evidence.
+
+The table also happens to be the shape the track V rebase needs: adding the
+`kriya_gate` spelling is one row, not a rewrite of the verifier.
+
+### A — the digest covered one language, not the tree
+
+`source_digest` hashed `.py` files only. The auditor granted anonymous
+access to `/v1/tasks` in `deploy/authz.testnet.json`; the digest did not
+move and the badge stayed green. Reproduced on both the recut2 and the
+v0.6.8 trees.
+
+The reasoning that produced that list was about EXCLUDING the generated
+surfaces. It was written as an inclusion list, and an inclusion list
+silently loses every file type nobody thought of. It now excludes by name
+and covers everything else: 187 shipped files instead of Python alone —
+authz policy, systemd and launchd units, shell scripts, the toolset
+manifest, model profiles, Prometheus rules, pyproject, the licences, CI
+workflows, the ADRs and the roadmap.
+
+Four exclusions remain, and each is justified by convergence rather than by
+taste: `README.md`, the generated architecture map, the generated status
+page and the evidence directory all carry the badge itself, so hashing them
+would let writing a result invalidate the run that result describes. They
+are not thereby unverified — `check_docs_drift` proves each regenerates from
+`docs/architecture_status.json`, which IS hashed.
+
+### B — one artefact cannot be evidence of two runs
+
+Every invocation wrote `docs/acceptance_result.json`, so
+`run_acceptance.py live` overwrote a hundred and fifty-six hermetic checks
+with a five-check wasm run. Evidence is now keyed by **suite**, one file per
+suite under `docs/evidence/`, and the artefact (schema `/v3`) names its
+suite, its host — system, release, machine, node — and an `engine` slot that
+stays null unless the caller names one, because the runner cannot know it by
+itself. An opt-in group's result is a claim about a machine, and it now says
+which.
+
+### Acceptance
+
+| Check | What it pins |
+|---|---|
+| `ATTR-1…ATTR-5` (`tests/unit/test_deliberation_attribution.py`) | an honest run verifies at both levels; the audit's forgery is refused; wrong being and wrong organ each refuse ALONE, so the check cannot pass for one reason while claiming two; an unknown prefix is not an organ; a missing salt refuses rather than skipping, and a commitment opening to a different event is caught |
+| `EVID-1…EVID-5` (`tests/unit/test_evidence_identity.py`) | named release-relevant non-Python files are inside the digest and editing the authz policy moves it; unforeseen file types are covered by default; only badge-bearing surfaces are excluded while the ADRs and roadmap are not; a live run cannot overwrite hermetic evidence; the artefact names suite, host and engine and still refuses a hand-edited body |
+
+Each new check was run against a deliberately broken tree: the provenance
+comparison removed, the organ dropped from the expected provenance, a
+missing salt silently skipped, the digest returned to `.py` only, and all
+suites pointed back at one path. All went red.
+
+`ACC-TREE-4` was rewritten rather than kept: it used to prove that writing
+under `docs/` left the digest alone, which is now false and ought to be —
+the ADRs and the roadmap are normative. It proves the convergence exclusion
+against the evidence directory, and separately that a new file under
+`docs/adr/` DOES move the digest.
+
+Acceptance 166/166, docs drift clean.
+
+### Scope, and what is deliberately not here
+
+This recut is release integrity and attribution. The audit's larger P0 — the
+three testing paths that never meet, where `/v1/tasks` runs the full
+BeingRuntime on `core.router._mk_node` reference engines while the real
+configured engine serves only `/v1/messages`, readiness and attestation — is
+NOT addressed here. It needs the vertical: a real backend inside
+BeingRuntime, a separate Being keystore with a canonical `being:<hash>`,
+DecisionTrace bound to a signed manifest, and one end-to-end test through
+mTLS and a restart. That is a drop of its own and mixing it in would put two
+rollbacks behind one tag.
+
+Still owed for a v0.6.7 tag: supply chain, T-TOOLSET, a CLA — and the
+vertical above, which is what stands between this tree and manual alpha
+testing of an actual agent.
+
+## v0.6.7 — the vertical: one path, one engine, one identity
+
+Three ways of making this node think existed, and none went through the
+whole organism. `/v1/messages` used the real engine without a DecisionTrace.
+`live_engine_acceptance.py` had both but went around the daemon, mTLS and
+attestation. And `/v1/tasks` ran the full BeingRuntime on **three synthetic
+engines** built by `core.router._mk_node` — a helper declared inside the
+router's own acceptance-test section, one of the three carrying
+`noise=0.05`.
+
+The middle row was not untidiness. Weight attestation and `/capabilities`
+described the real configured backend while the signed `DecisionTrace` that
+entered the witness chain came from a test fixture: **the node witnessed the
+work of an engine that was never attested and is not a model.**
+
+### The fixtures are gone, and nothing clever replaces them
+
+`_BeingEngineSeat` presents the node's real `EngineBackend` as one router
+seat. Two properties are refusals rather than features:
+
+- the descriptor carries the backend's **own** fingerprint and determinism
+  level, and a driver that states neither cannot describe itself — the seat
+  refuses to be routed to rather than inventing a label;
+- `score` has **no fallback**. A backend without forced-continuation
+  scoring has no verifier role, read from `capabilities().implemented`,
+  which is derived from what the driver overrides rather than from a
+  hand-written list. The consequence is that verification is unavailable —
+  not that a substitute verdict appears.
+
+One engine is one place, and one place is not a panel. That is not worked
+around: a lone node in `production` **refuses**, and manufacturing a panel
+from one engine with different seeds is forbidden by name in ADR-019 D1,
+because imitated independence would enter a signed trace indistinguishable
+from the real thing.
+
+### The defect the vertical uncovered: the honest refusal could not record
+
+`move(trace, REFUSED, detail={"reason": str(e)})` put an exception message
+into `semantic_digest.detail.reason`. The witness-plane vocabulary has
+refused free text since v0.6.5 — replicated prose is both a covert channel
+and an unbounded write into a store nobody can delete from — so the refusal
+raised `PlaneSchemaError` instead of recording a REFUSED trace. **The system
+could not write down why it had refused**, which is the one thing a refusal
+is for.
+
+Nobody had seen it because until now nothing on a single node ever refused:
+three fixtures always produced a panel.
+
+Fixed in the shape already used for challenge rounds and the rate limiter: a
+versioned `OUTCOME_CODES` enumeration, classified **once** at the boundary
+by `classify_refusal`, with `outcome_detail()` putting code, version and a
+`detail_hash` into the plane while the full human text stays on the trace
+returned to the caller and in the local journal.
+
+### The being has its own identity
+
+`being:` plus the first sixteen characters of the node id was wrong three
+ways at once: not the canonical `being:<sha256(pubkey)>`, so nothing could
+bind it to a key; it made the being an artefact of its host, inverting
+Operator → Node → Being; and the being then signed with the NODE's key, so
+"witnessed under the being's identity" was a sentence with no cryptography
+behind it.
+
+`--being-keystore` (with its own passphrase variable) gives the being a key
+of its own, and requires `--node-keystore`, because a hosting binding signed
+by an ephemeral node key is worthless after the next restart. A node without
+one still gets a **canonical** id from a fresh key — ephemeral, and readiness
+says so. A stable-looking id that no key backs would be the dishonest
+option; an honest ephemeral one can at least be told apart.
+
+`make_hosting_binding` is the two-signature statement that this node hosts
+this being. Both signatures are load-bearing for different reasons: the
+being signs because hosting is pull-by-choice (Invariant IV — a node cannot
+acquire the right to speak for a mind by announcing that it has), and the
+node signs because it accepts responsibility for what it witnesses under
+that name. Both ids are checked against the keys that signed them, so a
+genuine pair of signatures cannot be copied under another id. The binding is
+re-derived at boot rather than trusted from disk — one read from a file is a
+claim, one signed at boot is a fact — keeping the original `since_ts`.
+
+Readiness now reports the being separately from the node: an ephemeral being
+is DEGRADED (no continuity across restart), an unbound being is DEGRADED for
+a different reason (nothing proves this node may witness for it, so its
+records top out below IDENTITY_BOUND).
+
+### Acceptance
+
+| Check | What it pins |
+|---|---|
+| `VERT-1…VERT-6` (`tests/integration/test_vertical.py`) | the seat is the configured backend and no call to the fixture helper remains; the verifier role is read from the driver; a lone production node refuses in a reason code with no free text and a chain that still verifies; the labelled path completes on the real engine and admits `mode: "self"`; the being carries a canonical id from its own key and survives restart with a keystore; entitlement comes from the binding and readiness degrades honestly without one |
+| `G-1…G-6` (`tests/integration/test_being_runtime.py`) | rewritten from the requirement: G-1…G-4 exercise the organism over mTLS on the REAL backend through a restart and a containment stop, and the new G-6 spawns a lone `production` node with a well-formed provenance manifest and pins its refusal |
+
+Four deliberate mutations went red: free text back in the refusal detail, the
+verifier role assumed, the being id back to a slice of the node id, and an
+unbound being reported ready.
+
+`test_being_runtime.py` was rewritten rather than patched, because it
+asserted that a single node reaches RECORDED under `production` — true only
+while the panel was three copies of a fixture. It now pins both truths the
+old version could not tell apart: the organism works end to end on the real
+engine, and a lone node refuses instead of pretending.
+
+Acceptance 173/173, docs drift clean.
+
+### Owed next, named rather than left to be found
+
+The recut3 residual is NOT in this drop: `README.md` is still outside the
+tree digest (its manual sections can be edited without moving it — the
+justification that it regenerates wholly from `architecture_status.json` was
+wrong, and the ownership test proves the generator does not touch that
+prose), and the digest still ignores file modes and symlink targets, so
+removing an executable bit changes shipped behaviour without changing a
+hash. Both are release integrity and belong together in their own pass.
+
+Also owed for a v0.6.7 tag: supply chain, T-TOOLSET, a CLA. And the
+provenance map is keyed by ROUTE OBJECT id (`m:self`), not by seat id, with
+`model_id` required in each entry — a manifest missing it surfaces as
+FAILED/`internal_error` rather than a clean refusal, which belongs in the
+runbook before an operator meets it.
+
+---
+
+## v0.6.7-recut5 — the identity vertical (23 August 2026)
+
+recut4 closed the ENGINE vertical: the Being thinks with the backend this
+node actually serves, `core.router._mk_node` is gone from the daemon, and a
+lone `production` node refuses honestly instead of manufacturing a panel out
+of one engine. The fourth audit accepted that and rejected the drop for a
+different reason: the IDENTITY and PROVENANCE vertical was open, and four of
+its holes were load-bearing. All four are closed here, together with the
+deployment artefacts that would have re-opened the first one on every real
+host.
+
+### P0.1 — a restart silently changed the Being
+
+`--being-keystore` existed in `node/daemon.py` and appeared in no test and in
+no deployment artefact. So the end-to-end restart check spawned its node
+WITHOUT it, minted a fresh key and a fresh `being:<hash>`, then loaded the
+previous Being's traces out of the journal it inherited and served them as
+its own. Nothing was corrupt; every signature verified. Two lives had been
+merged, which is precisely what continuity is supposed to prevent and the
+one thing nothing compared.
+
+The node has had the matching rule since v0.4.1 — an ephemeral identity is
+refused over a non-empty witness log — and the Being simply never got it.
+Now:
+
+* `runtime.recovery.recover_traces(..., expect_being_id=...)` refuses to
+  rebuild a journal written by another being, raising the new
+  `BeingContinuityError`. It is kept separate from `IdentityError` because
+  the two answer different questions: `IdentityError` says a key does not
+  match an id, this says a key and an id are both fine and belong to
+  somebody else's history;
+* `journal_being_ids()` reads the `open` entries, which have carried
+  `being_id` since the journal existed — so the check works on journals
+  written before it;
+* `main()` refuses to start a being profile without `--being-keystore` when
+  the journal already holds a history;
+* the refusal is fail-closed in EVERY profile, not only `production`.
+  Moving a Being to another identity is a MIGRATION — a witnessed act with
+  the being key's consent — and never a side effect of a restart.
+
+### P0.2 — the hosting binding was not a runtime gate
+
+Readiness computed `being_bound = bool(hosting_binding)` and nothing else.
+`verify_hosting_binding()` ran only in `main()`, and only when reusing a
+binding already on disk. `kernel/viveka.py` treated a binding as optional:
+absent, the proof simply capped at `COMMITMENT_OPENED`. The audit confirmed
+by execution that `{"garbage": true}` read READY and that a `being_id` naming
+one being with the key of another passed unexamined.
+
+Two of these were one defect: **identity was carried, not derived.**
+`self.being_id = being_id or self.being_identity.being_id` let a caller name
+one being while holding another's key, and nothing compared the two. An id
+that is not the hash of the key that signs for it is a label, not an
+identity. Now `being_id` is always derived and a supplied one is an
+EXPECTATION that refuses on mismatch — which closes the same door P0.1 came
+through.
+
+`Node.__init__` additionally verifies any supplied binding and checks it
+against BOTH ids, mints one when it holds both keys (the rule `main()`
+already followed: a binding read from disk is a claim, one signed at boot is
+a fact), and in `production` refuses to start without a persistent being, a
+persistent node identity and a valid binding. Readiness reports
+`entitled_to_witness(...)` rather than a non-empty dict.
+
+Found while wiring it: **`entitled_to_witness` was not imported in
+`node/daemon.py` at all.** The helper the audit described as "tested but not
+applied by the daemon" was not merely unapplied — it was not in scope.
+
+### P0.3 — the Being key signed nothing the Being said
+
+`BeingRuntime(sk=self.sk, ...)` handed the runtime the NODE key, so the being
+keystore was used for the manifest and the hosting binding — statements
+ABOUT the being, made at boot — and for nothing the being itself authored.
+Even a Plane H knowledge proposal was node-signed.
+
+The split now follows INV-9 exactly:
+
+| Key | Signs |
+|---|---|
+| BEING | what the being AUTHORS: its decision commitment, its knowledge proposals |
+| NODE | the WitnessChain, network receipts, and the witnessing of what the being did |
+
+* `core/plane_h.py` gains `AUTHOR_DOMAIN` and an optional `being_sk`. The
+  body names `author_being`; the envelope carries that being's signature
+  over the same payload. `verify_write_proposal` is fail-closed both ways: a
+  body that NAMES an author without the signature is refused (it reads as
+  authored), and a signature without a named author is refused too;
+* `runtime/decision_trace.py` gains `being_attestation`, `being_commitment()`,
+  `attest_decision()` and `verify_decision_attestation()`. The being signs a
+  commitment over the task, plan, answer and generator — deliberately NOT
+  `trace_hash()`, since the attestation lives inside the trace and signing
+  the whole trace would mean signing a value that changes the moment the
+  signature is attached;
+* `production` refuses to construct a runtime without the being key: a
+  decision nobody signed is attributed to a being by the node's word about
+  itself.
+
+The being's signature sits INSIDE what the node then witnesses. The witness
+plane is still never signed by the being.
+
+### P0.4 — the DecisionTrace was not bound to an artifact
+
+The trace carried `object_id` and a `provenance_model` string read out of an
+external JSON file: a declaration checkable against nothing. And
+`_BeingEngineSeat.describe()` hardcoded `quantization="int4"` for every
+backend regardless of the model — which was not only untrue but made ONE
+backend describe itself two different ways, because `/capabilities`
+published no quantization at all and a remote descriptor built by
+`core.router.RemoteNode.describe()` therefore read `"n/a"`.
+
+* `_BeingEngineSeat.artifact_refs()` reports `model_artifact_manifest_hash`,
+  `deployment_manifest_hash`, `engine_fingerprint`, the real quantization and
+  whether anything is attested — all from the signed manifest and the
+  measured deployment, or `unknown`;
+* `unknown` is a VALUE, not an absence. The reference backend honestly has
+  nothing to attest and says so; inventing a precision was the defect;
+* `/capabilities` publishes `quantization`, so both paths describe the same
+  engine the same way;
+* `BeingRuntime._artifact_refs()` asks the SEAT that generated, never the
+  route table — a binding read from configuration would be the same
+  declaration this replaces;
+* `production` refuses with the new `no_model_artifact_binding` when the
+  decision cannot be bound to the weights that produced it.
+
+### Deployment — where P0.1 would have come back
+
+`--being-keystore` was in no unit, no plist, no bootstrap script and neither
+runbook. Fixed in code, every deployed node would still have been ephemeral,
+with a green suite. The systemd unit and the macOS launcher now pass the
+being keystore and refuse to start without `JJDAI_BEING_PASSPHRASE`;
+`keychain_seal.py` gains `--kind node|being` so the two secrets are separate
+keychain items with separate lifetimes — a being outlives the host it runs
+on. Both runbooks document the second secret, and RUNBOOK.md §2b finally
+records that the provenance map is keyed by ROUTE OBJECT id (`m:self`) with
+`model_id` required, closing a debt named in recut4.
+
+### Acceptance
+
+| Check | What it pins |
+|---|---|
+| `VERT-7` | the daemon ENFORCES the binding: a non-verifying binding, a valid binding between two OTHER parties, a `being_id` the keystore does not derive, and an ephemeral being in `production` are all refusals; readiness reports a verified entitlement |
+| `VERT-8` | a being's history is its own — the same key gets it back, a different key over the same journal is refused |
+| `VERT-9` | the being signs what it authored, the attestation cannot be re-attributed or opened against a changed answer, a proposal naming an author without that author's signature is refused, and the chain stays node-signed |
+| `VERT-10` | the trace names the artifact behind it; a backend with nothing to attest reports `unknown`; `/capabilities` and the local seat agree; no precision is hardcoded in the daemon |
+| `G-3` | rewritten into an actual continuity check: the node restarts over mTLS on the same NODE and BEING keystores and the `being_id` is compared before and after |
+| `LV-1…LV-6` (`tests/live/test_vertical_live.py`, opt-in `live`) | the same vertical against a REAL backend on a target host: the seat is the live engine, the artifact is genuinely named, one backend has one description, the decision is being-signed, continuity holds on a real model, and one seat is still not a panel |
+
+Eight deliberate mutations went red, each in the check named for it:
+`being_id` carried again; `bool(hosting_binding)` restored; the binding
+verification removed; `expect_being_id` dropped; the decision attestation
+skipped; `"int4"` hardcoded again; the author-signature branch disabled; the
+answer removed from the commitment.
+
+`VERT-6` is kept as the helper check and is no longer mistaken for
+enforcement — that separation is the point. The first cut of `VERT-10`
+asserted the artifact refusal through a lone `production` node, where the
+PANEL gate fires first; it would have carried on the wrong branch. This is
+the recurring defect of this project — a check named for one thing measuring
+its neighbour — caught once more inside the drop that produced it, and
+rewritten to classify the code directly and to assert the panel refusal as a
+panel refusal.
+
+The lifecycle unit fixtures supply a STUB artifact binding through a
+`_BoundSeat` wrapper and say so: their subject is the lifecycle, and the
+artifact gate is proven where it belongs, in `VERT-10` and `LV-2`.
+
+Acceptance 177/177, docs drift clean.
+
+### Owed next, unchanged and still named
+
+The recut3 residual is NOT in this drop: `README.md` is still outside the
+tree digest, and the digest still ignores file modes and symlink targets.
+Both are release integrity and belong together in their own pass. Also owed
+for a v0.6.7 tag: supply chain (SBOM, pinned deps, signed artefacts,
+two-person release approval), T-TOOLSET, and a CLA — which requires a named
+legal entity and cannot be produced by a build.
+
+`tests/live/test_vertical_live.py` has NOT been run: this build host has no
+DwarfStar or SGLang. It raises rather than skipping, and it is evidence about
+a target host only once a target host runs it.
+
+---
+
+## v0.6.7-recut6 — the artifact chain, and a commitment that opens (23 August 2026)
+
+The fifth audit closed P0.1–P0.3 of the fourth and rejected recut5 on two
+counts: the ModelArtifactManifest binding was still a false green, and the
+RECORDED transition committed to a trace nobody receives. Both are closed
+here. Neither was subtle once named, and both had been green for a drop.
+
+### P0.1 — the artifact binding was a false green four ways over
+
+Each of the four is a different way to fake provenance, so all four are
+written down:
+
+1. **the seat asked the DRIVER.** `attestation_manifest()` is implemented by
+   exactly one backend — the reference `hash` engine. DwarfStar, SGLang,
+   vLLM, llama.cpp and MLX all return `NotSupported`, so the field was empty
+   precisely on the hosts where provenance matters;
+2. **only the SCHEMA was checked.** `artifact_refs()` called
+   `validate_manifest_body()` and never `verify_manifest()`. A well-formed
+   manifest anybody could write passed;
+3. **the gate tested for a non-empty string.** A test fixture handing over
+   `"0" * 64` with `attested: False` satisfied `production` — which is how
+   the audit found the gate, by reading what a fixture got away with;
+4. **it ran after generation.** A node whose provenance was unprovable
+   served, thought and only then refused, per task, forever.
+
+New `core/artifact_binding.py` builds the binding ONCE, at boot, as a chain:
+
+```
+signed ModelArtifactManifest   (verify_manifest: schema + hash + SIGNATURE)
+    → checkpoint_hash  ==  a verified WeightAttestation.artifact_hash
+    → engine_fingerprint  ==  the DeploymentManifest's fingerprint
+    → backend  ==  the driver actually loaded
+    → quantization read FROM the verified body, never asserted
+```
+
+Every link is checked and any break refuses. The result is a FROZEN
+`ArtifactRefs`; a seat reports it and cannot compose it. `verified` is set
+by that module and nowhere else, so a fixture that wants to look bound must
+produce a genuinely signed chain.
+
+New flag `--model-artifact-manifest`, required by `--being-profile
+production`. A BROKEN chain refuses the boot in any profile — the operator
+said these are the weights and they are not. An INCOMPLETE one (a signed
+manifest with nothing measured) is honestly unbound, and `production` then
+refuses with the reason attached. A signed description of weights is not
+evidence that those weights are here.
+
+`tests/artifact_fixtures.py` replaces the stub with the real article: a real
+profile, a real file whose bytes are measured, a real `WeightAttestation`, a
+real `DeploymentManifest` signed by the node it describes, and a manifest
+signed with a real key — verified by the same `bind_artifact` the daemon
+uses. Every production harness in the suite now supplies the manifest AND
+the weights, and the node measures them for itself.
+
+### P0.2 — the witnessed hash was of a trace nobody receives
+
+`RECORDED.detail.trace_hash` was computed BEFORE the RECORDED transition was
+appended. The transition then changed the trace, so `detail.trace_hash !=
+trace.trace_hash()` — reproducibly, every task, since the state machine
+existed. The chain testified to an object that never left the process.
+
+A hash of an object must never sit inside that object. `trace_hash()` is
+**removed** rather than left as a trap for the next caller, and
+`content_digest()` / `recompute_commitment()` take a projection that
+excludes everything self-referential or appended afterwards: transitions,
+witness span, timestamps, the being's attestation (which carries this
+digest), and the state itself, which advances as the record is written.
+
+Transitions are deliberately NOT folded in. Every transition is already its
+own witnessed TASK record, so the chain covers the sequence by construction;
+re-hashing it here would prove nothing further while forcing the commitment
+to change at the instant it is written — the very defect being fixed. What
+the chain cannot cover by itself is the CONTENT, and that is what this
+binds. VERT-11 checks the sequence the other way instead: every transition
+must name a record whose state matches.
+
+One commitment now serves both signatures: the being signs the content it
+authored, the node witnesses the same value. `being_commitment()` is
+`content_digest()`.
+
+### Also closed
+
+`BeingRuntime` now checks `canonical_being_id(being_sk.public) == being_id`
+itself. The Node derives the id from the key, but a caller constructing a
+runtime directly could still pair one being's id with another's key, and
+everything that "being" signed would be attributed to a name it cannot hold.
+
+`tests/live/test_vertical_live.py` was **broken and could not run**: it set
+`BackendConfig.endpoint`, a field that does not exist on a `__slots__`
+object whose URL field is `url`. It raised AttributeError before the first
+check. Rewritten: the node under test is now a REAL DAEMON spawned over
+mTLS with both keystores, the manifest and the weights, restarted in place —
+constructing a `Node` in-process skipped exactly what a live test exists to
+cover. It requires `JJDAI_LIVE_BACKEND`, `JJDAI_LIVE_URL`,
+`JJDAI_LIVE_MANIFEST` and `JJDAI_LIVE_WEIGHTS`, and refuses loudly without
+them.
+
+### Acceptance
+
+| Check | What it pins |
+|---|---|
+| `VERT-10` (rewritten) | the binding is a verified CHAIN: a bad signature does not bind, a manifest naming a checkpoint this node never measured does not bind, a signed manifest with nothing measured does not bind, a fingerprint disagreement does not bind, and an unverified binding refuses the BOOT rather than each task |
+| `VERT-11` | the witnessed commitment opens to the trace the caller received AND to the one recovered from the journal; it covers answer, action, outcome, citations, plan and generator; every transition names a record whose state matches; `trace_hash()` has not returned |
+| `VERT-9` (extended) | a runtime built directly cannot hold one being's id with another's key |
+| `LV-1…LV-7` (opt-in `live`) | the same, through a real daemon over mTLS against a real model |
+
+Four mutations were run and **two of them passed on the first attempt**,
+which is the finding worth keeping from this drop:
+
+* removing the signature check left VERT-10 green. The forged-manifest
+  branch had `raise AssertionError(...)` inside a `try` whose `except
+  Exception` asserted that the word "signature" appeared in the message —
+  and the AssertionError's own text contained it. The check passed by
+  catching itself. The assertion now sits outside the `try`;
+* removing the being-id check left everything green, because nothing
+  constructed a runtime directly with a mismatched pair. VERT-9 now does.
+
+This is the project's recurring defect for the fifth drop running — a check
+named for one thing measuring its neighbour — and it is the reason mutations
+are run at all. A third near-miss was caught while writing VERT-11: the
+`citations` mutation set `[]` over a value that was already `[]`, a no-op on
+a first task, exactly the EVID-5 shape from recut3. Every mutated value is
+now asserted to differ from what the trace holds before it is used.
+
+Acceptance 178/178, docs drift clean.
+
+### Owed next, unchanged
+
+The recut3 residual (`README.md` outside the tree digest; file modes and
+symlink targets), supply chain, T-TOOLSET, CLA. `tests/live/test_vertical_live.py`
+still has not been RUN — this build host has no DwarfStar or SGLang, and it
+is evidence about a target host only once a target host runs it.
+
+---
+
+## v0.6.7-recut7 — the last link of the artifact chain (23 August 2026)
+
+The sixth audit accepted recut6's two P0s — the stable `content_commitment`
+and the verified manifest — and blocked release on one remaining gap, which
+was the worse kind: four of five links were checked and the fifth was not,
+while `VERT-10` asserted the whole chain. A check that claims more than the
+code does is not a weaker check, it is a false one.
+
+### What was missing
+
+`bind_artifact()` read `engine_fingerprint` out of the DeploymentManifest
+and hashed its body — and never called `verify_deployment_manifest()`.
+Reproduced exactly as the audit did: a deployment with a zeroed signature
+bound clean, and so did one signing for entirely different weights. The
+daemon was partly shielded because it BUILDS its own deployment and passes
+it through `AttestationStore.hold_deployment()` first, but the public binder
+and any directly-constructed runtime were not, and the difference between
+"the caller happens to be safe" and "the function is safe" is the whole
+point of having the function.
+
+The second half was a docstring lying about its own code:
+`require_attestation=False` returned `verified=True, attested=False` while
+the comment said production would refuse it — production reads only
+`verified`, so it did not.
+
+### The chain now, in full
+
+```
+signed ModelArtifactManifest      verify_manifest: schema + hash + signature
+signed DeploymentManifest         verify_deployment_manifest: signature,
+                                  every embedded attestation, and their
+                                  hash binding into the signed body
+checkpoint present                the checkpoint the manifest names must
+                                  appear among the substrates that
+                                  deployment SIGNED for
+attestations from the bundle      taken from the verified deployment, never
+                                  from beside it; an externally supplied set
+                                  must be byte-identical or it is a second,
+                                  unsigned opinion
+engine agreement                  deployment fingerprint == loaded driver,
+                                  manifest backend == loaded driver
+quantization                      read from the verified body
+```
+
+`require_attestation` is **removed** rather than defaulted safely: a flag
+that relaxes a chain is a flag somebody will pass. A deployment is required;
+there is no partial mode. `verified` means the whole chain held.
+
+`ArtifactRefs` gains `manifest_verified` beside `verified`, because "the
+description is genuine but nothing measured it" is a real state and a
+different one from "nothing verified at all" — recut6 conflated them and
+returned the strong flag for the weak case. Only `verified` admits
+production, and it is now set in exactly one place.
+
+### Acceptance
+
+`VERT-10` gains the four negatives the audit named, each written so the
+assertion sits OUTSIDE the `try` — the trap that let a check catch itself in
+recut6:
+
+| Negative | Expected |
+|---|---|
+| forged DeploymentManifest signature | reject |
+| valid deployment that does not carry this checkpoint | reject |
+| attestation supplied outside the signed deployment | reject |
+| no deployment at all | reject |
+
+Three mutations, three reds: dropping the deployment verification, dropping
+the checkpoint-membership check, dropping the byte-binding of an external
+attestation set. Each went red in the branch named for it.
+
+Acceptance 178/178, docs drift clean. The count is unchanged because the
+new negatives strengthen an existing check rather than adding one — the
+guarantee moved, not the arithmetic.
+
+### Owed next, unchanged
+
+The recut3 residual (`README.md` outside the tree digest; file modes and
+symlink targets), supply chain, T-TOOLSET, CLA.
+`tests/live/test_vertical_live.py` still has not been RUN on a host with a
+real model.
+
+---
+
+## v0.6.7-recut8 — a link the refactor dropped (23 August 2026)
+
+The sixth audit confirmed recut7 closed the DeploymentManifest gap and then
+found something worse in kind: **recut6 had checked that the
+WeightAttestation was taken under the running engine, and the recut7 rewrite
+silently lost it.** Not a gap never closed — a guarantee that existed, was
+removed while the surrounding code was being strengthened, and left
+`VERT-10` still claiming it.
+
+Reproduced exactly as reported:
+
+```
+running engine       fp-running
+DeploymentManifest   fp-running
+WeightAttestation    fp-different
+bind_artifact()      verified=True
+```
+
+and the same break in its other form, a deployment from one node embedding
+an attestation signed by another. Every signature valid; the bundle
+meaningless. Each part verifying is not the same as the parts describing the
+same thing.
+
+### Closed at three levels, as the audit asked
+
+1. **`make_deployment_manifest()` will not BUILD one.** An attestation whose
+   `attester_node` is not this node, or whose `engine_fingerprint` is not
+   the one the deployment declares, is refused before signing. A deployment
+   manifest is a first-person statement; a node cannot vouch for somebody
+   else's measurement.
+2. **`verify_deployment_manifest()` will not VERIFY one offline.** A
+   verifier that reports `ok` on a self-contradictory bundle is telling a
+   reader something untrue, whatever the signatures say.
+3. **`bind_artifact()` checks against the engine actually LOADED**, which
+   neither of the other two can see.
+
+### The non-blocking finding, also fixed
+
+`manifest_verified` was introduced in recut7 and then thrown away at the
+daemon boundary: `unbound()` was called without it, so the flag was true
+only when `verified` already was, and the distinction it existed to draw
+never appeared. `ArtifactBindingError` now carries `manifest_verified`, every
+post-manifest failure sets it, and the daemon records it.
+
+### Acceptance
+
+`VERT-10` gains all three levels. The bundles are forged BY HAND in the
+test, because since this drop `make_deployment_manifest` refuses to produce
+one — so the only way such a bundle reaches a verifier is from an adversary
+or an older builder, which is exactly who it must be checked against.
+
+Level 3 needed care. It is UNREACHABLE while levels 1 and 2 hold: the
+deployment's own fingerprint is compared with the driver first, so a normal
+path assertion would have been carried by the level-2 failure — this
+project's recurring defect, a check named for one thing measuring its
+neighbour. The verifier is therefore stubbed out for the length of that
+block, the same technique that exposed ATTR-5, leaving the third layer as
+the only thing that can catch the contradiction. It also needed a manifest
+for the forged checkpoint, or the checkpoint-membership gate would have
+carried the assertion instead.
+
+Five mutations, five reds: the builder guard, the verifier consistency
+check, and both branches of the binder's own comparison, each in the level
+named for it — plus a compound mutation removing levels 1 and 2 together,
+which the level-2 assertion catches first, as it should.
+
+One existing fixture had to change and the reason is worth recording: A-3 in
+`tests/unit/test_v051_primitives.py` built a deployment from an attestation
+created with no `engine_fingerprint` at all. Under the new rule that is a
+contradiction, and correctly so — an attestation with `engine_fingerprint:
+None` is not "unspecified", it is a measurement nobody can say which engine
+produced. The fixture now names the engine it means.
+
+Acceptance 178/178, docs drift clean.
+
+### Owed next, unchanged
+
+The recut3 residual (`README.md` outside the tree digest; file modes and
+symlink targets), supply chain, T-TOOLSET, CLA, and the live vertical still
+un-run on a host with a real model.
+
+---
+
+## v0.6.7-recut9 — an unnamed identity is not a match (23 August 2026)
+
+The seventh audit confirmed recut8 closed both of its findings and then
+found a third instance of the same invariant failing open, in the most
+uncomfortable way available: **recut8's own CHANGELOG states the rule that
+recut8's code does not follow.** It says, correctly, that
+`engine_fingerprint: None` is not "unspecified" but a measurement nobody can
+attribute — while every comparison in the binder was guarded by truthiness:
+
+```python
+if dep_fp and fp and dep_fp != fp:
+```
+
+With both sides empty no mismatch arises, so the whole chain returned
+`verified=True`. Reproduced:
+
+```
+blank_fingerprint_accepted=True    engine.fingerprint=''
+missing_backend_accepted=True      engine.backend=''
+```
+
+Absence was being read as agreement. That is the same shape as
+`bool(hosting_binding)` in recut5 and the same shape as the truthiness guard
+in the anchoring policy before recut2 — a value-or-nothing test standing in
+for a comparison.
+
+### The rule, applied where identity is established rather than compared
+
+An identity is a **non-empty string**. `None`, `""` and `"  "` are not three
+shades of unspecified; they are one absence, and an absence is refused
+before any comparison happens, not compared leniently:
+
+* `bind_artifact()` requires a named `backend` and `fingerprint` on the
+  LOADED engine, then compares with strict equality and no truthiness. The
+  deployment's fingerprint and each attestation's fingerprint must likewise
+  be named before they are matched;
+* `make_weight_attestation()` refuses to SIGN an attestation that names no
+  engine. An unattributable measurement should not exist as an artefact, let
+  alone be compared later;
+* `make_deployment_manifest()` and `verify_deployment_manifest()` refuse a
+  manifest naming no engine or no node;
+* `declared_attributes()` normalises blank and whitespace-only attributes to
+  `None` — `" "` used to survive and read downstream as "the driver declared
+  something";
+* `phase_readiness()` calls a backend identified only when `backend` and
+  `fingerprint` are both non-empty strings, rather than merely `is not
+  None`.
+
+### Acceptance
+
+`VERT-10` gains the three negatives the audit named — blank runtime
+fingerprint, whitespace fingerprint, missing runtime backend — plus the
+signing-side refusal for `""`, `"   "` and `None`. New `A-12` in
+`tests/unit/test_adapter_layer.py` pins the attribute rule where it lives:
+a driver with a blank `backend` or `fingerprint` is not identified, and a
+properly named one still is.
+
+Five mutations, five reds: restoring the truthiness guard on the
+fingerprint, restoring it on the backend, removing the signing-side refusal,
+restoring `value not in (None,)` in `declared_attributes`, and weakening
+`identified` back to a presence test.
+
+Two existing fixtures changed for the same reason as recut8's A-3: they
+built attestations naming no engine. The binding class of a manifest id
+(content vs declared) is about the ID, not about the engine — that case
+still exists, it simply has to say who measured, like every other.
+
+Acceptance 179/179, docs drift clean.
+
+### Owed next, unchanged
+
+The recut3 residual (`README.md` outside the tree digest; file modes and
+symlink targets), supply chain, T-TOOLSET, CLA, and the live vertical still
+un-run on a host with a real model.

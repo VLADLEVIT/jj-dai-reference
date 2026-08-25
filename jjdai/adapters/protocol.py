@@ -193,7 +193,10 @@ def declared_attributes(obj) -> dict:
     out = {}
     for attr in REQUIRED_ATTRIBUTES:
         value = getattr(obj, attr, None)
-        out[attr] = value if value not in (None, "") else None
+        # recut9: whitespace is not a value. `" "` used to survive here and
+        # then read as "declared" everywhere downstream.
+        out[attr] = (value if isinstance(value, str) and value.strip()
+                     else None)
     return out
 
 

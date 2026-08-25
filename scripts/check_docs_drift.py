@@ -13,7 +13,11 @@ failure:
      byte-for-byte (edit the JSON, not the surfaces);
   3. forbidden stale phrases are absent from README and the map
      (each phrase is a fossil of a specific past drift);
-  4. CONTRIBUTING.md references only existing doc files.
+  4. CONTRIBUTING.md references only existing doc files;
+  5. the generated map's FILENAME carries the version the status file
+     declares, and exactly one map exists. Added in v0.6.7: the name froze
+     at v0.5 in May and rode three months of drops, because every check
+     compared CONTENTS and none compared the name.
 
 Exit 0 = clean; exit 1 = drift, with every finding named.
 """
@@ -27,7 +31,8 @@ import sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, os.path.join(ROOT, "scripts"))
-from gen_architecture_docs import generate, load, README, MAP   # noqa: E402
+from gen_architecture_docs import (generate, load, README, MAP,   # noqa: E402
+                                   map_files, map_path)
 
 FORBIDDEN = {
     "unimplemented seam":
@@ -60,7 +65,13 @@ def main() -> int:
         findings.append("README status table drifted from "
                         "architecture_status.json — run "
                         "scripts/gen_architecture_docs.py")
-    if io.open(MAP, encoding="utf-8").read() != fresh["map"]:
+    # A map under the wrong NAME is reported by check 5, by name; reading it
+    # here would raise instead, and a gate whose contract is "every finding is
+    # named" must not exit through a traceback.
+    if not os.path.exists(MAP):
+        findings.append(f"architecture map missing: "
+                        f"{os.path.basename(MAP)!r}")
+    elif io.open(MAP, encoding="utf-8").read() != fresh["map"]:
         findings.append("architecture map drifted — run the generator")
     if not os.path.exists(fresh["html_path"]):
         findings.append(f"HTML surface missing: {fresh['html_path']}")
@@ -69,6 +80,8 @@ def main() -> int:
 
     # 3. fossils
     for surface in (README, MAP):
+        if not os.path.exists(surface):
+            continue                      # already reported, by name, above
         text = io.open(surface, encoding="utf-8").read()
         for phrase, why in FORBIDDEN.items():
             if phrase in text:
@@ -82,6 +95,25 @@ def main() -> int:
         for ref in re.findall(r"docs/[\w./-]+\.md", text):
             if not os.path.exists(os.path.join(ROOT, ref)):
                 findings.append(f"CONTRIBUTING references missing {ref!r}")
+
+    # 5. the generated map's filename tracks the declared version
+    declared = load()["version"]
+    present = map_files()
+    if not present:
+        findings.append(f"no architecture map found; expected "
+                        f"{os.path.basename(map_path(declared))!r}")
+    else:
+        for got in present:
+            if os.path.abspath(got) != os.path.abspath(MAP):
+                findings.append(
+                    f"map filename {os.path.basename(got)!r} does not match "
+                    f"the declared version {declared!r} — expected "
+                    f"{os.path.basename(map_path(declared))!r}")
+        if len(present) > 1:
+            findings.append(
+                f"{len(present)} architecture maps present; exactly one may "
+                f"exist, or a reader cannot tell which the release stands "
+                f"behind")
 
     if findings:
         print("DOCS DRIFT — the surfaces disagree with the source of truth:")

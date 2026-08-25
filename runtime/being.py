@@ -53,11 +53,13 @@ from kernel.viveka import Viveka
 from kernel.karma import Karma, ActionRefused, KarmaError
 from core.plane_h import (GovernedPlaneH, WritePolicy,
                           make_write_proposal)
+from core.artifact_binding import ArtifactRefs, unbound
 from core.rag_store import RagStore
 from core.router import (Router, RoutingPolicy, RuleClassifier, RouteObject,
                          Query, RefusalError, ChampionRegistry,
                          WitnessChain as RouterWitness)
-from runtime.decision_trace import (DecisionTrace, GROUNDED, PLANNED,
+from runtime.decision_trace import (DecisionTrace, attest_decision,
+                                    GROUNDED, PLANNED,
                                     GENERATED, VERIFIED, AUTHORIZED, ACTED,
                                     RECORDED, REFUSED, FAILED, CONTAINED)
 from runtime.state_machine import TaskStateMachine
@@ -65,6 +67,70 @@ from runtime.recovery import recover_traces
 
 EXECUTIVE_SCOPE = "scope:executive"
 KNOWLEDGE_NS = "being/knowledge"
+
+
+#: Terminal-outcome reason codes, versioned. The witness plane takes enums,
+#: numbers and hashes and refuses free text (v0.6.5), for two reasons that
+#: both apply here: replicated free text is a covert channel, and it is an
+#: unbounded write into a store nobody can delete from.
+#:
+#: Until the vertical this was not merely a style rule being broken — the
+#: refusal path was BROKEN BY IT. `move(trace, REFUSED, detail={"reason":
+#: str(e)})` put an exception message into `semantic_digest.detail.reason`,
+#: the plane refused the value, and the refusal raised PlaneSchemaError
+#: instead of recording a REFUSED trace. The system could not write down WHY
+#: it had refused, which is the one thing a refusal is for. Discovered when
+#: the vertical made a lone production node refuse for the first time.
+OUTCOME_CODES_VERSION = "1"
+OUTCOME_NO_PANEL = "no_independent_panel"
+OUTCOME_NO_PROVENANCE = "no_provenance_manifest"
+OUTCOME_NO_CANDIDATE = "no_capable_candidate"
+OUTCOME_VERDICT_FAILED = "verifier_verdict_failed"
+OUTCOME_REFUSED_OTHER = "refused_other"
+OUTCOME_CONTAINED = "containment_denied_action"
+OUTCOME_ACTION_REFUSED = "action_refused"
+OUTCOME_NO_ARTIFACT_BINDING = "no_model_artifact_binding"
+OUTCOME_INTERNAL_ERROR = "internal_error"
+OUTCOME_CODES = (OUTCOME_NO_PANEL, OUTCOME_NO_PROVENANCE,
+                 OUTCOME_NO_CANDIDATE, OUTCOME_VERDICT_FAILED,
+                 OUTCOME_REFUSED_OTHER, OUTCOME_CONTAINED,
+                 OUTCOME_ACTION_REFUSED, OUTCOME_NO_ARTIFACT_BINDING,
+                 OUTCOME_INTERNAL_ERROR)
+
+#: Substrings are matched against the refusal text ONCE, here, and never
+#: again downstream. Classifying at the boundary keeps the mapping in one
+#: readable place; an unrecognised refusal is `refused_other`, never a
+#: guess and never free text.
+_REFUSAL_CODE_HINTS = (
+    ("no ProvenanceManifest", OUTCOME_NO_PROVENANCE),
+    ("provenance", OUTCOME_NO_PROVENANCE),
+    ("panel", OUTCOME_NO_PANEL),
+    ("independen", OUTCOME_NO_PANEL),
+    ("artifact manifest", OUTCOME_NO_ARTIFACT_BINDING),
+    ("no capable", OUTCOME_NO_CANDIDATE),
+    ("candidate", OUTCOME_NO_CANDIDATE),
+    ("verdict", OUTCOME_VERDICT_FAILED),
+)
+
+
+def classify_refusal(text: str) -> str:
+    low = (text or "").lower()
+    for needle, code in _REFUSAL_CODE_HINTS:
+        if needle.lower() in low:
+            return code
+    return OUTCOME_REFUSED_OTHER
+
+
+def outcome_detail(code: str, text: str) -> dict:
+    """What a terminal transition may put in the witness plane.
+
+    The CODE is replicated so a reader can act on it; the human text is
+    reduced to a digest so it can be proved later against a copy held off
+    the plane, without the plane carrying prose.
+    """
+    return {"reason_code": code,
+            "reason_codes_version": OUTCOME_CODES_VERSION,
+            "detail_hash": H_hex((text or "").encode("utf-8"))}
 
 
 class BeingRuntimeError(RuntimeError):
@@ -75,6 +141,7 @@ class BeingRuntime:
     """One Being, one identity, one witness, one lifecycle."""
 
     def __init__(self, *, sk, chain, being_id: str, governor,
+                 being_sk=None,
                  workspace: str,
                  profile: str = "production",
                  route_objects: list = None,
@@ -92,7 +159,33 @@ class BeingRuntime:
             raise BeingRuntimeError(
                 "production profile requires a provenance map — a Being "
                 "that cannot judge verifier independence must not verify")
+        #: The NODE key. It signs the witness chain, network receipts and
+        #: the witnessing of what this being did — never the being's own
+        #: authorship (INV-9).
         self.sk = sk
+        #: The BEING key (recut5, audit P0.3). It signs what the being
+        #: AUTHORS: its decision commitment and its knowledge proposals.
+        #: Until now the runtime was handed the node key and nothing else,
+        #: so the being keystore was used for the manifest and the hosting
+        #: binding and for nothing the being actually said.
+        self.being_sk = being_sk
+        if being_sk is not None:
+            # recut6: the Node derives the id from the key, but a caller
+            # constructing a BeingRuntime directly could still pass one
+            # being's id with another's key — and then everything the
+            # "being" signed would be attributed to a name it cannot hold.
+            from jjdai.crypto import canonical_being_id as _cbid
+            derived = _cbid(being_sk.public)
+            if derived != being_id:
+                raise BeingRuntimeError(
+                    f"being_id {being_id!r} does not match the being key, "
+                    f"which derives {derived!r}: a signature under one name "
+                    "and an id under another is not an identity")
+        if profile == "production" and being_sk is None:
+            raise BeingRuntimeError(
+                "production profile requires the being's own signing key: "
+                "a decision nobody signed is attributed to a being by the "
+                "node's word about itself")
         self.chain = chain                       # THE one witness chain
         self.being_id = being_id
         self.governor = governor
@@ -144,7 +237,8 @@ class BeingRuntime:
             self.traces = recover_traces(
                 os.path.join(jd, "tasks.jsonl"),
                 karma_journal=os.path.join(jd, "karma.jsonl"),
-                machine=self.machine)
+                machine=self.machine,
+                expect_being_id=being_id)
 
     # ------------------------------------------------------------------ #
     #  The lifecycle
@@ -170,20 +264,26 @@ class BeingRuntime:
             pass                                  # trace already terminal
         except RefusalError as e:
             if not trace.terminal:
+                # The full text stays on the TRACE, which is returned to the
+                # caller and journalled locally; only the code and a digest
+                # of it cross into the replicated plane.
                 self.machine.enrich(trace, outcome_reason=str(e))
-                self.machine.move(trace, REFUSED, detail={"reason": str(e)})
+                self.machine.move(trace, REFUSED,
+                                  detail=outcome_detail(
+                                      classify_refusal(str(e)), str(e)))
         except ActionRefused as e:
             if not trace.terminal:
                 self.machine.enrich(trace, outcome_reason=str(e))
                 self.machine.move(trace, CONTAINED,
-                                  detail={"reason": str(e)})
+                                  detail=outcome_detail(
+                                      OUTCOME_ACTION_REFUSED, str(e)))
         except Exception as e:                    # noqa: BLE001 — named FAILED
             if not trace.terminal:
-                self.machine.enrich(trace,
-                                    outcome_reason=f"{type(e).__name__}: {e}")
+                text = f"{type(e).__name__}: {e}"
+                self.machine.enrich(trace, outcome_reason=text)
                 self.machine.move(trace, FAILED,
-                                  detail={"error": f"{type(e).__name__}: "
-                                                   f"{str(e)[:300]}"})
+                                  detail=outcome_detail(
+                                      OUTCOME_INTERNAL_ERROR, text))
         return trace
 
     # ---- GROUNDED: recall + governed knowledge with citations ----------- #
@@ -242,11 +342,30 @@ class BeingRuntime:
         gen_prov = None
         if self.router.provenance:
             gen_prov = self.router.provenance.get(st["object"], {})
+        # WHICH ARTIFACT PRODUCED THIS (recut5, audit P0.4). The trace used
+        # to carry `object_id` plus a `provenance_model` string read from an
+        # external JSON file — a declaration, checkable against nothing. The
+        # seat that actually generated is asked instead, and what it reports
+        # comes from the signed manifest and the measured deployment, or
+        # says `unknown`.
+        refs = self._artifact_refs(st["object"])
+        generator = {"object_id": st["object"],
+                     "provenance_model": (gen_prov or {}).get("model_id"),
+                     **refs.as_trace_fields()}
+        # VERIFIED, not merely non-empty (recut6, audit P0.1). `verified` is
+        # set by core.artifact_binding and nowhere else, so a fixture that
+        # wants to look bound has to produce a genuinely signed chain. The
+        # daemon refuses this at BOOT; the check here guards a runtime
+        # constructed directly.
+        if self.profile == "production" and not refs.verified:
+            raise RefusalError(
+                "no verified model artifact manifest binds this decision to "
+                f"the weights that produced it (seat for {st['object']!r}: "
+                f"{refs.reason}); production does not sign a trace whose "
+                "generator is a claim")
         self.machine.enrich(
             trace,
-            generator={"object_id": st["object"],
-                       "provenance_model":
-                           (gen_prov or {}).get("model_id")},
+            generator=generator,
             answer=st["answer"])
         self.machine.move(trace, GENERATED,
                           detail={"object": st["object"]})
@@ -306,6 +425,29 @@ class BeingRuntime:
                                   **({"karma_status": receipt.get("status")}
                                      if receipt else {})})
 
+    def _artifact_refs(self, object_id: str) -> dict:
+        """Ask the SEAT that generated, never the route table.
+
+        Route objects are named in configuration; seats are the running
+        engines. A binding taken from configuration would be the same
+        declaration this check exists to replace.
+        """
+        node_id = next((o.node_id for o in self.router.objects
+                        if o.object_id == object_id), None)
+        seat = self.router.nodes.get(node_id) if node_id else None
+        getter = getattr(seat, "artifact_refs", None)
+        if getter is None:
+            return unbound(f"seat for {object_id!r} cannot name an artifact")
+        try:
+            refs = getter()
+        except Exception as e:
+            return unbound(f"seat for {object_id!r} raised naming its "
+                           f"artifact: {e}")
+        if not isinstance(refs, ArtifactRefs):
+            return unbound(f"seat for {object_id!r} returned "
+                           f"{type(refs).__name__}, not a verified binding")
+        return refs
+
     # ---- RECORDED: memory + governed knowledge write -------------------- #
     def _record(self, trace: DecisionTrace, task: dict):
         self.smriti.recall_add(
@@ -313,7 +455,7 @@ class BeingRuntime:
                        f"verified={trace.verifier_panel['verified']}")
         if task.get("remember", True) and trace.answer:
             env = make_write_proposal(
-                self.sk, op="add", ns=KNOWLEDGE_NS,
+                self.sk, being_sk=self.being_sk, op="add", ns=KNOWLEDGE_NS,
                 doc_id=f"task/{trace.task_id}",
                 text=f"Q: {task.get('text', '')[:400]}\n"
                      f"A: {trace.answer[:800]}",
@@ -322,8 +464,21 @@ class BeingRuntime:
             self.plane_h.apply(env, text=env and
                                f"Q: {task.get('text', '')[:400]}\n"
                                f"A: {trace.answer[:800]}")
-        self.machine.move(trace, RECORDED,
-                          detail={"trace_hash": trace.trace_hash()})
+        # The being signs its own decision BEFORE the terminal transition,
+        # so the commitment is inside what the node then witnesses.
+        if self.being_sk is not None:
+            self.machine.enrich(
+                trace, being_attestation=attest_decision(trace,
+                                                         self.being_sk))
+        # The commitment is over the decision CONTENT, so it is the same
+        # value before and after this transition, and the same again when
+        # the trace is rebuilt from the journal (recut6, audit P0.2).
+        self.machine.move(
+            trace, RECORDED,
+            detail={"content_commitment": trace.content_digest(),
+                    **({"being_commitment":
+                        trace.being_attestation["commitment"]}
+                       if trace.being_attestation else {})})
 
     # ------------------------------------------------------------------ #
     def trace(self, task_id: str) -> DecisionTrace | None:

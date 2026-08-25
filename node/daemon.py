@@ -53,8 +53,12 @@ from jjdai.canonical import canonical                       # noqa: E402
 from jjdai.crypto import H_hex, SigningKey, node_id         # noqa: E402
 from jjdai.witness import WitnessChain, LocalAnchor         # noqa: E402
 from core.containment import ContainmentLedger              # noqa: E402
-from core.identity import (NodeIdentity, IdentityError,     # noqa: E402
-                           verify_startup)
+from core.identity import (BeingIdentity, NodeIdentity,     # noqa: E402
+                           IdentityError, entitled_to_witness,
+                           make_hosting_binding,
+                           verify_hosting_binding, verify_startup)
+from core.router import (EngineDescriptor, NodeDescriptor,  # noqa: E402
+                         RefusalError, RouteObject as _RO, Verdict)
 from core.attestation import (measure_artifact,             # noqa: E402
                               make_weight_attestation,
                               make_deployment_manifest,
@@ -65,6 +69,9 @@ from core.anchoring import (AnchorLog, AnchorScheduler,     # noqa: E402
 from core.anchoring_xmr import XmrAnchor, XmrAnchorError    # noqa: E402
 from runtime.being import BeingRuntime, BeingRuntimeError   # noqa: E402
 from authz import AuthzPolicy, AuthzError                   # noqa: E402
+from jjdai.adapters.errors import NotSupported              # noqa: E402
+from core.artifact_binding import (ArtifactBindingError,    # noqa: E402
+                                   UNKNOWN, bind_artifact, unbound)
 import clockwatch                                           # noqa: E402
 import readiness as readiness_rules                         # noqa: E402
 import sdnotify                                             # noqa: E402
@@ -119,10 +126,110 @@ from jjdai.adapters.registry import (BackendConfig,        # noqa: E402
 # Node
 # --------------------------------------------------------------------------- #
 
+class _BeingEngineSeat:
+    """The node's REAL engine, presented as one seat in the router.
+
+    `core.router` speaks in `NodeEngine` — describe / generate / score over
+    token lists. `jjdai.adapters` speaks the EngineBackend protocol —
+    messages, sampling dicts, a text completion. This is the seam between
+    them, and it exists so the Being thinks with the engine the node
+    actually serves instead of with a test fixture that resembled one.
+
+    Two properties are deliberate and both are refusals:
+
+      * the descriptor carries the backend's OWN fingerprint and determinism
+        level. It is not a label chosen here — if the driver cannot state
+        one, this seat cannot describe itself and says so;
+      * `score` does NOT fall back to anything. A backend that does not
+        implement forced-continuation scoring has no verifier role, and the
+        honest consequence is that verification on this node is unavailable
+        — not that some substitute verdict gets manufactured. DwarfStar
+        without logprobs is exactly this case, and its own driver already
+        says to use a peer verifier node.
+    """
+
+    def __init__(self, node, seat_id: str, substrate: str,
+                 topics=("_generalist",)):
+        self._node = node
+        self._seat_id = seat_id
+        self._substrate = substrate
+        self._topics = tuple(topics)
+
+    @property
+    def _engine(self):
+        eng = getattr(self._node, "engine", None)
+        if eng is None:
+            raise RefusalError(
+                "the being has no engine: this node was started without a "
+                "configured backend, and a being cannot think with nothing")
+        return eng
+
+    #: What a seat may say about the ARTIFACT behind it. In recut5 the seat
+    #: ASKED THE DRIVER and schema-checked whatever came back, which the
+    #: fifth audit showed to be a false green four ways over (see
+    #: core/artifact_binding.py). The binding is now built once at boot from
+    #: an operator-supplied SIGNED manifest, verified as a chain down to
+    #: measured bytes, and frozen. A seat reports it; it cannot compose it.
+    def artifact_refs(self):
+        refs = getattr(self._node, "artifact_refs", None)
+        if refs is None:
+            return unbound("this node was started without "
+                           "--model-artifact-manifest",
+                           engine=getattr(self._node, "engine", None))
+        return refs
+
+    def describe(self):
+        eng = self._engine
+        fp = getattr(eng, "fingerprint", None)
+        det = getattr(eng, "determinism_level", None)
+        if not fp or not det:
+            raise RefusalError(
+                f"backend {getattr(eng, 'backend', '?')!r} states no "
+                f"fingerprint or determinism level; a seat that cannot "
+                f"describe its provenance must not be routed to")
+        caps = eng.capabilities()
+        implemented = (caps.get("implemented") or {}).get("execution") or ()
+        quant = self.artifact_refs().quantization
+        engines = [EngineDescriptor("generator", fp, det, quant)]
+        # The verifier role is DECLARED only if the backend really has it.
+        # `capabilities()` is derived from what the driver overrides, so this
+        # reads what the code does rather than what a list claims.
+        if "score" in implemented:
+            engines.append(EngineDescriptor("verifier", fp, det, quant))
+        return NodeDescriptor(
+            node_id=self._seat_id, substrate_id=self._substrate,
+            profile="B", topics_served=self._topics,
+            engines=tuple(engines),
+            attributes={"base_origin": "self", "backend": eng.backend},
+            capacity=1)
+
+    def generate(self, prompt: str, params):
+        text = self._engine.generate(
+            [{"role": "user", "content": prompt}],
+            {"temperature": getattr(params, "temperature", 0.0),
+             "top_p": getattr(params, "top_p", 1.0),
+             "top_k": getattr(params, "top_k", 0),
+             "seed": getattr(params, "seed", 0)})
+        return text.split(), params
+
+    def score(self, prompt: str, tokens, params):
+        r = self._engine.score(
+            [{"role": "user", "content": prompt}], list(tokens),
+            {"temperature": getattr(params, "temperature", 0.0),
+             "top_p": getattr(params, "top_p", 1.0),
+             "top_k": getattr(params, "top_k", 0),
+             "seed": getattr(params, "seed", 0)})
+        return Verdict(ok=bool(r["ok"]), reachable=list(r["reachable"]),
+                       min_margin=float(r["min_margin"]),
+                       verifier_fp=r["verifier_fp"],
+                       determinism=r["determinism"], note=r.get("note", ""))
+
+
 class Node:
     def __init__(self, *, name: str, profile: str, substrates: list,
                  adapters: dict, engine: HashEngine, log_path: str = None,
                  allow_test_hooks: bool = False, being_id: str = None,
+                 being_identity=None, hosting_binding: dict = None,
                  governor: ContainmentLedger = None,
                  identity: NodeIdentity = None,
                  peers: list = None, quorum_k: int = 2,
@@ -135,9 +242,11 @@ class Node:
                  entangle_max_age_s: float = 300.0,
                  client_ssl_context: ssl.SSLContext = None,
                  attest_artifacts: dict = None,
+                 model_artifact_manifest: dict = None,
                  require_attestation: bool = False,
                  attestation_store_path: str = None,
                  anchor_backends: list = None,
+                 required_anchor_backends: list = None,
                  anchor_store_path: str = None,
                  being_profile: str = None,
                  being_workspace: str = None,
@@ -230,7 +339,93 @@ class Node:
         # governs the Being it hosts: every inference is an executive act
         # ("tools.side_effect" — the Being changes the world by emitting a
         # witnessed output), so the governor is consulted BEFORE generate().
-        self.being_id = being_id or f"being:{self.chain.node_id[:16]}"
+        # ---- who this node speaks for (vertical, v0.6.7) ---------------- #
+        # Until now the Being's id was `being:` plus the first sixteen
+        # characters of the NODE id. Three things were wrong with it at
+        # once: it is not the canonical `being:<sha256(pubkey)>` form that
+        # `core.identity` produces, so nothing could ever bind it to a key;
+        # it makes the Being an artefact of its host, which inverts the
+        # Operator → Node → Being ordering; and the Being then signed with
+        # the NODE's key, so "witnessed under the Being's identity" was a
+        # sentence with no cryptography behind it.
+        #
+        # A node with no Being keystore still gets a CANONICAL id — from a
+        # freshly generated key — rather than a malformed one. It is
+        # ephemeral, it does not survive restart, and readiness says so.
+        # The dishonest option would be a stable-looking id that no key
+        # backs; an honest ephemeral one can at least be told apart.
+        self.being_identity = being_identity or BeingIdentity(
+            SigningKey.generate())
+        # DERIVED, never carried (recut5, audit P0.2). This used to read
+        # `being_id or self.being_identity.being_id`, so a caller could name
+        # one being while holding another's key and nothing compared the
+        # two. An id that is not the hash of the key that signs for it is
+        # not an identity, it is a label. A supplied id is now an
+        # EXPECTATION and a mismatch refuses.
+        derived = self.being_identity.being_id
+        if being_id and being_id != derived:
+            raise IdentityError(
+                f"being_id {being_id!r} was supplied but the being keystore "
+                f"derives {derived!r}: an identity is the hash of the key "
+                "that speaks for it, so these cannot both be true")
+        self.being_id = derived
+        self.being_ephemeral = being_identity is None
+        #: The two-signature statement that THIS node hosts THIS being.
+        #: VERIFIED here, not merely stored (recut5, audit P0.2): readiness
+        #: used to report `being_bound = bool(hosting_binding)`, so
+        #: `{"garbage": true}` read READY and a binding belonging to another
+        #: pair passed unexamined. The helpers to check it existed already —
+        #: nothing called them on the runtime path.
+        if hosting_binding is not None:
+            if not verify_hosting_binding(hosting_binding):
+                raise IdentityError(
+                    "the supplied hosting binding does not verify: both "
+                    "signatures must be valid and both ids bound to the "
+                    "keys that signed them")
+            if not entitled_to_witness(hosting_binding,
+                                       being_id=self.being_id,
+                                       node_id=self.chain.node_id):
+                raise IdentityError(
+                    f"hosting binding names being "
+                    f"{hosting_binding.get('being_id')!r} on node "
+                    f"{hosting_binding.get('node_id')!r}; this node is "
+                    f"{self.chain.node_id!r} hosting {self.being_id!r}. A "
+                    "valid binding between two OTHER parties is not an "
+                    "entitlement for these")
+        elif being_identity is not None and identity is not None:
+            # Both keys are in hand, so the statement can be MADE here
+            # rather than read from a file — the same rule main() already
+            # follows: a binding read from disk is a claim, one signed at
+            # boot is a fact. This is not a way around the gate. What the
+            # binding proves is that the BEING consented, and only a host
+            # holding the being key can produce that consent; a node that
+            # does not hold it still cannot fabricate one.
+            hosting_binding = make_hosting_binding(being_identity, identity,
+                                                   since_ts=time.time())
+        if being_profile == "production":
+            # A production node witnesses under a name; without a binding
+            # nothing says it may, and DEGRADED was the wrong answer to
+            # that — it let the node run and write records anyway.
+            if self.being_ephemeral:
+                raise IdentityError(
+                    "production profile requires a PERSISTENT being "
+                    "identity: an ephemeral being cannot be bound to a host "
+                    "in any way that survives the restart the binding "
+                    "exists to outlive (start with --being-keystore)")
+            if identity is None:
+                raise IdentityError(
+                    "production profile requires a persistent node identity: "
+                    "a hosting binding signed by an ephemeral node key is "
+                    "worthless after the next restart (start with "
+                    "--node-keystore)")
+            if not entitled_to_witness(hosting_binding,
+                                       being_id=self.being_id,
+                                       node_id=self.chain.node_id):
+                raise IdentityError(
+                    "production profile requires a valid hosting binding: a "
+                    "node that cannot prove it hosts this being must not "
+                    "witness under its name")
+        self.hosting_binding = hosting_binding
         self.governor = governor or ContainmentLedger(
             self.chain.node_id, witness=self.chain,
             evidence_resolver=None)             # fail-closed proof resolver
@@ -264,6 +459,7 @@ class Node:
                     engine_fingerprint=self.engine.fingerprint)
                 self.attestations.hold_weight(env)
                 att_envs[sid] = env
+            self._weight_envs = dict(att_envs)
             self.deployment = make_deployment_manifest(
                 self.sk, node_id=self.chain.node_id,
                 operator_domain=os.environ.get("JJDAI_OPERATOR_DOMAIN",
@@ -293,7 +489,8 @@ class Node:
         if anchor_backends:
             self.anchor_scheduler = AnchorScheduler(
                 self.chain, anchor_backends,
-                self.anchor_log or AnchorLog(None), lock=self.chain.lock)
+                self.anchor_log or AnchorLog(None), lock=self.chain.lock,
+                required_backends=required_anchor_backends)
             if self.anchor_log is None:
                 self.anchor_log = self.anchor_scheduler.log
         # ---- security-alpha (v0.5.5) ------------------------------------ #
@@ -359,26 +556,78 @@ class Node:
                 self.chain, registry=None,
                 fraud_log_path=(log_path + ".fraud.jsonl")
                 if log_path else None)
+        # ---- artifact binding: WHICH WEIGHTS (recut6, audit P0.1) ------- #
+        # A BOOT gate, not a per-task check. recut5 verified provenance
+        # after generation, so a node whose weights were unprovable served,
+        # thought and only then refused — every task, forever. If the chain
+        # cannot be built, a `production` node does not start.
+        self.artifact_refs = None
+        if model_artifact_manifest is not None:
+            try:
+                self.artifact_refs = bind_artifact(
+                    manifest_envelope=model_artifact_manifest,
+                    engine=self.engine,
+                    weight_attestations=getattr(self, "_weight_envs", None),
+                    deployment=self.deployment)
+            except ArtifactBindingError as e:
+                # A BROKEN chain refuses in any profile — the operator said
+                # these are the weights and they are not. An INCOMPLETE one
+                # (signed manifest, nothing measured) is honestly unbound,
+                # which `production` then refuses below with the reason.
+                if being_profile == "production":
+                    raise ArtifactBindingError(f"startup refused: {e}") from e
+                # recut8: carry WHICH link failed, so `manifest_verified`
+                # means something other than a copy of `verified`.
+                self.artifact_refs = unbound(
+                    str(e), engine=self.engine,
+                    manifest_verified=getattr(e, "manifest_verified", False))
+        elif being_profile:
+            self.artifact_refs = unbound(
+                "no --model-artifact-manifest supplied", engine=self.engine)
+        if being_profile == "production" and not (
+                self.artifact_refs and self.artifact_refs.verified):
+            raise ArtifactBindingError(
+                "production profile requires a verified model artifact "
+                "binding: "
+                + (self.artifact_refs.reason if self.artifact_refs
+                   else "none supplied")
+                + ". A signed DecisionTrace whose generator cannot be traced "
+                  "to measured weights is a declaration, not provenance")
+
         # ---- Being Composition Runtime (v0.5.3) ------------------------- #
         # The organism over the daemon's OWN identity, witness and governor
         # (audit gate 1: one BeingIdentity, one Witness for every organ).
         self.being = None
         if being_profile:
-            import core.router as _R
-            from core.router import RouteObject as _RO
+                        # ---- the vertical (v0.6.7) ---------------------------------- #
+            # Until now this built THREE synthetic engines with
+            # `core.router._mk_node` — a helper declared inside the router's
+            # own acceptance-test section, returning a ReferenceEngine, one
+            # of them with `noise=0.05` deliberately injected. The
+            # consequence was not cosmetic: weight attestation and
+            # /capabilities described the REAL configured backend while the
+            # signed DecisionTrace that went into the witness chain was
+            # produced by a test fixture. The node witnessed the work of an
+            # engine that was never attested and is not a model.
+            #
+            # The fixtures are gone. The Being now thinks with the engine
+            # this node actually serves — the same object behind
+            # /v1/messages, readiness and attestation.
+            #
+            # ONE engine means ONE place, and a single place is not a panel.
+            # That is not worked around here: the `production` profile
+            # refuses a task it cannot verify independently, and on a lone
+            # node it will refuse. Manufacturing a panel out of one engine
+            # with different seeds would put imitated independence into a
+            # signed trace, which ADR-019 D1 forbids by name. A truthful
+            # refusal is the correct behaviour of a single node until
+            # either peers exist (Ф1) or deferred verification does (Ф2).
             sub = self.substrates[0] if self.substrates else "sha256:base-A"
-            topics = ["_generalist"]
-            engines = {
-                "n-gen": _R._mk_node("n-gen", sub, topics, origin="UA",
-                                     noise=0.05),
-                "n-v1": _R._mk_node("n-v1", sub, topics, origin="KR"),
-                "n-v2": _R._mk_node("n-v2", sub, topics, origin="EE"),
-            }
-            objects = [_RO("m:gen", "generalist", "_generalist", "n-gen"),
-                       _RO("m:v1", "generalist", "_generalist", "n-v1"),
-                       _RO("m:v2", "generalist", "_generalist", "n-v2")]
+            engines = {"n-self": _BeingEngineSeat(self, "n-self", sub)}
+            objects = [_RO("m:self", "generalist", "_generalist", "n-self")]
             self.being = BeingRuntime(
-                sk=self.sk, chain=self.chain, being_id=self.being_id,
+                sk=self.sk, being_sk=self.being_identity.sk,
+                chain=self.chain, being_id=self.being_id,
                 governor=self.governor,
                 workspace=being_workspace,
                 profile=being_profile,
@@ -711,6 +960,13 @@ class Node:
             "max_context": 65536,
             "determinism_level": self.engine.determinism_level,
             "engine_fingerprint": self.engine.fingerprint,
+            # recut5: published so a remote descriptor built by
+            # core.router.RemoteNode.describe() says what the local seat
+            # says. Absent, it fell back to "n/a" while the seat claimed
+            # "int4" — one backend, two descriptions, depending on which
+            # path assembled them.
+            "quantization": (self.artifact_refs.quantization
+                             if self.artifact_refs else UNKNOWN),
             "witness": {
                 "sig_alg": "ed25519",
                 "node_id": self.chain.node_id,
@@ -747,33 +1003,37 @@ class Node:
         iso = self.isolation_status()
         sched = getattr(self, "anchor_scheduler", None)
         configured = sched is not None
-        anchor_lag, depth, never, behind = None, 0, False, []
+        anchor = {"anchoring_configured": False}
         if configured:
             try:
-                st = sched.anchor_status()
-                last = st.get("last_success_at")
-                if last:
-                    anchor_lag = max(0.0, time.time() - float(last))
-                depth = int(st.get("unanchored_depth", 0) or 0)
-                never = bool(st.get("never_succeeded"))
-                behind = list(st.get("behind") or [])
+                # readiness.anchor_facts is the ONE converter from scheduler
+                # state to rule input, so the daemon and the tests cannot
+                # assemble different shapes and both look right.
+                anchor = readiness_rules.anchor_facts(sched.anchor_status())
             except Exception as e:                 # never a silent green
-                anchor_lag, depth, never = None, 0, True
-                behind = [f"anchor_status unavailable: {e}"]
+                anchor = {"anchoring_configured": True,
+                          "anchor_external_configured": True,
+                          "anchor_required": ["<unavailable>"],
+                          "anchor_backend_facts": {},
+                          "anchor_configured_backends": [],
+                          "anchor_shadow_backends": [],
+                          "unanchored_depth": 0,
+                          "anchor_lag_s": None,
+                          "anchor_status_error": str(e)}
         eng_ready, eng_reason, eng_name = self._engine_readiness()
         chain_broken = self._chain_verdict()
         return {
             "identity_loaded": bool(getattr(self, "sk", None)),
             "identity_ephemeral": self.identity_mode == "ephemeral",
+            "being_ephemeral": bool(getattr(self, "being_ephemeral", True)),
+            "being_bound": entitled_to_witness(
+                getattr(self, "hosting_binding", None),
+                being_id=self.being_id, node_id=self.chain.node_id),
             "signer_mismatch": self._signer_mismatch(),
             "chain_loaded": self.chain is not None,
             "chain_broken": chain_broken,
             "records": len(self.chain.records) if self.chain else 0,
-            "anchoring_configured": configured,
-            "anchor_lag_s": anchor_lag,
-            "anchor_never_succeeded": never,
-            "anchor_behind": behind,
-            "unanchored_depth": depth,
+            **anchor,
             "anchor_lag_max_s": self.anchor_lag_max_s,
             "unanchored_depth_max": self.unanchored_depth_max,
             "engine_configured": self.engine is not None,
@@ -801,12 +1061,22 @@ class Node:
             return False, "", None
         name = (getattr(eng, "backend", None) or getattr(eng, "name", None)
                 or type(eng).__name__)
+        last = ""
         for meth in ("readiness", "healthy", "health"):
             fn = getattr(eng, meth, None)
             if not callable(fn):
                 continue
             try:
                 res = fn()
+            except NotSupported:
+                # DECLARED-BUT-UNIMPLEMENTED IS NOT A FAILURE. Protocol v1
+                # declares the contract whole, so every driver HAS a
+                # readiness() and the ones that do not implement it raise
+                # NotSupported. Treating that as "not ready" marked healthy
+                # DwarfStar and SGLang nodes as down — the fallback existed
+                # and was never reached.
+                last = f"{meth}() not implemented by this backend"
+                continue
             except Exception as e:
                 return False, f"{meth}() raised: {type(e).__name__}: {e}", name
             if isinstance(res, dict):
@@ -816,8 +1086,8 @@ class Node:
                 return bool(ok), ("" if ok else
                                   str(res.get("reason", "not ready"))), name
             return bool(res), ("" if res else f"{meth}() is false"), name
-        return False, ("engine exposes no readiness/healthy probe — state "
-                       "UNKNOWN, reported as not ready"), name
+        why = last or "engine exposes no readiness/healthy probe"
+        return False, f"{why} — state UNKNOWN, reported as not ready", name
 
     def _chain_verdict(self) -> str:
         """Cached structural verdict on the witness chain.
@@ -835,16 +1105,25 @@ class Node:
             return self._chain_verdict_cached
         verdict = ""
         try:
-            fn = (getattr(self.chain, "verify_head", None) or
-                  getattr(self.chain, "verify", None))
-            if callable(fn):
-                res = fn()
-                if res is False:
-                    verdict = "chain verification returned false"
-                elif isinstance(res, dict) and not res.get("ok", True):
-                    verdict = str(res.get("reason", "chain does not verify"))
+            # THE REAL METHOD IS `verify_chain()`. The first recut probed for
+            # `verify_head` (does not exist) and then `verify` (exists, but
+            # returns a TUPLE and takes a resolver), so the tuple matched
+            # neither the False nor the dict branch and every corrupted chain
+            # came back clean. Same defect as reading anchor attributes that
+            # were never there: a probe written from a guess at the API.
+            fn = getattr(self.chain, "verify_chain", None)
+            if not callable(fn):
+                verdict = ("witness chain exposes no verify_chain() — state "
+                           "UNKNOWN, reported as broken")
             else:
-                verdict = ""      # nothing to verify against; not a failure
+                lock = getattr(self.chain, "lock", None)
+                if lock is not None:
+                    with lock:
+                        ok = fn()
+                else:
+                    ok = fn()
+                if not ok:
+                    verdict = "verify_chain() returned false"
         except Exception as e:
             verdict = f"{type(e).__name__}: {e}"
         self._chain_verdict_cached = verdict
@@ -1851,6 +2130,32 @@ def main(argv=None):
                     help="comma list from {local,peer-quorum,ots,xmr}; when "
                          "set, POST /witness/anchor runs the external "
                          "scheduler")
+    ap.add_argument("--being-keystore", default=None,
+                    help="path to the encrypted Ed25519 keystore holding the "
+                         "identity of the BEING this node hosts. Separate "
+                         "from --node-keystore on purpose: if the being "
+                         "signs with the node's key, 'witnessed under the "
+                         "being's identity' is a phrase with no cryptography "
+                         "behind it. Without this flag the being's id is "
+                         "canonical but EPHEMERAL and does not survive a "
+                         "restart.")
+    ap.add_argument("--model-artifact-manifest", default=None,
+                    help="JSON file: a SIGNED ModelArtifactManifest envelope "
+                         "for the weights this node serves. Required by "
+                         "--being-profile production: the binding from a "
+                         "decision to measured weights is verified at boot, "
+                         "and a broken chain refuses the start.")
+    ap.add_argument("--being-passphrase-env", default="JJDAI_BEING_PASSPHRASE",
+                    help="environment variable holding the being keystore "
+                         "passphrase (never passed on the CLI)")
+    ap.add_argument("--required-anchor-backends", default=None,
+                    help="comma list: which of --anchor-backends readiness "
+                         "must hold to. Default: every configured backend "
+                         "that is not local. A backend that is configured "
+                         "but NOT required runs in SHADOW — it anchors and "
+                         "is reported, and it cannot make /readyz say 503. "
+                         "Use it to operate a backend before the phase that "
+                         "makes it mandatory.")
     ap.add_argument("--ots-calendar", default=None,
                     help="OpenTimestamps calendar base URL (for the ots "
                          "backend); proof bytes are held in CUSTODY, Bitcoin "
@@ -2020,6 +2325,21 @@ def main(argv=None):
                       "(infer|task|write|read).", file=sys.stderr)
                 return 2
             rate_limits[cls] = (int(limit), float(window))
+    model_artifact_manifest = None
+    if args.model_artifact_manifest:
+        try:
+            with open(args.model_artifact_manifest, encoding="utf-8") as f:
+                model_artifact_manifest = json.load(f)
+        except (OSError, ValueError) as e:
+            print("FATAL: cannot read --model-artifact-manifest %r: %s"
+                  % (args.model_artifact_manifest, e), file=sys.stderr)
+            return 2
+    if args.being_profile == "production" and model_artifact_manifest is None:
+        print("FATAL: --being-profile production requires "
+              "--model-artifact-manifest (a decision that cannot be traced "
+              "to measured weights is a declaration, not provenance).",
+              file=sys.stderr)
+        return 2
     being_prov = None
     if args.being_provenance:
         with open(args.being_provenance, encoding="utf-8") as f:
@@ -2100,6 +2420,85 @@ def main(argv=None):
         else:
             print(f"FATAL: unknown anchor backend {name!r}.", file=sys.stderr)
             return 2
+    # The being this node hosts, and the two-signature statement that it may.
+    being_identity, hosting_binding = None, None
+    if args.being_keystore:
+        if identity is None:
+            print("FATAL: --being-keystore requires --node-keystore. A "
+                  "hosting binding is signed by BOTH parties, and an "
+                  "ephemeral node key would make the node half of it "
+                  "worthless after the next restart.", file=sys.stderr)
+            return 2
+        being_pass = os.environ.get(args.being_passphrase_env)
+        if not being_pass:
+            print("FATAL: --being-keystore given but environment variable %r "
+                  "is unset. Refusing to boot a being with an unlocked or "
+                  "ephemeral identity." % args.being_passphrase_env,
+                  file=sys.stderr)
+            return 2
+        try:
+            being_identity = BeingIdentity.load_or_create(args.being_keystore,
+                                                          being_pass)
+        except Exception as e:
+            print("FATAL: cannot load being keystore %r: %s"
+                  % (args.being_keystore, e), file=sys.stderr)
+            return 2
+        # The binding lives beside the keystore. It is re-derived rather than
+        # trusted from disk when both keys are present: a binding read from a
+        # file is a claim, one signed here is a fact.
+        binding_path = args.being_keystore + ".binding.json"
+        hosting_binding = make_hosting_binding(being_identity, identity,
+                                               since_ts=time.time())
+        if os.path.exists(binding_path):
+            try:
+                with open(binding_path, encoding="utf-8") as fh:
+                    prior = json.load(fh)
+                if verify_hosting_binding(prior) and \
+                        prior["being_id"] == being_identity.being_id and \
+                        prior["node_id"] == identity.node_id:
+                    # keep the ORIGINAL since_ts: hosting began when it began
+                    hosting_binding = prior
+            except (OSError, ValueError, KeyError):
+                pass                       # unreadable prior => re-sign
+        try:
+            with open(binding_path, "w", encoding="utf-8") as fh:
+                json.dump(hosting_binding, fh, indent=2, sort_keys=True)
+        except OSError as e:
+            print("FATAL: cannot persist hosting binding %r: %s"
+                  % (binding_path, e), file=sys.stderr)
+            return 2
+
+    # ---- ephemeral being over an existing history (recut5, P0.1) -------- #
+    # The node rule since v0.4.1: an ephemeral identity must never be used
+    # over a non-empty witness log. The being had no such rule, so every
+    # restart without --being-keystore minted a new being:<hash> and then
+    # served the PREVIOUS being's traces out of the journal it inherited.
+    # Same defect, same fix, one level in.
+    if args.being_profile and not args.being_keystore and being_jd:
+        from runtime.recovery import journal_being_ids
+        prior = journal_being_ids(os.path.join(being_jd, "tasks.jsonl"))
+        if prior:
+            print("FATAL: this being journal already holds the history of "
+                  "%s and no --being-keystore was given, so this boot would "
+                  "mint a NEW being and inherit that history as its own. "
+                  "Supply the keystore that wrote it, or point "
+                  "--being-journals at an empty directory."
+                  % ", ".join(sorted(prior)), file=sys.stderr)
+            return 2
+
+    required_anchor = None
+    if args.required_anchor_backends is not None:
+        required_anchor = [b.strip() for b in
+                           args.required_anchor_backends.split(",") if b.strip()]
+        unknown = [b for b in required_anchor if b not in backend_names]
+        if unknown:
+            # Fail at startup, not at the first readiness scrape: a required
+            # backend that is not configured would otherwise be silently
+            # dropped by the scheduler and the node would report green on a
+            # policy nobody is serving.
+            print(f"FATAL: --required-anchor-backends names backend(s) that "
+                  f"are not configured: {', '.join(unknown)}", file=sys.stderr)
+            return 2
     try:
         node = Node(name=args.name, profile=args.profile,
                     substrates=json.loads(args.substrates),
@@ -2123,8 +2522,12 @@ def main(argv=None):
                     require_attestation=args.require_attestation,
                     attestation_store_path=attest_store,
                     anchor_backends=anchor_backends or None,
+                    required_anchor_backends=required_anchor,
+                    being_identity=being_identity,
+                    hosting_binding=hosting_binding,
                     anchor_store_path=anchor_store
                     if anchor_backends else None,
+                    model_artifact_manifest=model_artifact_manifest,
                     being_profile=args.being_profile,
                     being_workspace=being_ws,
                     being_journal_dir=being_jd if args.being_profile else None,

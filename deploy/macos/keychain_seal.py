@@ -68,24 +68,35 @@ def _need_macos():
                  "reach the keychain on this host")
 
 
-def _service(node: str) -> str:
-    return f"{SERVICE_PREFIX}.{node}"
+#: Two secrets, two lifetimes (recut5). The node key answers "which
+#: machine"; the being key answers "which mind". They are sealed as
+#: separate keychain items so one can be rotated, revoked or migrated
+#: without touching the other — a being outlives the host it runs on.
+KINDS = ("node", "being")
 
 
-def seal(node: str, keychain: str):
+def _service(node: str, kind: str = "node") -> str:
+    if kind not in KINDS:
+        sys.exit(f"unknown kind {kind!r}; expected one of {KINDS}")
+    suffix = "" if kind == "node" else ".being"
+    return f"{SERVICE_PREFIX}{suffix}.{node}"
+
+
+def seal(node: str, keychain: str, *, kind: str = "node"):
     _need_macos()
-    secret = getpass.getpass(f"keystore passphrase to seal for '{node}': ")
+    secret = getpass.getpass(
+        f"{kind} keystore passphrase to seal for '{node}': ")
     if not secret:
         sys.exit("empty passphrase; aborting")
     # Refuse to silently overwrite an existing item — identity discipline.
     probe = subprocess.run(
-        [SECURITY, "find-generic-password", "-s", _service(node), keychain],
+        [SECURITY, "find-generic-password", "-s", _service(node, kind), keychain],
         capture_output=True)
     if probe.returncode == 0:
         sys.exit(f"an item for '{node}' already exists in {keychain}; "
                  "delete it explicitly first:\n"
                  f"  sudo {SECURITY} delete-generic-password "
-                 f"-s {_service(node)} {keychain}")
+                 f"-s {_service(node, kind)} {keychain}")
     # -w reads the secret as an argument-free interactive value is not
     # supported by `security add`, so the secret is passed via -w. It is
     # visible to root in the process table for the syscall's duration
@@ -93,7 +104,7 @@ def seal(node: str, keychain: str):
     # profile; documented here rather than hidden.
     r = subprocess.run(
         [SECURITY, "add-generic-password",
-         "-s", _service(node),
+         "-s", _service(node, kind),
          "-a", "jjdai",
          "-w", secret,
          "-T", SECURITY,
@@ -108,10 +119,10 @@ def seal(node: str, keychain: str):
           "written to disk", file=sys.stderr)
 
 
-def unseal(node: str, keychain: str):
+def unseal(node: str, keychain: str, *, kind: str = "node"):
     _need_macos()
     r = subprocess.run(
-        [SECURITY, "find-generic-password", "-s", _service(node),
+        [SECURITY, "find-generic-password", "-s", _service(node, kind),
          "-w", keychain],
         capture_output=True)
     if r.returncode != 0:
@@ -121,10 +132,10 @@ def unseal(node: str, keychain: str):
     sys.stdout.write(r.stdout.decode().rstrip("\n"))  # secret to stdout only
 
 
-def status(node: str, keychain: str):
+def status(node: str, keychain: str, *, kind: str = "node"):
     _need_macos()
     r = subprocess.run(
-        [SECURITY, "find-generic-password", "-s", _service(node), keychain],
+        [SECURITY, "find-generic-password", "-s", _service(node, kind), keychain],
         capture_output=True)
     if r.returncode != 0:
         sys.exit(f"no sealed passphrase for '{node}' in {keychain}")
@@ -143,9 +154,12 @@ def main():
         p = sub.add_parser(name)
         p.add_argument("--node", required=True,
                        help="node name, e.g. ua-kyiv-1")
+        p.add_argument("--kind", default="node", choices=KINDS,
+                       help="which keystore passphrase: the NODE key or "
+                            "the BEING key (default: node)")
     args = ap.parse_args()
     fn = {"seal": seal, "unseal": unseal, "status": status}[args.cmd]
-    fn(args.node, args.keychain)
+    fn(args.node, args.keychain, kind=args.kind)
 
 
 if __name__ == "__main__":

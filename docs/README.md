@@ -8,7 +8,7 @@ tree explains them.
 | [`architecture_status.json`](architecture_status.json) | **Source of truth** for the component table: what is Implemented, Prototype, Planned or Constitutional-text-only. Three surfaces are generated from it — the README table, the code map and the status page — and CI fails on drift. | normative |
 | `JJDAI_Code_Architecture_Map_v<version>.md` | Generated code map. **Do not cite it by filename**: the name moves with every release. Cite `architecture_status.json`. | generated |
 | [`adr/`](adr/) | Architecture Decision Records. A decision is not made until it is here. | **normative** |
-| [`roadmap/`](roadmap/) | Roadmap r6.7 — phases Ф0…Ф5b, gates, drop numbering, the five cross-cutting tracks. Markdown is canonical; the PDF is the same document typeset. | normative for plan |
+| [`roadmap/`](roadmap/) | Roadmap r6.8.2 — phases Ф0…Ф5b, gates, drop numbering, the six cross-cutting tracks, Agent Alpha as the Ф0 target, and the pre-flight tag rules. Markdown is canonical; no PDF for this revision yet. Superseded revisions live in `history/`. | normative for plan |
 | [`architecture/`](architecture/) | Explanatory diagrams. **Not normative** — see the warning below. | explanatory |
 | [`site/`](site/) | Generated status pages, one per release. | generated |
 | [`history/`](history/) | Superseded build documents, kept for auditability. Nothing here describes the current build. | historical |

@@ -1,7 +1,7 @@
 {
-  "completed_at": "2026-08-25T03:23:17Z",
-  "digest": "4ead8198bcb4d4e1b0d376103ec301d3d46669ca31cddabf80e8bff0f60b983e",
-  "duration_s": 40.5,
+  "completed_at": "2026-08-25T05:28:30Z",
+  "digest": "d289cbb3bd0adf2ef3408810dbfedf55d00a13a0a9a70572efdaa5577763965b",
+  "duration_s": 37.9,
   "engine": null,
   "groups": [
     "adversarial",
@@ -22,6 +22,6 @@
   "schema": "jjdai.acceptance_result/v3",
   "suite": "hermetic",
   "total": 179,
-  "tree_digest": "8b46478dfad327ff62a8380255711b8029c4e1bb3cdfd798915b6a7d24ee184a",
+  "tree_digest": "f39f119f36ce64faf333272ee730e6395c5f5c1df05b56049419cf86d940a85d",
   "version": "0.6.7"
 }

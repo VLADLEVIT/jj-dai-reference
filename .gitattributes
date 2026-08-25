@@ -1,0 +1,18 @@
+# Byte-exactness of the tree is load-bearing, not hygiene.
+#
+# scripts/run_acceptance.py:source_digest() hashes the RAW BYTES of every
+# shipped file, and tests/unit/test_release_integrity.py pins the sha256 of
+# LICENSES/AGPL-3.0.txt. Any line-ending conversion — core.autocrlf on
+# Windows, an edit through the web editor, a CI action that normalises —
+# breaks both at once: the recorded run stops describing this tree, and the
+# very file that closed the publication blocker stops matching its pin.
+#
+# The failure does not say "line endings". It says the run was against a
+# different tree, and it takes a long time to diagnose. So conversion is
+# disabled outright rather than tuned.
+#
+# Required by roadmap r6.8.2 (supply chain), which asks for this BEFORE the
+# first clone by an outsider. Later normalisation is a deliberate decision
+# with the evidence recomputed, never a side effect of an editor setting.
+
+*  -text

@@ -530,27 +530,44 @@ skips itself is not evidence.
 
 ## 9. Roadmap
 
-**v0.6.7 — law, supply chain and the toolset. Landed in part; the drop
-marks itself INCOMPLETE and is not to be tagged.**
+The plan of record is [`docs/roadmap/`](docs/roadmap/) — revision **r6.8.2**.
+What follows is what it says about the tree you are reading.
 
-Closed: the **canonical AGPL-3.0 text, byte-for-byte** — the publication
-blocker that stood through every release up to here is gone, and
-`R-LICENSE` now verifies the text rather than checking that the placeholder
-is loudly marked. Also closed: the repository hygiene batch (the generated
-map's filename tracks the version, `docs/history/`, `tests/legacy` →
-`tests/compatibility`, the packaging question `pyproject.toml` had left
-open), and the documentation entry point in `docs/`.
+**v0.6.7 was declared as law, supply chain and the toolset. That is not what
+it turned out to be, and the roadmap now says so rather than absorbing the
+gap.** Its actual content is the **live vertical**: a real engine inside
+`BeingRuntime`, a separate keystore per being, `BeingIdentity` surviving a
+daemon restart and mTLS, the artifact binding chain, the trace commitment.
+Of everything that *was* declared, only one item was built — the canonical
+AGPL — and the rest is carried forward as a **transfer**, named as such.
+The drop is `179/179 green, untagged`.
 
-Still owed before a v0.6.7 tag: the supply-chain stream — SBOM, pinned
-dependencies, signed artefacts, two-person release approval — plus
-T-TOOLSET, the starter wasm toolset with a reproducible build, an
-operator-signed manifest and a witness record on tool addition. And a CLA,
-which needs a named legal entity to exist first.
+The distinction matters because a divergence between what a release
+announced and what it contains is the same class of defect this codebase
+chases in code: it gets named, not folded into the next revision's plan.
 
-**v0.6.8 — reserved serializable values (track V)**, kept out of v0.6.7
-deliberately: law and supply chain are one concern and serialized forms
-are another, and merging them into one tag would mean losing the ability to
-roll back one without the other.
+**Closed here:** the canonical AGPL-3.0 text byte-for-byte — the publication
+blocker that stood since v0.4.1 — with `R-LICENSE` now verifying the text and
+its digest rather than checking that a placeholder is loudly marked. Plus the
+repository hygiene batch and the documentation entry point in `docs/`.
+
+**Four debts remain, and they block four different things.** They used to be
+quoted as one list, which made all four look like one wall:
+
+| Debt | What it blocks |
+|---|---|
+| canonical AGPL | **publication** — closed in v0.6.7 |
+| CLA | **accepting outside contributions**; nothing to do with tagging |
+| T-TOOLSET | a **Ф0 gate deliverable**; a tag claims nothing about the toolset existing |
+| supply chain | **the meaning of a release tag** — without signed artefacts and provenance a tag is a name for a commit, not a release |
+
+**A green tree with open release debt can still be named.** r6.8.2 introduces
+the **pre-flight tag** — `v0.6.<n>-preflight` — for exactly that state: it
+must be annotated rather than lightweight so the caveat travels inside the
+tag, the commit must carry a `tree_digest` matching the recorded run, and no
+Release object is created nor `latest` moved. It **does not consume the
+version number**. Exactly one thing is forbidden: presenting an unclosed drop
+as a release.
 
 **Open, and named rather than implied.** No compiled wasm modules ship, so
 execution in practice is still the `reference` fence. The alert thresholds
@@ -585,10 +602,22 @@ AGPL-3.0-only** — nodes serve other nodes over a network, and §13 obliges
 operators of modified nodes to disclose their modifications to those they
 serve; the **NECS specification and harness are Apache-2.0** so that
 independent engine vendors can implement and certify without copyleft
-obligations. Contributions require a CLA; the contribution guide that
-described the process was withdrawn as outdated and its replacement has
-not landed yet, so ask before opening a pull request rather than assuming
-the old terms still apply.
+obligations.
+
+**On a CLA — it is an options question, not a formality (r6.8.2).** The usual
+argument for one is patents, and AGPL already closes that: it gives the
+project inbound = outbound and carries a patent grant in §11. The only thing
+a CLA buys here is **keeping the option to license the code as something
+other than AGPL** — dual licensing, a commercial licence, a Solo SKU, shipping
+with an ASIC. Without it, every accepted outside commit makes relicensing
+possible only with the named consent of every contributor, retroactively. If
+that option is not wanted, a DCO is enough. The decision is taken with a
+lawyer, and it needs a named legal entity to exist first.
+
+Until it is taken, **public contribution is not open** — that is what the CLA
+debt blocks, and it blocks nothing else. The contribution guide that used to
+describe the process was withdrawn as outdated, so ask before opening a pull
+request rather than assuming the old terms still apply.
 
 ## 11. Responsible disclosure
 

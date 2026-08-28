@@ -4,9 +4,9 @@
     "pytest": null,
     "runner": "scripts/run_acceptance.py"
   },
-  "completed_at": "2026-08-27T18:26:36Z",
-  "digest": "726664717fe9b15d9b5b64c7bbd18a0ebeb199733e691b66ef6c9254f5586f88",
-  "duration_s": 51.2,
+  "completed_at": "2026-08-28T09:33:43Z",
+  "digest": "fedbb6c0b194bd9868eebda593e74cd1748cc9cf8262522aeeadcc40d87676b6",
+  "duration_s": 38.8,
   "engine": null,
   "groups": [
     "adversarial",
@@ -23,10 +23,10 @@
   },
   "import_errors": 0,
   "passed": 219,
-  "python": "3.12.3",
+  "python": "3.11.15",
   "schema": "jjdai.acceptance_result/v4",
   "suite": "hermetic",
   "total": 219,
-  "tree_digest": "edcf608a128db73eea963bddf4bff5e5829f788429092942b4b295973102e520",
+  "tree_digest": "48236bb58976b852661a5fa8bc021580592d98cdf0c778063c687118a7b4aed4",
   "version": "0.6.8"
 }

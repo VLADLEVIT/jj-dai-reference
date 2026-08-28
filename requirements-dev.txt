@@ -68,6 +68,25 @@ packaging==26.3 \
 exceptiongroup==1.3.0 ; python_version < "3.11" \
     --hash=sha256:4d111e6e0c13d0644cad6ddaa7ed0261a0b36971f6d23e7ec9b4b9097da78a10
 
+# exceptiongroup's OWN dependency, and the reason this file needs it: in
+# --require-hashes mode pip demands that EVERY requirement it resolves is
+# pinned with == and hashed, transitive ones included. Leaving this out makes
+# the 3.10 job fail at `pip install` with "these do not: typing-extensions
+# >=4.6.0" while 3.11 and 3.12 pass — exceptiongroup is installed only below
+# 3.11, so only there is this ever requested.
+#
+# The gap is invisible to `scripts/run_acceptance.py`, which is stdlib-only
+# and installs nothing: the acceptance run this package certifies cannot see
+# an incomplete pin file. Only the pytest jobs can, which is why this has now
+# been lost once and re-added once.
+#
+# Both artefacts are named, wheel and sdist, so the pin holds whichever pip
+# picks; the wheel digest was cross-checked against the one PyPI publishes
+# rather than trusting the bytes that arrived.
+typing-extensions==4.16.0 ; python_version < "3.11" \
+    --hash=sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8 \
+    --hash=sha256:dc983d19a509c94dba722ee6abd33940f7c05a89e243c47e907eb4db6f1a43e5
+
 # Two hashes: tomli ships an arch-specific wheel per platform plus a portable
 # one. pip matches ANY listed hash, so the portable wheel and the sdist are
 # both named and the pin holds on a host that gets either.

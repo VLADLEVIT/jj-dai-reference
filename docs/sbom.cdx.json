@@ -92,6 +92,25 @@
       "version": "2.2.1"
     },
     {
+      "bom-ref": "pkg:pypi/typing-extensions@4.16.0",
+      "description": "toolchain, applies when: python_version < \"3.11\"",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8"
+        },
+        {
+          "alg": "SHA-256",
+          "content": "dc983d19a509c94dba722ee6abd33940f7c05a89e243c47e907eb4db6f1a43e5"
+        }
+      ],
+      "name": "typing-extensions",
+      "purl": "pkg:pypi/typing-extensions@4.16.0",
+      "scope": "excluded",
+      "type": "library",
+      "version": "4.16.0"
+    },
+    {
       "bom-ref": "pkg:github/actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
       "description": "GitHub Action, pinned by commit; v4.4.0 at pin time",
       "hashes": [
@@ -1492,7 +1511,7 @@
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "f167e4c2b6bac053acbe90e9790d1f66ccfe761d7988955c0f61457a58e98453"
+          "content": "3b63862f61e2db99a82ee051e3468d020bcf969692624b8773a7fe7417d243aa"
         }
       ],
       "name": "requirements-dev.txt",
@@ -2555,7 +2574,7 @@
     "properties": [
       {
         "name": "jjdai:inventory-digest",
-        "value": "12849b1a938763b0368c7fefdb1519b213356b779c294191c6756d0047cfc69d"
+        "value": "119303b7c0ce60361c3ee436ab4bd2f269e1ee7c848329e50dce8315ae9f39d3"
       },
       {
         "name": "jjdai:inventory-scope",

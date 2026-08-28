@@ -76,7 +76,7 @@ a{color:var(--iface);text-decoration:none}a:hover{text-decoration:underline}
 <p class="sub">Every component of the JJ DAI trust, governance and agent kernel, classified into exactly one of five honest statuses. This page follows the code, not the ambition.</p>
 <div class="badges">
 <span class="badge">build <b>v0.6.8</b></span>
-<span class="badge">acceptance <b>215/215 green (recorded run on Python 3.11.15; stdlib runner, CI matrix 3.10-3.12)</b></span>
+<span class="badge">acceptance <b>219/219 green (recorded run on Python 3.12.3; stdlib runner, CI matrix 3.10-3.12)</b></span>
 <span class="badge">stdlib-only core · Python ≥ 3.10</span>
 <span class="badge warn">status <b>experimental organism — NOT a security-alpha</b></span>
 </div><div class="legend">
@@ -319,7 +319,7 @@ a{color:var(--iface);text-decoration:none}a:hover{text-decoration:underline}
 <div class="card impl">
 <div class="path">tests/ · .github/workflows/ci.yml</div>
 <div class="cname">Acceptance and CI</div><div class="cdesc">Acceptance functions across unit, integration, conformance, adversarial and legacy groups; CI matrix targets Python 3.10-3.12; docs drift is CI-checked.</div><div class="chips">
-<span class="chip impl">215/215 green (recorded run on Python 3.11.15; stdlib runner, CI matrix 3.10-3.12)</span>
+<span class="chip impl">219/219 green (recorded run on Python 3.12.3; stdlib runner, CI matrix 3.10-3.12)</span>
 </div></div>
 <div class="card impl">
 <div class="path">m1m5/</div>
@@ -334,7 +334,7 @@ a{color:var(--iface);text-decoration:none}a:hover{text-decoration:underline}
 </div></div>
 <div class="card proto">
 <div class="path">.github/workflows/ · requirements-dev.txt · scripts/gen_sbom.py</div>
-<div class="cname">Release provenance — partial</div><div class="cdesc">What EXISTS: a CycloneDX 1.5 bill of materials generated from the tree and re-checked in CI, so a hand-maintained inventory cannot drift from what ships; a hash-pinned CI toolchain installed with --require-hashes, so a green run names the collector that produced it; and .gitattributes with `* -text`, because source_digest() hashes raw bytes over 200+ paths including the sha256-pinned AGPL text and any end-of-line normalisation reports itself as &#x27;a different tree&#x27;. What is OPEN and is not claimed here: reproducible build, signed artefacts, two-person release approval and T-TOOLSET — all four owed by v0.6.10. An SBOM is an inventory of the box, not evidence of who sealed it, and the generated document says so in its own metadata.</div><div class="chips">
+<div class="cname">Release provenance — partial</div><div class="cdesc">What EXISTS: a CycloneDX 1.5 bill of materials generated from the tree and re-checked in CI, so a hand-maintained inventory cannot drift from what ships; a hash-pinned CI toolchain installed with --require-hashes, so a green run names the collector that produced it; and .gitattributes with `* -text`, because source_digest() hashes raw bytes over 200+ paths including the sha256-pinned AGPL text and any end-of-line normalisation reports itself as &#x27;a different tree&#x27;. What is OPEN and is not claimed here: reproducible build, signed artefacts, release provenance and T-TOOLSET — all four owed by **v0.6.9** (the drop order was exchanged by ADR-022/D0). Two-person release approval is NOT among them: cancelled by ADR-022/D2 and replaced by a two-key, two-device control. It stays in the debt ledger with status `cancelled` and the decision that cancelled it — a deleted position leaves nothing by which to check why it is gone. An SBOM is an inventory of the box, not evidence of who sealed it, and the generated document says so in its own metadata.</div><div class="chips">
 <span class="chip proto">Partial</span>
 <span class="chip proto">SBOM + pinning v0.6.8</span>
 </div></div>

@@ -167,7 +167,7 @@ journals, replicas and the workspace.
 | Tier-1 trust node daemon | Prototype |
 | Adapter layer — EngineBackend Protocol v1 | Implemented (Implemented, protocol v1 declared whole) |
 | NECS v0.1 + harness | Implemented |
-| Acceptance and CI | Implemented (215/215 green (recorded run on Python 3.11.15; stdlib runner, CI matrix 3.10-3.12)) |
+| Acceptance and CI | Implemented (219/219 green (recorded run on Python 3.12.3; stdlib runner, CI matrix 3.10-3.12)) |
 | Retired M1-M5 lineage | Implemented (Frozen) |
 | Deployment kit (Linux + macOS) | Implemented (Implemented, macOS kit v0.6.2) |
 | Release provenance — partial | Prototype (Partial, SBOM + pinning v0.6.8) |
@@ -467,7 +467,7 @@ python scripts/run_acceptance.py [unit|integration|conformance|adversarial|legac
 CI runs the matrix on Python 3.10–3.12 (`.github/workflows/ci.yml`).
 
 <!-- ACCEPT:BEGIN (generated — do not edit by hand) -->
-Current status: 215/215 acceptance checks green (hermetic default groups).
+Current status: 219/219 acceptance checks green (hermetic default groups).
 
 The `live` group is opt-in and excluded from the default run: `python scripts/run_acceptance.py live` exercises the wasm-wasi
 boundary against a real `wasmtime` and is required by the Ф0 gate on each target host.
@@ -535,12 +535,21 @@ skips itself is not evidence.
 ## 9. Roadmap
 
 The plan of record is
-[`docs/roadmap/JJ_DAI_Roadmap_r6_8_5.md`](docs/roadmap/JJ_DAI_Roadmap_r6_8_5.md).
+[`docs/roadmap/JJ_DAI_Roadmap_r6_9_5.md`](docs/roadmap/JJ_DAI_Roadmap_r6_9_5.md).
 What follows is what it says about the tree you are reading — and `SYNC-2`
 fails the build if this section names a roadmap the tree does not carry.
 
-This tree is **v0.6.8 — `code-complete · 215/215 recorded · untagged`**, with
+This tree is **v0.6.8 — `code-complete · 219/219 recorded · untagged`**, with
 release debt open. It is not a release and does not pretend to be one.
+
+The archive it came from is named `v0.6.9-pre`, and the *pre* is load-bearing:
+it is preparation for the v0.6.9 drop, not the drop. **None of v0.6.9's
+content — T-TOOLSET, the reproducible build, release objects,
+`RELEASE_ATTESTED` — is built.** A version number is spent by a tag, and there
+is no tag, so `jjdai.__version__` stays at `0.6.8` and `v0.6.9` stays
+available for the drop that actually contains it. What this package closes is
+the documentary basis: roadmap r6.9.5 and ADR-014…022 are in the tree, under
+the same `tree_digest` as the run that certifies it.
 
 **v0.6.7 was declared as law, supply chain and the toolset. That is not what
 it turned out to be, and the roadmap says so rather than absorbing the gap.** Its actual content is the **live vertical**: a real engine inside

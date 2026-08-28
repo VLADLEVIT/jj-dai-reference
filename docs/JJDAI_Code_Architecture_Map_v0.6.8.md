@@ -2,7 +2,7 @@
 
 > GENERATED from `docs/architecture_status.json` by `scripts/gen_architecture_docs.py` — edit the JSON, not this file. `scripts/check_docs_drift.py` fails CI on divergence.
 
-Acceptance: 215/215 green (recorded run on Python 3.11.15; stdlib runner, CI matrix 3.10-3.12).
+Acceptance: 219/219 green (recorded run on Python 3.11.15; stdlib runner, CI matrix 3.10-3.12).
 
 ## #00 · The neurosymbolic stack
 
@@ -79,7 +79,7 @@ Mutable knowledge lives outside frozen weights; everything that touches a decisi
 | `tests/ · .github/workflows/ci.yml` | Acceptance and CI: Acceptance functions across unit, integration, conformance, adversarial and legacy groups; CI matrix targets Python 3.10-3.12; docs drift is CI-checked. | **Implemented** (generated count) |
 | `m1m5/` | Retired M1-M5 lineage: Frozen legacy code retained for auditability and migration coverage. | **Implemented** (Frozen) |
 | `deploy/ · deploy/macos/` | Deployment kit (Linux + macOS): Ubuntu: hardened systemd unit, TPM-sealed passphrase, bootstrap, production PKI generator, operator RUNBOOK. macOS (roadmap Ф0): launchd daemon template, Keychain sealing under the documented macOS Keychain degraded profile (non-SE-resident), bootstrap with 24/7 power discipline, RUNBOOK-macOS. Flag parity between the two kits is enforced by unit acceptance (M-FLAGS). | **Implemented** (Implemented, macOS kit v0.6.2) |
-| `.github/workflows/ · requirements-dev.txt · scripts/gen_sbom.py` | Release provenance — partial: What EXISTS: a CycloneDX 1.5 bill of materials generated from the tree and re-checked in CI, so a hand-maintained inventory cannot drift from what ships; a hash-pinned CI toolchain installed with --require-hashes, so a green run names the collector that produced it; and .gitattributes with `* -text`, because source_digest() hashes raw bytes over 200+ paths including the sha256-pinned AGPL text and any end-of-line normalisation reports itself as 'a different tree'. What is OPEN and is not claimed here: reproducible build, signed artefacts, two-person release approval and T-TOOLSET — all four owed by v0.6.10. An SBOM is an inventory of the box, not evidence of who sealed it, and the generated document says so in its own metadata. | **Prototype** (Partial, SBOM + pinning v0.6.8) |
+| `.github/workflows/ · requirements-dev.txt · scripts/gen_sbom.py` | Release provenance — partial: What EXISTS: a CycloneDX 1.5 bill of materials generated from the tree and re-checked in CI, so a hand-maintained inventory cannot drift from what ships; a hash-pinned CI toolchain installed with --require-hashes, so a green run names the collector that produced it; and .gitattributes with `* -text`, because source_digest() hashes raw bytes over 200+ paths including the sha256-pinned AGPL text and any end-of-line normalisation reports itself as 'a different tree'. What is OPEN and is not claimed here: reproducible build, signed artefacts, release provenance and T-TOOLSET — all four owed by **v0.6.9** (the drop order was exchanged by ADR-022/D0). Two-person release approval is NOT among them: cancelled by ADR-022/D2 and replaced by a two-key, two-device control. It stays in the debt ledger with status `cancelled` and the decision that cancelled it — a deleted position leaves nothing by which to check why it is gone. An SBOM is an inventory of the box, not evidence of who sealed it, and the generated document says so in its own metadata. | **Prototype** (Partial, SBOM + pinning v0.6.8) |
 
 ## #06 · Not yet in the codebase
 

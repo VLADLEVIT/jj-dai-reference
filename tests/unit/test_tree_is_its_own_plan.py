@@ -32,6 +32,11 @@ These do. Six groups:
   SBOM-1  docs/sbom.cdx.json regenerates byte-identically from the tree
   SBOM-2  every component the SBOM records as a library carries a hash
   SBOM-3  the SBOM does not claim the supply chain is closed
+  SYNC-7  deliverable->drop has one machine source of truth
+  SYNC-7-MUT the check is proved to fire on broken copies
+  SYNC-8  one acceptance TOTAL across roadmap, recorded evidence and
+          the generated surfaces
+  LEDGER-1..3 the debt ledger is append-only and says why a position left
   PIN-1   requirements-dev.txt pins every requirement by version AND hash
   PIN-2   every build input is pinned as strongly as its format allows, and
           the one that cannot carry a hash is declared rather than implied
@@ -53,6 +58,7 @@ K4-bis all treated it as Accepted. Presence is not status.
 from __future__ import annotations
 
 import io
+import json
 import os
 import re
 import subprocess
@@ -455,16 +461,302 @@ def test_sbom_regenerates_and_claims_only_what_it_proves():
     assert props.get("jjdai:pinned-scope"), (
         "SBOM-3: the SBOM does not declare the SCOPE of its pinning. An "
         "inventory silent about its own boundary reads as complete.")
-    open_items = props.get("jjdai:supply-chain-open", "")
-    for owed in ("signed-artefacts", "two-person-approval",
-                 "reproducible-build"):
-        assert owed in open_items, (
-            "SBOM-3: the SBOM no longer names %r as open. If it has genuinely "
-            "been closed, close it in the roadmap first — this check is what "
-            "stops an inventory being read as a release attestation." % owed)
+    # The list is no longer a literal kept here. ADR-022/D14 makes the debt
+    # ledger the single source of truth, so this check compares the SBOM
+    # against the PROJECTION over that ledger. A literal was what made the
+    # cancellation of `two-person-approval` turn this check red instead of
+    # turning the roadmap red — a check that fires when a decision is
+    # recorded, rather than when a claim outruns its evidence, trains
+    # people to edit the check.
+    ledger = _ledger()
+    projection = ledger["projection"]
+    state, blocks = {}, {}
+    for row in ledger["events"]:
+        state[row["id"]] = projection[row["event"]]
+        if "blocks" in row:
+            blocks[row["id"]] = row["blocks"]
+    expect = sorted(
+        i for i, st in state.items()
+        if st == "open"
+        and blocks.get(i) != "acceptance-of-outside-contribution")
+    open_items = [x.strip()
+                  for x in props.get("jjdai:supply-chain-open", "").split(",")
+                  if x.strip()]
+    assert open_items == expect, (
+        "SBOM-3: the SBOM's open supply-chain list %r does not match the "
+        "projection over the debt ledger %r. The SBOM does not get its own "
+        "copy of what is owed." % (open_items, expect))
+    assert props.get("jjdai:supply-chain-open-source"), (
+        "SBOM-3: the SBOM does not say where its open list comes from. A "
+        "derived list that does not name its source reads as hand-kept.")
+    assert open_items, (
+        "SBOM-3: the SBOM names NOTHING as open. An inventory silent about "
+        "what is still owed reads as a release attestation.")
     print("  [PASS] SBOM-1..3 %d components, %s regenerates byte-identically, "
           "open supply-chain items still named"
           % (len(doc["components"]), os.path.relpath(out, _ROOT)))
+
+
+def test_roadmap_count_agrees_with_evidence_and_surfaces():
+    """SYNC-8 — one acceptance TOTAL, in every surface that states one.
+
+    The roadmap said 215 while the tree held 217, then 217 while the tree
+    held 218 — twice in two days, both times because a test was added and
+    the plan was not told. The generated surfaces never drifted, because
+    they are generated; the roadmap drifted because it is written.
+
+    TOTALS are compared, not passed counts. The passed count is a property
+    of a run and belongs in the evidence file and in the badge rendered from
+    it; the total is a property of the tree, so it can be checked without
+    making the check depend on its own result. Comparing passed counts here
+    would make this test change the number it verifies.
+    """
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "genarch", os.path.join(_ROOT, "scripts", "gen_architecture_docs.py"))
+    genarch = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(genarch)
+    collected = genarch.count_acceptance()
+
+    sys.path.insert(0, os.path.join(_ROOT, "scripts"))
+    from run_acceptance import read_result
+    res = read_result()
+    assert res is not None, (
+        "SYNC-8: no recorded run — nothing to compare the plan against")
+    assert res["total"] == collected, (
+        "SYNC-8: the recorded run counts %d, the runner collects %d"
+        % (res["total"], collected))
+
+    rm_dir = os.path.join(_ROOT, "docs", "roadmap")
+    mds = [f for f in os.listdir(rm_dir) if f.startswith("JJ_DAI_Roadmap_r")
+           and f.endswith(".md")]
+    assert len(mds) == 1, "SYNC-8: expected one roadmap markdown, found %s" % mds
+    road = _read("docs", "roadmap", mds[0])
+
+    # Only CURRENT claims. The revision journal quotes what earlier revisions
+    # said, and rewriting history to satisfy a check would be the very defect
+    # this project refuses everywhere else.
+    claims = re.findall(r"(\d+)/(\d+) recorded", road)
+    assert claims, ("SYNC-8: the roadmap states no acceptance count at all — "
+                    "a plan that never states one cannot be checked against "
+                    "the tree")
+    wrong = sorted({"%s/%s" % c for c in claims if int(c[1]) != collected})
+    assert not wrong, (
+        "SYNC-8: the roadmap states %s while the runner collects %d. A test "
+        "was added and the plan was not told — the same drift twice in two "
+        "days." % (", ".join(wrong), collected))
+
+    mapdoc = _read("docs", os.path.basename(genarch.MAP))
+    m = re.search(r"Acceptance:\s*(\d+)/(\d+)", mapdoc)
+    assert m and int(m.group(2)) == collected, (
+        "SYNC-8: the architecture map states a total of %s, the runner "
+        "collects %d" % (m.group(2) if m else "none", collected))
+    print("  [PASS] SYNC-8   acceptance total %d agrees across roadmap, "
+          "evidence and generated surfaces" % collected)
+
+
+def _drop_plan():
+    with io.open(os.path.join(_ROOT, "docs", "architecture_status.json"),
+                 encoding="utf-8") as fh:
+        return json.load(fh)["drop_plan"]
+
+
+def _sync7_violations(text, fname, plan):
+    """Every place `text` attaches a deliverable to a drop, checked.
+
+    Returns a list of human-readable violations. Factored out of the test so
+    the mutation self-test below can call it on DELIBERATELY BROKEN copies
+    and prove the check would actually fire. A checker that has never been
+    seen to fail is a checker nobody has tested.
+    """
+    drops, keywords = plan["drops"], plan["keywords"]
+    bad = []
+
+    # 1. The `Drop:` line is normative and unambiguous — no heuristics.
+    m = re.search(r"^\*\*Drop:\*\*\s*(v0\.6\.\d+)", text, re.M)
+    subject = None
+    for key, spec in drops.items():
+        if spec.get("adr") and spec["adr"] in fname:
+            subject, declared_drop = spec["deliverable"], key
+    if subject is not None:
+        if not m:
+            bad.append("%s carries no `Drop:` line; the registry expects %s"
+                       % (fname, declared_drop))
+        elif m.group(1) != declared_drop:
+            bad.append("%s declares Drop: %s, the registry assigns %s to %s"
+                       % (fname, m.group(1), declared_drop, subject))
+
+    # 2. Body scan, deliberately simple so that its behaviour is obvious.
+    #
+    #    A CLAUSE that names exactly one deliverable and one or more drop
+    #    numbers is a claim: every drop it names must be the drop the
+    #    registry gives that deliverable. A clause naming no deliverable, or
+    #    two, is ambiguous and is left alone — a checker that guesses at
+    #    ambiguity produces false positives, and a check that cries wolf gets
+    #    edited rather than obeyed.
+    #
+    #    Scope matters and cost two wrong attempts. The historical exemption
+    #    is judged per SENTENCE, because the marker ("before r6.9 this read
+    #    ...") and the quotation it introduces sit in different clauses. The
+    #    claim is judged per CLAUSE, because one sentence routinely carries
+    #    two ("v0.6.9 carries the toolset, v0.6.10 carries Alpha") and at
+    #    sentence scope each half poisons the other. Nothing is skipped for
+    #    carrying two drop numbers: that exemption is precisely how a
+    #    swapped pair survived the first implementation.
+    for sentence in re.split(r"(?<=\.)\s+|\n", text):
+        if any(k in sentence for k in ("до r6", "историч", "читалась")):
+            continue
+        for clause in re.split(r"[;()«»]|,\s", sentence):
+            found = sorted({deliv for deliv, words in keywords.items()
+                            if any(w in clause for w in words)})
+            if len(found) != 1:
+                continue
+            deliv = found[0]
+            for dm in re.finditer(r"v0\.6\.\d+", clause):
+                drop = dm.group(0)
+                if drop in drops and drops[drop]["deliverable"] != deliv:
+                    bad.append(
+                        "%s attaches %r to %s; the registry gives %s to %r"
+                        "\n    clause: %s"
+                        % (fname, deliv, drop, drop,
+                           drops[drop]["deliverable"],
+                           " ".join(clause.split())[:140]))
+    return bad
+
+
+def test_no_adr_names_a_drop_that_disagrees_with_the_registry():
+    """SYNC-7 — deliverable→drop has one source of truth, and it is machine-read.
+
+    Owed after ADR-020 spent a day split-brain: its header said the Alpha drop
+    was v0.6.10 while twelve places in the body still said v0.6.9. SYNC-5
+    compares an ADR's STATUS to the index; nothing compared an ADR's CONTENT
+    to the plan, and nothing compared a document to itself.
+
+    The first implementation was heuristic and a reviewer's mutation test
+    walked straight through it: it skipped sentences carrying two drop
+    numbers, skipped anything mentioning a revision, and only looked at
+    sentences containing certain words. All three exemptions are gone. The
+    registry in `architecture_status.json :: drop_plan` is now the source of
+    truth, each ADR carries a normative `Drop:` line, and the roadmap's drop
+    table is checked against the same registry.
+    """
+    plan = _drop_plan()
+    bad = []
+    adr_dir = os.path.join(_ROOT, "docs", "adr")
+    for name in sorted(f for f in os.listdir(adr_dir) if f.endswith(".md")):
+        bad += _sync7_violations(_read("docs", "adr", name), name, plan)
+
+    # the roadmap's drop table must agree with the same registry
+    rm_dir = os.path.join(_ROOT, "docs", "roadmap")
+    mds = [f for f in os.listdir(rm_dir) if f.startswith("JJ_DAI_Roadmap_r")
+           and f.endswith(".md")]
+    assert len(mds) == 1, "SYNC-7: expected one roadmap markdown, found %s" % mds
+    road = _read("docs", "roadmap", mds[0])
+    seen = 0
+    for m in re.finditer(r"^\|\s*\*\*(v0\.6\.\d+)\*\*\s*\|(.+?)\|", road, re.M):
+        drop, body = m.group(1), m.group(2)
+        if drop not in plan["drops"]:
+            continue
+        want = plan["drops"][drop]["deliverable"]
+        for deliv, words in plan["keywords"].items():
+            if deliv == want:
+                continue
+            if any(w in body for w in words) and not any(
+                    w in body for w in plan["keywords"][want]):
+                bad.append("roadmap drop table gives %s to %r, registry says %r"
+                           % (drop, deliv, want))
+        seen += 1
+    assert seen >= 2, ("SYNC-7: the roadmap drop table parsed %d rows — the "
+                       "parse is probably broken rather than the tree clean" % seen)
+    assert not bad, "SYNC-7:\n  " + "\n  ".join(bad)
+    print("  [PASS] SYNC-7   %d roadmap row(s) and every ADR drop mention agree "
+          "with drop_plan" % seen)
+
+
+def test_sync7_would_actually_fire():
+    """SYNC-7-MUT — the check is proved to fail on deliberately broken copies.
+
+    A reviewer mutation-tested the previous implementation and it passed a
+    document that named the wrong drop. So the check now carries its own
+    mutation tests: four known-bad inputs that MUST be rejected, and one
+    known-good historical reference that must NOT be. Without this, "SYNC-7
+    passes" says nothing about whether SYNC-7 can fail.
+    """
+    plan = _drop_plan()
+    fname = "ADR-020-Agent-Alpha.md"
+    good = _read("docs", "adr", fname)
+
+    mutants = {
+        "wrong drop in the header":
+            good.replace("**Drop:** v0.6.10", "**Drop:** v0.6.9", 1),
+        "wrong drop in the normative body":
+            good.replace("Обязательный объём Agent Alpha в v0.6.10:",
+                         "Обязательный объём Agent Alpha в v0.6.9:", 1),
+        "deliverables swapped in one sentence":
+            good + "\n\nAgent Alpha едет дропом v0.6.9, а T-TOOLSET в v0.6.10.\n",
+    }
+    for label, text in mutants.items():
+        assert _sync7_violations(text, fname, plan), (
+            "SYNC-7-MUT: mutation %r SURVIVED. The check passed a document "
+            "that names the wrong drop, which is the exact class of defect "
+            "it exists to catch." % label)
+
+    # and the permitted case must stay permitted, or the check gets edited
+    hist = good + ("\n\nДо r6.9 строка читалась «дроп v0.6.9», это историческая "
+                   "ссылка на Agent Alpha.\n")
+    assert _sync7_violations(hist, fname, plan) == _sync7_violations(good, fname, plan), (
+        "SYNC-7-MUT: an explicit historical reference was flagged. A check "
+        "that cries wolf on honest text gets edited rather than obeyed.")
+    print("  [PASS] SYNC-7-MUT %d mutation(s) rejected, historical reference "
+          "permitted" % len(mutants))
+
+
+def _ledger():
+    """The release-debt ledger — the single source of truth for what is owed."""
+    with io.open(os.path.join(_ROOT, "docs", "architecture_status.json"),
+                 encoding="utf-8") as fh:
+        return json.load(fh)["release_debt"]
+
+
+def test_debt_ledger_is_append_only_and_says_why():
+    """LEDGER-1..3 — a position leaves the list without leaving the record.
+
+    ADR-022/D14. Deleting a debt line leaves nothing by which to check why it
+    is gone; this project has twice found a position open in one surface and
+    closed in another. So status is a projection over append-only events, a
+    cancellation must name the decision that cancelled it, and a closure must
+    name the evidence that closed it. The difference between the two is the
+    whole point: one was decided away, the other was built.
+    """
+    ledger = _ledger()
+    seen, seqs = set(), []
+    for row in ledger["events"]:
+        seqs.append(row["seq"])
+        # LEDGER-1: every position is opened before it is closed or cancelled
+        if row["event"] == "DEBT_OPENED":
+            seen.add(row["id"])
+        else:
+            assert row["id"] in seen, (
+                "LEDGER-1: %r is %s without ever having been opened. An "
+                "append-only ledger that starts mid-story is a list."
+                % (row["id"], row["event"]))
+        # LEDGER-2: leaving the list requires saying which kind of exit it was
+        if row["event"] == "DEBT_CANCELLED":
+            assert row.get("decision_ref"), (
+                "LEDGER-2: %r was cancelled without naming the decision that "
+                "cancelled it. A requirement that vanishes without a "
+                "decision_ref is indistinguishable from one that was quietly "
+                "dropped." % row["id"])
+        if row["event"] == "DEBT_CLOSED":
+            assert row.get("evidence_ref"), (
+                "LEDGER-2: %r was closed without naming the evidence that "
+                "closed it. Closed means proved, not asserted." % row["id"])
+    assert seqs == sorted(seqs) and len(set(seqs)) == len(seqs), (
+        "LEDGER-3: event sequence numbers are not strictly ordered and "
+        "unique. Append-only is an ordering claim, not a file mode.")
+    print("  [PASS] LEDGER-1..3 %d events, %d positions; cancellations name a "
+          "decision, closures name evidence"
+          % (len(ledger["events"]), len(seen)))
 
 
 # ---------------------------------------------------------------------- PIN

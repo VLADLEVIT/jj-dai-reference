@@ -78,6 +78,35 @@ def _inventory_paths() -> list:
     return [p for p in digest_files() if p != _SELF]
 
 
+def _supply_chain_open():
+    """Open supply-chain positions, PROJECTED from the debt ledger.
+
+    ADR-022/D14 makes `architecture_status.json :: release_debt` the single
+    source of truth. Status is a projection over append-only events, so a
+    position that was cancelled (`two-person-approval`) leaves the list
+    without leaving the record: the ledger still carries why it went and
+    which decision took it.
+
+    CLA is excluded deliberately. It blocks acceptance of an outside
+    contribution, never a release tag, and listing it here would put a
+    governance question inside a provenance claim.
+    """
+
+    path = os.path.join(ROOT, "docs", "architecture_status.json")
+    with io.open(path, encoding="utf-8") as fh:
+        ledger = json.load(fh)["release_debt"]
+    projection = ledger["projection"]
+    status, blocks = {}, {}
+    for row in ledger["events"]:               # append-only: last write wins
+        status[row["id"]] = projection[row["event"]]
+        if "blocks" in row:
+            blocks[row["id"]] = row["blocks"]
+    return sorted(
+        ident for ident, state in status.items()
+        if state == "open"
+        and blocks.get(ident) != "acceptance-of-outside-contribution")
+
+
 def _inventory_digest() -> str:
     """Content address over the inventoried set — the tree minus this file.
 
@@ -303,13 +332,20 @@ def build() -> dict:
                 {"name": "jjdai:runtime-dependencies", "value": "0"},
                 {"name": "jjdai:generated-by", "value": "scripts/gen_sbom.py"},
                 # Named here rather than left to be assumed. An SBOM in a
-                # repository with no signing and no two-person approval is
-                # an inventory, not a provenance claim, and saying so inside
-                # the artefact is cheaper than correcting a reader later.
+                # repository with no signing and no independent rebuild is an
+                # inventory, not a provenance claim, and saying so inside the
+                # artefact is cheaper than correcting a reader later.
+                #
+                # The list is DERIVED from the debt ledger in
+                # architecture_status.json, not written here by hand
+                # (ADR-022/D14). A hand-kept second copy is how a position
+                # comes to be open in one surface and closed in another; that
+                # is the defect this project has paid for twice.
                 {"name": "jjdai:supply-chain-open",
-                 "value": "reproducible-build, signed-artefacts, "
-                          "two-person-approval, T-TOOLSET, "
-                          "build-backend-unhashed"},
+                 "value": ", ".join(_supply_chain_open())},
+                {"name": "jjdai:supply-chain-open-source",
+                 "value": "docs/architecture_status.json :: release_debt "
+                          "(projection over append-only events)"},
                 # The SCOPE of the pin, stated so the component list is not
                 # read as a stronger claim than it is. An audit round asked
                 # for exactly this after finding the workflow's actions and

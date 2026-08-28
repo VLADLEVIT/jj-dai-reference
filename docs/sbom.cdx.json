@@ -708,7 +708,7 @@
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "095a0486443d6e03b4c6a8c39c6f4a454e5a678c9ec7c0c2ff9fcf0e0a0979aa"
+          "content": "f9c6acfa630dbbd15cca2264926cd0ce2562bcd8b08dbe8cb225ab393d2a035c"
         }
       ],
       "name": "docs/README.md",
@@ -796,7 +796,7 @@
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "983ff90b679926ccb7994b3d84a8d3e16a1faa7f5db92f0d4a0e9f0a375fd903"
+          "content": "7737961e6ea5a374a0d05e464d5a81f3f44f01454fd1d13e2d5683cf2b7d6b6a"
         }
       ],
       "name": "docs/adr/ADR-020-Agent-Alpha.md",
@@ -811,6 +811,17 @@
         }
       ],
       "name": "docs/adr/ADR-021-Memory-Inheritance.md",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:docs/adr/ADR-022-Executable-Provenance.md",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "7a76639114d886582966503e9425adf1f1fac7f7dd5fb1cdc30a2121e30b4609"
+        }
+      ],
+      "name": "docs/adr/ADR-022-Executable-Provenance.md",
       "type": "file"
     },
     {
@@ -862,7 +873,7 @@
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "a12ae2a2b7c8a10757259f547806c90ee1276ffdeae1156520e3afa1a425f157"
+          "content": "d85239c6faaf6139e37aa5cf42134076d9cb49ade9e8ed11a4c8d22ac8389153"
         }
       ],
       "name": "docs/architecture_status.json",
@@ -880,25 +891,25 @@
       "type": "file"
     },
     {
-      "bom-ref": "file:docs/roadmap/JJ_DAI_Roadmap_r6_8_5.md",
+      "bom-ref": "file:docs/roadmap/JJ_DAI_Roadmap_r6_9_5.md",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "6a8bbfb197a0cab2be3e19a99e1faf906c2ae4caab2b621b8c0b2d23856565ba"
+          "content": "cde11da70acefd2759156b827ed059db070c663e1426879f0353cf33f6a1689b"
         }
       ],
-      "name": "docs/roadmap/JJ_DAI_Roadmap_r6_8_5.md",
+      "name": "docs/roadmap/JJ_DAI_Roadmap_r6_9_5.md",
       "type": "file"
     },
     {
-      "bom-ref": "file:docs/roadmap/JJ_DAI_Roadmap_r6_8_5.pdf",
+      "bom-ref": "file:docs/roadmap/JJ_DAI_Roadmap_r6_9_5.pdf",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "8ac0644fafae8c31e13a5ebc27daf6ef81398fb76df787e9fb2c07a2ab59f3bd"
+          "content": "eda8dee233a5b6e14cc79680e157d317982e0cd8679261c5d0a61faf162f25b6"
         }
       ],
-      "name": "docs/roadmap/JJ_DAI_Roadmap_r6_8_5.pdf",
+      "name": "docs/roadmap/JJ_DAI_Roadmap_r6_9_5.pdf",
       "type": "file"
     },
     {
@@ -906,7 +917,7 @@
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "25d89c33a7276727376b5ab27f8dd38398dc73a7f125fc6e2cf071532a8a2d40"
+          "content": "4b67756dba786e9be10f3ea6d6c9441901d5ffa28584862162425e6e470aa467"
         }
       ],
       "name": "docs/roadmap/README.md",
@@ -1500,7 +1511,7 @@
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "7a45af162b5d7dcbfbb239dfd8e530bf05a06a9461d55ebb031c9e3eb8ae40ae"
+          "content": "3b63862f61e2db99a82ee051e3468d020bcf969692624b8773a7fe7417d243aa"
         }
       ],
       "name": "requirements-dev.txt",
@@ -1599,7 +1610,7 @@
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "58b2d556b1c07bb5ebfc22aef5f19ec24b730136e27b866e3338bf2f3d9d98cf"
+          "content": "33e4d9b5d54c7fe4879184a8a0b8edbf2a355d11a526c5d7be4fc2ed6246ff0b"
         }
       ],
       "name": "scripts/gen_sbom.py",
@@ -2468,7 +2479,7 @@
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "f582f55fd801eec05e8533ba0a4569e1cae4e9bce809ab10a1a1b42c305a7b13"
+          "content": "9174d8ddd3b4255a113061f46a18abaa1cd2f3362cb32ede2e5c9bd064f36192"
         }
       ],
       "name": "tests/unit/test_tree_is_its_own_plan.py",
@@ -2563,7 +2574,7 @@
     "properties": [
       {
         "name": "jjdai:inventory-digest",
-        "value": "a65128b9a728f648a993df985dba56877b17e30ece74ff50be0e05410ed1bcfc"
+        "value": "119303b7c0ce60361c3ee436ab4bd2f269e1ee7c848329e50dce8315ae9f39d3"
       },
       {
         "name": "jjdai:inventory-scope",
@@ -2571,7 +2582,7 @@
       },
       {
         "name": "jjdai:file-count",
-        "value": "212"
+        "value": "213"
       },
       {
         "name": "jjdai:runtime-dependencies",
@@ -2583,7 +2594,11 @@
       },
       {
         "name": "jjdai:supply-chain-open",
-        "value": "reproducible-build, signed-artefacts, two-person-approval, T-TOOLSET, build-backend-unhashed"
+        "value": "build-backend-unhashed, file-modes-and-symlink-targets, readme-outside-tree-digest, release-provenance, reproducible-build, signed-artefacts, t-toolset"
+      },
+      {
+        "name": "jjdai:supply-chain-open-source",
+        "value": "docs/architecture_status.json :: release_debt (projection over append-only events)"
       },
       {
         "name": "jjdai:pinned-scope",

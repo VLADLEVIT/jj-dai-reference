@@ -167,6 +167,24 @@ RESULT_PATH = result_path(DEFAULT_SUITE)
 #: the same reason __pycache__ does: it is not shipped, and whether it
 #: happens to exist when a run is recorded must not be able to decide
 #: whether a later clean unpack reads the same tree.
+def _load_digest_scope() -> dict:
+    """Read the declared boundary. Fail-closed: a missing or malformed scope
+    file is not "hash everything" — the boundary would then be wherever the
+    code happens to put it, which is what the file exists to prevent."""
+    import json as _json
+    path = os.path.join(ROOT, "docs", "digest_scope.json")
+    with open(path, encoding="utf-8") as fh:
+        doc = _json.load(fh)
+    if doc.get("schema") != "jjdai.digest-scope/v1":
+        raise SystemExit("docs/digest_scope.json: unexpected schema")
+    return {"files": tuple(doc["output_files"]),
+            "prefixes": tuple(doc["output_prefixes"])}
+
+
+if ROOT not in sys.path:
+    sys.path.insert(0, ROOT)
+from jjdai import source_tree as _source_tree            # noqa: E402
+
 _DIGEST_SKIP_DIRS = ("__pycache__", ".git", ".pytest_cache", ".typeset",
                      "build", "dist",
                      ".eggs", ".mypy_cache", ".ruff_cache", "node_modules",
@@ -194,10 +212,15 @@ _DIGEST_SKIP_DIRS = ("__pycache__", ".git", ".pytest_cache", ".typeset",
 #: EXCLUSION list is the worst place for one — it silently un-hashes any file
 #: that later takes the name, and it reads to an auditor as a deliberate
 #: exemption rather than as a leftover.
-_DIGEST_SKIP_FILES = ("README.md",)
-_DIGEST_SKIP_PREFIXES = ("docs/evidence/",
-                         "docs/JJDAI_Code_Architecture_Map_v",
-                         "docs/site/JJDAI_Architecture_Status_v")
+#: v0.6.9 (ADR-022 D11/D12). This list is now DERIVED from
+#: `docs/digest_scope.json`, which is itself inside the digest, so the
+#: boundary cannot be widened without changing the address of the file that
+#: declares it. README left the list when D12 moved the generated blocks out
+#: of it: it was the one exclusion here with no binding anywhere else, and
+#: "excluded, bound nowhere" is the shape D11 forbids.
+_SCOPE = _load_digest_scope()
+_DIGEST_SKIP_FILES = _SCOPE["files"]
+_DIGEST_SKIP_PREFIXES = _SCOPE["prefixes"]
 
 
 def _digest_skip(rel: str) -> bool:
@@ -232,22 +255,42 @@ def source_digest(root: str = None) -> str:
     removing a test function left the recorded result matching and the badge
     green about a tree that no longer existed.
 
-    Since recut3 this covers the shipped tree and not merely its Python:
-    authz policy, systemd and launchd units, shell scripts, the wasm toolset
-    manifest, model profiles, Prometheus rules, pyproject, the licences, CI
-    workflows, the ADRs and the roadmap. Those are release-relevant, and a
-    change to any of them is a change to what the run proved.
+    v0.6.9 (ADR-022 D11): this is now `jjdai.source-tree/v2`, computed by
+    `jjdai.source_tree` and defined in bytes there. ONE digest, not two —
+    keeping the v1 stream beside it for a transition would have put two
+    addresses of one tree in the tree, and a reader would have had to know
+    which one a given field meant. What changed against v1: every field is
+    length-prefixed, symlinks are recorded by their TARGET and never
+    dereferenced, the executable bit is carried explicitly, entries sort by
+    the raw bytes of the path, a gitlink is a hard refusal, and the
+    exclusion boundary is read from `docs/digest_scope.json` rather than
+    from a literal in this file.
     """
-    root = ROOT if root is None else root
-    h = hashlib.sha256()
-    for rel in digest_files(root):
-        with open(os.path.join(root, *rel.split("/")), "rb") as fh:
-            body = fh.read()
-        h.update(rel.encode("utf-8"))
-        h.update(b"\0")
-        h.update(hashlib.sha256(body).hexdigest().encode("ascii"))
-        h.update(b"\n")
-    return h.hexdigest()
+    digest, _source, _count = _tree_digest(ROOT if root is None else root)
+    return digest
+
+
+def source_digest_named(root: str = None) -> dict:
+    """The digest WITH the name of the algorithm and the origin of entries.
+
+    A digest without its algorithm compares to nothing, and one without its
+    origin does not say whether it addresses a commit or somebody's working
+    copy. Both travel with it into `hermetic.json`, the `ReleaseStatement`
+    and the tag annotation.
+    """
+    digest, source, count = _tree_digest(ROOT if root is None else root)
+    return {"tree_digest": digest,
+            "tree_digest_algo": _source_tree.ALGO,
+            "tree_digest_source": source,
+            "tree_digest_entries": count}
+
+
+def _tree_digest(root: str):
+    # `require_clean=False`: a dirty tree is refused when a RELEASE is cut
+    # (D11, and the tag rules of D13), not when an acceptance run is taken.
+    # Refusing here would make the run unusable during development, which is
+    # when it is needed most; the release path asks for cleanliness itself.
+    return _source_tree.digest(root, require_clean=False)
 
 
 def write_result(passed: int, total: int, groups, errors: int,
@@ -286,7 +329,7 @@ def write_result(passed: int, total: int, groups, errors: int,
                      "machine": platform.machine(),
                      "node": platform.node()},
             "engine": os.environ.get("JJDAI_EVIDENCE_ENGINE") or None,
-            "tree_digest": source_digest(),
+            **source_digest_named(),
             "duration_s": round(float(duration_s), 1)}
     payload = json.dumps(body, sort_keys=True, separators=(",", ":"))
     body["digest"] = hashlib.sha256(payload.encode()).hexdigest()

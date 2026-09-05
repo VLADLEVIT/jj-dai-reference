@@ -1,8 +1,8 @@
-# JJ DAI — Code Architecture Map v0.6.8
+# JJ DAI — Code Architecture Map v0.6.9
 
 > GENERATED from `docs/architecture_status.json` by `scripts/gen_architecture_docs.py` — edit the JSON, not this file. `scripts/check_docs_drift.py` fails CI on divergence.
 
-Acceptance: 219/219 green (recorded run on Python 3.11.15; stdlib runner, CI matrix 3.10-3.12).
+Acceptance: 308/308 green (recorded run on Python 3.12.3; stdlib runner, CI matrix 3.10-3.12).
 
 ## #00 · The neurosymbolic stack
 
@@ -39,7 +39,7 @@ Mutable knowledge lives outside frozen weights; everything that touches a decisi
 | `kernel/smriti.py` | Smriti — continuity and memory: Core/archival memory, verified recall, signed export/import, read-only thinking view and journal reconstruction. | **Implemented** (Implemented) |
 | `kernel/viveka.py` | Viveka — discernment and deliberation: Deterministic graphs, conditional routing, checkpoints, visible rollback, bounded loops and containment-aware executive steps. | **Implemented** (Implemented) |
 | `kernel/karma.py` | Karma — governed action: Witnessed intent/outcome, path confinement, rlimits, streaming flood-kill, deterministic child environment. Reference sandbox, not hardened isolation. | **Implemented** (Implemented, reference sandbox) |
-| `kernel/isolation.py` | Isolation profiles — the boundary seam: Named execution boundaries for Karma. reference is the v0.6.3 process fence (path confinement, rlimits, env scrub, streaming output cap). wasm-wasi runs a fixed toolset of precompiled WASI modules pinned by digest inside that same fence, with exactly one directory preopened and no arbitrary argv; wasmtime is a declared host binary, not a Python dependency. Readiness is computed per tool against real modules and pinned digests, so a declared capability is an executable one; a declared profile whose runtime is absent REFUSES the action and is reported unavailable in capabilities — never silently downgraded. microvm is reserved and unimplemented by design. | **Implemented** (Implemented, per-tool readiness, fails closed) |
+| `kernel/isolation.py` | Isolation profiles — the boundary seam: Named execution boundaries for Karma. reference is the v0.6.3 process fence (path confinement, rlimits, env scrub, streaming output cap). wasm-wasi runs a fixed toolset of precompiled WASI modules pinned by digest inside that same fence, with ZERO preopened directories and no arbitrary argv (ADR-022 D9: 'without writing outside one preopen' meant writing inside it was allowed, so it was never the boundary of the pure class); wasmtime is a declared host binary, not a Python dependency. Readiness is computed per tool against real modules and pinned digests, so a declared capability is an executable one; a declared profile whose runtime is absent REFUSES the action and is reported unavailable in capabilities — never silently downgraded. microvm is reserved and unimplemented by design. | **Implemented** (Implemented, per-tool readiness, fails closed) |
 
 ## #03 · The organism — runtime/
 

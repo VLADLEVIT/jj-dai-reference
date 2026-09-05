@@ -1,0 +1,20 @@
+{
+  "schema": "jjdai.digest-scope/v1",
+  "note": "The boundary between the SUBJECT TREE (everything hashed into jjdai.source-tree/v2) and the OUTPUT SET (what a run of THIS tree produces). This file is itself in the subject tree, so the boundary cannot be moved silently: widening the lists below changes the digest of the file that declares them. Every exclusion names the field or the check that binds it elsewhere — a merely excluded file does not exist.",
+  "output_files": [
+    "docs/evidence/hermetic.json",
+    "docs/evidence/live.json",
+    "docs/status_badge.md",
+    "docs/JJDAI_Code_Architecture_Map_v0.6.9.md",
+    "docs/site/JJDAI_Architecture_Status_v0.6.9.html"
+  ],
+  "output_prefixes": [],
+  "why_no_prefixes": "v0.6.9. The list used to hold three PREFIXES, and prefixes are the wrong shape here for a reason worth writing down: an exclusion is justified by a file being DERIVED from something that is hashed, and derivation is a property of a particular file, not of a name that starts a certain way. Under `docs/site/JJDAI_Architecture_Status_v` sat fourteen HISTORICAL pages that this tree does not regenerate and nothing checks; under `docs/evidence/` anything at all could be dropped and would answer to nothing. Both were outside the digest and bound to nothing. The four names below are the four files a run of this tree actually writes, and the historical pages are now hashed like any other shipped file — which is what they are.",
+  "bindings": {
+    "docs/evidence/hermetic.json": "ReleaseStatement.acceptance_hash, and checked green/hermetic/import-free against THIS tree by jjdai.release._check_acceptance",
+    "docs/status_badge.md": "regenerated whole from docs/architecture_status.json, which IS hashed; proved byte for byte by R-OWN-4 and by check_docs_drift",
+    "docs/JJDAI_Code_Architecture_Map_v0.6.9.md": "regenerated from docs/architecture_status.json, which IS hashed; proved by check_docs_drift",
+    "docs/site/JJDAI_Architecture_Status_v0.6.9.html": "regenerated from docs/architecture_status.json, which IS hashed; proved by check_docs_drift",
+    "docs/evidence/live.json": "the LIVE suite's recorded run. Evidence about a HOST, not about the tree — named in the F0 gate and never in a ReleaseStatement, which stands on the hermetic suite. Excluded for the same reason as hermetic.json: a run that writes a file cannot also hash it."
+  }
+}

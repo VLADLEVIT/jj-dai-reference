@@ -105,6 +105,15 @@ class KarmaAudit(KarmaError):
     pass
 
 
+def _close_stdin(proc) -> None:
+    """Close the child's stdin once, tolerating a child that already left."""
+    try:
+        if proc.stdin is not None and not proc.stdin.closed:
+            proc.stdin.close()
+    except (BrokenPipeError, OSError):
+        pass
+
+
 @dataclass
 class ActionResult:
     action: str
@@ -180,13 +189,15 @@ class Sandbox:
         return candidate
 
     # ---- process limits ---- #
-    def _limits(self):
+    def _limits(self, mem_bytes: int = None):
         import resource
+        mem = self.mem_bytes if mem_bytes is None else min(self.mem_bytes,
+                                                           mem_bytes)
 
         def apply():
             os.setsid()                                    # own process group
             resource.setrlimit(resource.RLIMIT_CPU, (self.cpu_s, self.cpu_s))
-            resource.setrlimit(resource.RLIMIT_AS, (self.mem_bytes, self.mem_bytes))
+            resource.setrlimit(resource.RLIMIT_AS, (mem, mem))
             resource.setrlimit(resource.RLIMIT_FSIZE,
                                (self.fsize_bytes, self.fsize_bytes))
             try:
@@ -225,25 +236,57 @@ class Sandbox:
             "VECLIB_MAXIMUM_THREADS": "1",
         }
 
-    def run(self, argv: list, *, cwd: str = None) -> ActionResult:
+    def run(self, argv: list, *, cwd: str = None, input_bytes: bytes = b"",
+            max_output: int = None, mem_bytes: int = None) -> ActionResult:
         """Execute argv inside the sandbox with limits + timeout + a TRUE
         streaming output cap (bounded parent memory, flood kill)."""
         import selectors
 
         workdir = self.resolve(cwd) if cwd else self.root
         env = self._child_env(workdir)
+        # v0.6.9: the cap can be tightened PER CALL, because the wasm
+        # profile carries a per-tool output limit from its signed manifest
+        # and a process-wide default is not that limit.
+        # The per-call value WINS when supplied — it does not intersect
+        # with the process default. For a `pure` tool the signed manifest is
+        # the authority on its output, and taking the smaller of the two
+        # made the process-wide default the binding limit while the refusal
+        # still named the tool's. A refusal that names the wrong limit sends
+        # the reader to fix the wrong number. Parent memory stays bounded by
+        # the flood budget below and by the ceiling the manifest validator
+        # puts on a declared limit.
+        cap = self.max_output if max_output is None else int(max_output)
         flood_budget = max(self.FLOOD_BUDGET_FLOOR,
-                           self.FLOOD_BUDGET_FACTOR * self.max_output)
+                           self.FLOOD_BUDGET_FACTOR * cap)
         t0 = time.time()
         timed_out = False
         overflowed = False
         try:
+            # v0.6.9 (ADR-022 D9, P0-7). stdin is a PIPE that this process
+            # writes and closes. It used to be left unset, so the child
+            # either saw EOF or INHERITED the host's stdin depending on how
+            # the daemon was started — a descriptor the guest was never
+            # declared to have, and a different input on two hosts for one
+            # module. A deterministic tool cannot have a non-deterministic
+            # input.
             proc = subprocess.Popen(
-                argv, cwd=workdir, env=env, stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE, preexec_fn=self._limits(), text=False)
+                argv, cwd=workdir, env=env, stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                preexec_fn=self._limits(mem_bytes), text=False)
         except (FileNotFoundError, PermissionError) as e:
             return ActionResult("shell", False, 127, "", str(e),
                                 time.time() - t0)
+        # v0.6.9. stdin is fed INSIDE the same selector loop as the two
+        # output streams, never written to completion first. Writing it
+        # first deadlocks the pair of pipes: a guest that emits a megabyte
+        # before reading its input fills the stdout pipe and blocks, while
+        # this process blocks filling the stdin pipe, and neither wall
+        # timeout below has begun. The audit hung a probe exactly there.
+        pending = memoryview(input_bytes or b"")
+        try:
+            os.set_blocking(proc.stdin.fileno(), False)
+        except (OSError, ValueError):
+            pending = memoryview(b"")
 
         bufs = {"out": bytearray(), "err": bytearray()}
         totals = {"out": 0, "err": 0}
@@ -251,6 +294,10 @@ class Sandbox:
         for stream, tag in ((proc.stdout, "out"), (proc.stderr, "err")):
             os.set_blocking(stream.fileno(), False)
             sel.register(stream, selectors.EVENT_READ, tag)
+        if pending:
+            sel.register(proc.stdin, selectors.EVENT_WRITE, "in")
+        else:
+            _close_stdin(proc)
         deadline = t0 + self.timeout_s
         open_streams = 2
         while open_streams > 0:
@@ -260,6 +307,19 @@ class Sandbox:
                 break
             for key, _ in sel.select(timeout=min(remaining, 0.25)):
                 tag = key.data
+                if tag == "in":
+                    try:
+                        sent = proc.stdin.write(pending[:65536])
+                    except (BrokenPipeError, OSError):
+                        sent = None            # the child stopped reading
+                    if sent is None:
+                        pending = memoryview(b"")
+                    else:
+                        pending = pending[sent:]
+                    if not pending:
+                        sel.unregister(proc.stdin)
+                        _close_stdin(proc)
+                    continue
                 try:
                     chunk = key.fileobj.read(65536)
                 except OSError:
@@ -269,13 +329,19 @@ class Sandbox:
                     open_streams -= 1
                     continue
                 totals[tag] += len(chunk)
-                room = self.max_output - len(bufs[tag])
+                room = cap - len(bufs[tag])
                 if room > 0:
                     bufs[tag] += chunk[:room]       # keep the head only
                 if totals[tag] > flood_budget:
                     overflowed = True
             if overflowed:
                 break
+        if pending:
+            try:
+                sel.unregister(proc.stdin)
+            except (KeyError, ValueError):
+                pass
+        _close_stdin(proc)
         sel.close()
 
         if timed_out or overflowed:

@@ -3385,3 +3385,692 @@ rather than three drops later on a machine with no package index.
 It also runs the same tree with the same evidence file in the opposite
 environment from the matrix job — which is the property recut3 broke: whichever
 mode the evidence carried, one of the two jobs was guaranteed to fail.
+
+# JJ DAI v0.6.9 — the provenance of executable code, as one chain
+
+Scope: **ADR-022 rev 2.2 (Accepted, 27 Aug 2026)** end to end — D2 through
+D14 — plus T-TOOLSET. One concern, not seven: which tree, by which recipe,
+into which artefacts, checked by whom and by what independent act. The chain
+breaks the same way at every link, which is why it was built as one drop and
+not split across three.
+
+Acceptance **295 checks** (219 at the start of this drop). The count is
+recorded in `docs/evidence/hermetic.json` and rendered from there;
+`docs/status_badge.md` is generated whole and no longer lives inside the
+README.
+
+## What this drop does NOT close, and why the debt ledger says so
+
+Five positions stay `open` and one check pins them there (DEBT-3):
+`build-backend-unhashed`, `reproducible-build`, `signed-artefacts`,
+`release-provenance`, `t-toolset`. **The mechanism being built is not the
+debt being paid.** Every one of them needs something a build cannot produce:
+vendored wheels fetched on a host with index access, a key ceremony on two
+physical devices, a second machine of the same class for the independent
+rebuild, and a real `wasmtime` on both target host classes. The tree ships
+the machinery and refuses to act without the facts — `BUILD_PIN_MISSING`,
+`RECIPE_PLACEHOLDER`, `REL_UNKNOWN_KEY`, `MANIFEST_NO_RESOLVER` — which is
+the honest state rather than a gap.
+
+Two positions DID close, each with the check that discharged it:
+`readme-outside-tree-digest` (R-OWN-3) and `file-modes-and-symlink-targets`
+(TREE-2 · TREE-3).
+
+## `pure` stopped being a sentence and became a boundary
+
+The roadmap used to define it as "no writes outside one preopen directory",
+which permits writing INSIDE that directory and therefore drew no boundary
+at all. r6.9.1 replaced the definition; this drop makes the replacement
+executable:
+
+* **zero preopen directories**, and the assembled command is checked rather
+  than trusted — the preopen that mattered arrived as a flag on exactly that
+  line;
+* the WASI import allowlist — `fd_read`, `fd_write`, `proc_exit` — is
+  checked **on the module's bytes before the runtime is invoked**. A refusal
+  that fires when execution reaches a forbidden call depends on the input
+  reaching it, so two runs of one module would differ in whether the
+  boundary held;
+* clocks, entropy, sockets and `path_open` each refuse with the clause that
+  refuses them;
+* fuel, guest memory and TOTAL output are enforced, each breach a named
+  refusal with the partial output **discarded** — a truncated result from a
+  deterministic tool cannot be told apart from a complete one;
+* a runtime that does not accept the limit flags makes the profile
+  unavailable: a limit a runtime ignores is not a limit.
+
+Stated in advance rather than discovered: a module linked against the full
+`wasi-libc` imports more than the allowlist and will not instantiate. The
+starter set must be built against a narrowed target, and whether the chosen
+toolchain gives that AND a byte-for-byte repeat is ADR-022 O-3, answered on
+a host.
+
+## One door, and a signature that covers who signed
+
+`kernel/isolation.py` used to read `toolset.json` itself and never call the
+validator, so a manifest with no signature, no authorization form, no sunset
+and no limits reported `available = (True, "")` and executed. The validator
+sat beside the door instead of being it. There is now one door,
+`load_verified_manifest()`, and availability, capabilities, module
+resolution and execution all arrive through it.
+
+The signature is verified, not counted. Without a resolver for the signing
+key the profile is **unavailable** — absence of a checker is not permission,
+and a manifest is what sanctions an L2 mutation. The signer's identity lives
+INSIDE the signed body: the first cut excluded the whole signature block,
+which carried `key_id`, so swapping it for another registered id holding the
+same public key left the bytes unchanged and the signature valid.
+
+## Four release objects, and a hashed object that stops growing
+
+`ReleaseStatement` · `ApprovalStatement` · `ReleaseAttestation` ·
+`ReleasePublication`. The attestation is immutable and addressed by its
+hash; the publication is a SECOND object carrying it byte for byte plus
+`witness_ref`. An earlier revision kept the reference inside the hashed
+envelope, so adding it changed the hash and the record bound to the previous
+version of the object.
+
+* **no self-declared position**: a statement carrying `witness_seq` refuses,
+  because such a field could be pointed back into a revoked key's validity
+  window. Validity is judged at the ACTUAL position of the
+  `RELEASE_ATTESTED` record, and a release recorded before a later
+  revocation stays valid;
+* **the control block is counted**: `distinct_keys`, `distinct_devices` and
+  `distinct_principals` are derived from valid approvals through the
+  registry and compared with what the statement records. Two-key drawn as
+  two-person would enter a signed artefact as an independence nobody had;
+* `verification_evidence_hash` has ONE shape — required for a verifier,
+  forbidden for a builder. The field on a builder is how a builder becomes a
+  verifier without rebuilding anything;
+* `publish()` holds the chain lock across read-position → verify → append,
+  and abandons the publication if the record lands elsewhere. Without it a
+  release is published as valid at one position and verified as invalid at
+  its real one;
+* `verify_publication` verifies the CHAIN cryptographically. Comparing one
+  hash against a value taken from the reference under examination accepted a
+  chain whose signed fields had been edited.
+
+`docs/release_keys.json` ships valid and **empty**: two keys on two physical
+devices are a ceremony and a Ф0 gate item, not something a build produces.
+With it empty nothing can be attested, and REL-10 pins that.
+
+## `jjdai.source-tree/v2`, and the README that could finally be hashed
+
+The digest takes the **committed tree of the tag target** after a clean
+check, and a dirty tree refuses. Every field is length-prefixed; symlinks
+are recorded by their TARGET and never dereferenced, with the executable
+byte forced to zero because `lstat` reports the link's own bits; the
+executable bit is carried; entries sort by RAW PATH BYTES, because an order
+that depends on the locale of whoever computed it is not a content address;
+a gitlink is a hard refusal.
+
+`docs/digest_scope.json` declares subject tree against output set **and is
+itself in the subject tree**, so the boundary cannot be moved silently. It
+refuses self-exemption, an exclusion with no binding, and its own absence —
+absence is not "hash everything".
+
+D12 followed from that: README held the one exclusion bound nowhere else,
+which is precisely the shape D11 forbids. The three generated blocks moved
+to `docs/status_badge.md`; the build now writes no byte of the README and
+the README joined the digest. A normalised hash over it was the alternative
+and is rejected — it trades byte exactness for exactness by agreement, and
+agreements drift.
+
+## The build backend, pinned where PEP 517 cannot pin it
+
+`setuptools==80.9.0` promises a LABEL, not bytes: `[build-system].requires`
+has no field for a digest. The backend and every one of its dependencies are
+vendored under `vendor/build-backend/` and pinned by sha256 in a file of
+their own, verified **before** installation — verifying afterwards verifies
+a decision already taken. `SOURCE_DATE_EPOCH` is the COMMITTER time (`%ct`),
+because author time survives a rebase while the tree moves on. The network
+is measured, not assumed. The wheel is built from the already-checked sdist.
+`--no-build-isolation` cleans nothing by itself and the caveat is written
+where the flag is used.
+
+## Attribution
+
+New checks, in the form `X-1…X-N (path)` that
+`tests/unit/test_changelog_attribution.py` parses — the form matters,
+because an attribution the parser does not recognise is an attribution
+nobody verifies:
+
+* PROV-1…PROV-9 (`tests/unit/test_release_provenance.py`) — the ADR-022
+  vocabulary; `RELEASE_ATTESTED` emittable and not reserved, debt events not
+  witness kinds, two signing domains and one hash prefix refusing each
+  other's role, the `pure` effect-class split.
+* PURE-1…PURE-5 (`tests/unit/test_toolset_pure_boundary.py`) — the
+  allowlist read from module bytes, clocks and entropy refused by clause,
+  malformed modules failing closed, zero preopens, limits declared per tool.
+* TSET-1…TSET-5 (`tests/unit/test_toolset_pure_boundary.py`) — manifest v2,
+  the toolset signing domain, the interim authorization sunset, the loader's
+  duty, recipes in git and no binaries.
+* RP0-1…RP0-10 (`tests/unit/test_adr022_p0_closures.py`) — the seven P0
+  closures of the first audit round and three of the second, each written as
+  the audit ran it: same input, same door.
+* REL-1…REL-16 (`tests/unit/test_release_chain.py`) — the four objects, the
+  counted control, key validity at the real position, the atomic publish,
+  the chain verified cryptographically, mandatory physical binding.
+* TREE-1…TREE-8 (`tests/unit/test_source_tree_digest.py`) — length
+  prefixes, symlink targets, the executable bit, raw-byte ordering, gitlink
+  refusal, the committed tree, the declared boundary, the algorithm id.
+* R-OWN-1…R-OWN-5 (`tests/unit/test_readme_ownership.py`) — the generator
+  changes no byte of the README, which is why the README can be hashed; and
+  the hand-written prose agrees with the debt ledger, which nothing checked
+  until §8 had described a cancelled control as owed for a drop and a half.
+* BLD-1…BLD-7 (`tests/unit/test_build_environment.py`) — pins outside
+  `pyproject`, hashes before installation, committer time, measured network,
+  sdist-then-wheel, the environment table compared field by field.
+* DEBT-1…DEBT-4 (`tests/unit/test_debt_ledger_and_tags.py`) — one
+  fail-closed projection, every terminal event citing its reason, what this
+  drop closed and what it deliberately did not.
+* TAG-1…TAG-4 (`tests/unit/test_debt_ledger_and_tags.py`) — what each tag
+  asserts and the four things D13 forbids.
+* ASM-1…ASM-5 (`tests/unit/test_release_assembler.py`) — every statement
+  field derived, refusal on the first missing fact, readers rather than
+  hashes.
+* LIVE-1…LIVE-1 (`tests/unit/test_release_assembler.py`) — the live group
+  encodes the current `pure`, not the definition r6.9.1 removed.
+* L-1…L-9 (`tests/live/test_wasm_live.py`) — opt-in, on each target host
+  class. L-6 and L-7 are what the hermetic suite cannot prove: only a real
+  runtime exhausts real fuel.
+
+Every check above was verified RED against a deliberate mutation of the
+thing it names; the harnesses are not shipped, and the mutations are
+recorded in this entry's review trail.
+
+**Five checks first passed for the wrong reason and were caught by those
+mutations rather than by reading** — PROV-3, PROV-8, RP0-2, REL-7 and
+DEBT-1. In each the assertion was satisfied by a neighbouring guard or by an
+unrelated exception type, so deleting the rule under test left the check
+green. All five now assert WHICH refusal fired, by type and by wording. The
+rule this drop leaves behind: never assert that something raised, assert
+what raised and why.
+
+
+## Recut, by audit of the cut itself
+
+Nine P0s, every one confirmed against the tree before it was fixed.
+
+**`WitnessChain.append` never took the lock it was documented to hold.** The
+comment has read "guards append" since v0.5.3; two threads both read
+`next_index()`, both built a body at index 0, both persisted, and
+`verify_chain()` went False. A defect of the chain itself, not of the
+release code — the release code only made it visible. `next_index`,
+`head_hash`, the salts, the signature, the persist and the in-memory append
+are now one critical section.
+
+**A refused publication left its record behind.** `publish()` verified,
+appended, and raised if the index had moved — by which time the
+`RELEASE_ATTESTED` record was in the chain and on disk. An append-only store
+has no undo, so the position is re-read INSIDE the hold and the refusal
+happens BEFORE the write. REL-13 was green for the wrong reason: it asserted
+the error code and never that nothing was written.
+
+**`internal_only()` published releases.** Passing it to `publish()` turned
+every external gate off at once — no tag, tree, acceptance, bundle, recipe,
+SBOM, manifest or artefact ever compared. It now refuses in `publish()` and
+`check_release_tag()`, and any single absent reader refuses with it. The
+assembler's own `context()` passed `recipe_reader=None`, so `recipe_hash`
+went unchecked while every other hash was compared.
+
+**A red run stood behind a release.** `{"passed": 1, "total": 1,
+"import_errors": 1}` with no tree digest was accepted. A recorded run must
+now declare the acceptance schema, be of the hermetic suite, carry zero
+import errors, and name THIS tree with the algorithm that addressed it.
+
+**The build environment was validated and never verified.**
+`environment_matches()` existed and no verifier called it — the third
+appearance in this drop of a validator standing beside the boundary instead
+of being it. The whole D3 table is now required and compared field by field
+against what was measured.
+
+**The digest scope excluded by prefix.** Fourteen historical status pages
+sat under `docs/site/JJDAI_Architecture_Status_v`, regenerated by nothing
+and bound to nothing, and anything at all could be dropped under
+`docs/evidence/`. A prefix is the wrong shape for this: an exclusion is
+justified by a file being DERIVED from something hashed, and derivation is a
+property of a particular file. The boundary now lists the four files a run
+of this tree writes, and the historical pages are hashed like what they are.
+
+**Toolset key validity was current-only**, so a rotation would have taken
+down every manifest the key ever signed. Manifests now declare the position
+they were authorized at, and validity is judged there.
+
+**Key lifecycle positions were numbers in a file.** They must now resolve to
+a record in the chain: a registry that can move an activation earlier by
+editing a digit can make a signature valid that was not.
+
+**Named release revocation is OWED and is not implemented.** An earlier cut
+of this recut answered it with a function looking for a `revoked_marker`
+field that nothing writes — a mechanism shaped like one, which is the defect
+this drop has been audited for four times. Doing it properly needs a
+`RELEASE_REVOKED` record kind that window 6 of the pre-genesis reserve does
+not hold, and adding a serialized value to a frozen reserve is an ADR
+decision. It is in the ledger as `release-revocation-by-name`.
+
+Also: `verification_evidence_hash` is checked as a digest rather than
+accepted as the token `"x"`; an artefact's recorded LENGTH is compared with
+the bytes read, not only its hash; and README §2 was empty while §8 listed a
+control ADR-022/D2 had cancelled — prose no drift check covered, now covered
+by R-OWN-5.
+
+---
+
+## v0.6.9 · recut 2 — the five P0 of the recut1 audit
+
+Cut against the audit of `jjdai_v0.6.9-recut1.zip` (`f25d3bab…`), which
+returned HOLD: five P0 and one documentary defect. Acceptance **295 → 300**.
+Four of the five close in the tree; the parts no code can prove are named in
+the debt ledger rather than depicted, and the ledger now BLOCKS instead of
+describing.
+
+**P0-1 — REL-16 was a false green, and the strongest kind.**
+`check_lifecycle_witnessed()` promised in its docstring that "the record's
+provenance pre-image must name this key and this transition", did an index
+lookup and threw the record away; no production path called it; and
+`KEY_ACTIVATED` / `KEY_REVOKED` were string constants `witness.KINDS` has
+never held, so no such record can be appended at all. Its own check appended
+six `INFER` records and accepted one of them as a key activation. A check
+that confirms a property the code does not implement is worse than a missing
+check, because the missing one is visible.
+
+What the tree does now is exactly what it can: a declared position may not
+name a future the chain has not reached — `revoked_at_witness_seq: 999999`
+is a key that stays valid for every release anyone cuts — with position `0`
+on an empty chain allowed as the genesis convention. The check is called
+from `publish()` and `verify_publication()`. The overclaim is closed at its
+source: `load_registry()` refuses `lifecycle_binding: "witnessed"` and
+`docs/release_keys.json` declares `asserted`. The gap is
+`release-key-lifecycle-witnessing`, blocking the meaning of a release tag.
+
+**P0-2 — a toolset manifest dated its own authorization.**
+`authorized_at_witness_seq` was read out of the signed manifest, with a
+fallback to a caller-supplied integer no caller supplied. A key valid on
+`[0, 10)` signed a manifest claiming position 0 and it loaded: the signature
+made the false date immutable rather than true, which is the backdating
+ADR-022 rev 2.1 removed from `ReleaseStatement`, arriving through a field
+instead of an argument — and here it buys the widening of a being's hand.
+`jjdai.release.toolset_authorizer()` now builds a resolver from a VERIFIED
+`ReleasePublication` and answers with the actual index of its
+`RELEASE_ATTESTED`; a manifest declaring any other position refuses.
+
+**P0-3 — rebuild evidence resolved to nothing.**
+`verification_evidence_hash` was checked for shape only, so a release
+naming `9a9a…9a` published. The evidence is now the verifier's OWN
+`ReleaseStatement` from his own run of the recipe: no new schema is
+invented, because window 6 froze the names this drop emits and reuse is
+also the stronger object — reproducibility IS the claim that two
+independent runs produce the same artefact hashes. `ReleaseContext` gains
+`evidence_reader`; bytes must hash to the named digest, validate as a
+statement, and agree on the eight fields a rebuild reproduces.
+
+**P0-4 — the tag gate ignored the canonical debt ledger.**
+`check_release_tag()` never opened `architecture_status.json`, so a tag was
+accepted with four positions open under `blocks: meaning-of-a-release-tag`
+— the one thing D13 forbids outright. Both gates now project the ledger
+through `provenance.load_debt_ledger` (one projection, not a second scan):
+`publish()` on `publication`, `check_release_tag()` on
+`meaning-of-a-release-tag`, which today finds seven open and refuses. Two
+holes found alongside: `release-revocation-by-name` carried no `blocks` at
+all, and an unknown boundary would have blocked nothing while reading as
+though it blocked something — both refused at the projection now.
+
+**P0-5 — `--prepare` prepared nothing.**
+It ran `pip install --force-reinstall` into the current interpreter:
+no environment created, nothing extraneous removed, the build hook isolated
+from nothing. It now builds a one-shot venv `--without-pip`, populated from
+outside with `--prefix` so `ensurepip` cannot seed two unpinned
+distributions where a build hook can import them, and `assert_no_extraneous`
+requires the prepared set to be EXACTLY the pinned set. `build()` refuses to
+run on the ambient interpreter.
+
+The other half of D3 cannot be done in code: a process cannot deny its own
+egress. The probe is widened from two endpoints to six across three
+networks, and — the part that matters — the environment table carries
+`network_enforcement`, always prefixed `asserted`, in the vocabulary D2 uses
+for `device_binding`. Real enforcement is a namespace, a firewall or an air
+gap; the debt is `build-egress-enforcement`.
+
+**Documentary — `219/219` in the numbering rules, beside a correct
+`295/295` in the status formula.** The third appearance of «правильный
+текст рядом с устаревшим» in a document that names the defect in its own
+crosscutting principles. `SYNC-8` did not see it because it matched one
+phrasing, `N/M recorded`; a check narrowed to one phrasing polices one
+sentence, not a document. It now checks every counter pair in normative
+prose and exempts two classes as history: the blockquoted revision journal
+and the drop table.
+
+**New checks (5).** `REL-17` rebuild evidence resolves, validates and
+agrees; `REL-18` both gates project the ledger and an absent reader refuses
+rather than passing; `REL-19` the toolset position comes from the release
+that names the manifest; `TSET-6` the manifest cannot date itself and the
+resolved position is judged against the registry; `BLD-8` the build
+environment is ephemeral and exactly the pinned set. `REL-16` is rewritten
+rather than added — it now tests what the code does and asserts that the
+tree claims nothing more anywhere else. Each was run against a mutation of
+the fix it covers and went red.
+
+Roadmap **r6.9.8** carries the counter, the two new debt positions and the
+widened `SYNC-8`.
+
+---
+
+## v0.6.9 · recut 3 — the six P0 of the recut2 audit, and ADR-022 rev 2.3
+
+Cut against the audit of `jjdai_v0_6_9-recut2.zip` (`2b062cd7…`), which
+returned HOLD with six P0. Acceptance **300 → 304**. Two of the six could
+not be closed by code at all and are closed by an ADR amendment taken while
+the amendment is still free: nothing has been emitted — no tag, no release
+keys, no `RELEASE_ATTESTED` record — and by this project's own rule the
+schemas of window 6 are frozen before first emission, not before
+implementation. After the ceremony the same change would be a migration.
+
+**P0-1 — the evidence could be the statement itself.** This one was mine.
+recut2 required the rebuild evidence to resolve and to be a
+`ReleaseStatement` agreeing with this one; the audit handed it THE PRIMARY
+STATEMENT, identical to itself in every compared field, and the comparison
+passed trivially. Resolvability proved, independence not — the exact
+substitution this drop has been audited for four times, committed by the fix
+for the previous round of it.
+
+ADR-022 rev 2.3 introduces `jjdai.rebuild-evidence/v1` with its own signing
+domain `JJDAI:REBUILD:EVIDENCE:v1`. The object carries the run that produced
+it, the verifier's key, device and principal, a host class, its own measured
+environment table and its own outputs. It must resolve by hash, declare that
+schema (so the statement can no longer be evidence about itself), name this
+release, match the approval that names it, verify under that approval's
+registered key, carry a `build_run_id` different from the builder's — and
+still agree, byte for byte, on everything a rebuild reproduces.
+
+**P0-2 — `reproducibility_scope` was self-declared.** The audit placed a tag
+claiming `cross-host-class` with no fact about either host anywhere in the
+release: the code accepted the stronger proof and the evidence did not offer
+it. Every approval now carries `build_run_id` and `host_class`, and the scope
+is DERIVED from the two and compared with the recorded value. Equal run ids
+give `same-host`, which carries no release tag: one run signed twice is not
+two builds, whatever the key count says. `host_class` remains a declaration,
+and says so — the standing of `device_binding: "asserted"`, not more.
+
+**P0-3 — the authorizer never reached the door.** `toolset_authorizer()` was
+built, tested, and `kernel/isolation.py` called `load_verified_manifest`
+without it. The third appearance in this drop of a checker standing beside
+the boundary instead of being it. `WasmWasiProfile` now takes
+`toolset_authorization` and forwards it; absent, a registry that records a
+key lifecycle refuses, which is the fail-closed direction.
+
+**P0-4 — two addresses for one manifest.** The assembler wrote
+`toolset_manifest_hash` as sha256 of the FILE while the loader handed the
+authorizer sha256 of JCS of the parsed document. For any formatted JSON
+those differ, so the two sides addressed different objects and no real
+manifest could ever have matched its release. There is one address now and
+it is the bytes: `manifest_address(raw)`, with the raw bytes travelling from
+the loader, and `authorization` without them refused rather than recomputed.
+
+**P0-5 — an untaggable release could still authorize.** The lifecycle debt
+blocked the tag and not the publication, so a `RELEASE_ATTESTED` record built
+on editable registry positions already served as the authorization time of an
+L2 mutation while the tag itself was refused. `release-key-lifecycle-
+witnessing` now blocks `publication`, which is strictly stronger: no record,
+no position to authorize at.
+
+**P0-6 — the clean venv inherited a dirty environment.** `child =
+dict(os.environ, …)` handed both build processes whatever the ambient shell
+held; an external `PYTHONPATH` reached `python -m build` itself and could
+replace the frontend the pins verify. The child environment is now built from
+an allowlist, with the refused variables named individually so a reader sees
+what was excluded rather than trusting that a list is complete.
+
+**P1.** `release_annotation()` took the counted control as an argument and
+printed 99 keys and 99 principals over a two-key release; it now verifies the
+publication itself and counts what it prints. `architecture_status.json` still
+described "exactly one directory preopened" against D9's zero. The isolation
+docstring still explained a missing toolset as an unsigned manifest.
+`manifest_signed` was hardcoded `False` even after a signature verified. The
+toolset README claimed a debt position the ledger did not hold — the position
+`toolset-module-path-toctou` now exists, because a claim about a register has
+to be in the register to be true.
+
+**New checks (4).** `REL-20` the evidence is a separate signed act by the
+verifier over a different run; `REL-21` the scope is computed from the two
+runs and compared; `TSET-7` the profile hands the resolver to the door;
+`BLD-9` the child environment is built, not inherited. Roadmap **r6.9.9**
+carries the counter, the new reserve entry and the moved boundary.
+
+---
+
+## v0.6.9 · recut 4 — the three blockers and four P1 of the recut3 audit
+
+Cut against the audit of `jjdai_v0_6_9-recut3.zip` (`d128ae95…`), which
+accepted the ADR-022 rev 2.3 model on substance and returned HOLD on three
+boundaries that consume it. Acceptance **304 → 306**. No architectural
+change; every fix is at a seam the audit named.
+
+**Blocker 1 — authorization without evidence.** `toolset_authorizer()`
+called `verify_publication` with whatever context it was given, and a
+context with `evidence_reader=None` SKIPPED the evidence check: a
+publication whose rebuild evidence did not exist yielded a callback
+answering 0. Two fixes. The `continue` on an absent reader is now a refusal
+— an approval names evidence, and a verifier who cannot read it has not
+verified the approval. And the authorizer, being a permitting boundary, gets
+the boundary's checks: `require_complete`, then the `publication` boundary
+of the ledger — a CONSUMED publication is judged by the same ledger as a
+produced one, or the debt blocks only the honest path — and only then the
+verification. Diagnostic partial verification still exists; it no longer
+hands out permissions.
+
+**Blocker 2 — a permission that followed the dict.** The callback kept a
+reference to the statement, so editing `toolset_manifest_hash` in the
+publication after the callback was built changed what it permitted. It now
+captures `expected` as a str and `index` as an int at creation; REL-22 edits
+the publication afterwards and checks the permission did not move.
+
+**Blocker 3 — the environment was cleaned one step too late.** recut3
+cleaned the two build processes and left `python -m venv` and
+`pip install --prefix` inheriting the shell; the audit's `PYTHONPATH` and
+`PIP_CONFIG_FILE` reached both. There is now one way to start a process in
+`build_release.py`, `_run()`, which begins from the allowlist, and BLD-9
+counts `subprocess.run(` in the file: exactly one, inside `_run`.
+
+**P1.** `validate_manifest(doc, raw=…)` accepted two different objects —
+signature over `doc`, authorization for `raw` — and the file loader never
+produced that pair, so the seam was the direct API's; `raw` is now parsed and
+must canonicalise to `doc`. The assembler listed its own previous
+`release-statement.json` as an artefact and then overwrote it; `artefacts()`
+now excludes the named set `RELEASE_OUTPUTS`. The roadmap's window-6
+separators, windows table, cut requirement and Audit 0 scope still named
+rev 2.2 as current; synced. The isolation module docstring still said the
+manifest was not signed in this build; it is, and the docstring says what is
+and is not yet true. The assembler's comment still called the evidence a
+statement; it is a `jjdai.rebuild-evidence/v1`.
+
+**Handoff corrections, stated here so they are in the tree:** the recut3
+handoff said "all six P1 closed" while listing the ceremony CLI as open,
+and counted eight open debt positions where the projection holds ten —
+`cla` and `t-toolset` are open and block their own boundaries.
+
+**New checks (2).** `REL-22` a permitting callback needs the full context,
+meets the publication boundary, and permits what was verified rather than
+what the dict says later; `ASM-6` the assembler never lists its own
+outputs. TSET-6 and BLD-9 extended for the doc/raw binding and the
+single call site. Each new assertion was run against a mutation of the fix
+it covers and went red. Roadmap **r6.9.10**.
+
+---
+
+## v0.6.9 · recut 5 — one test, no code
+
+The audit of recut4 lifted the HOLD on the recut3 findings and left one
+non-blocking P1: ASM-6 wrote `dist/evidence/aa.json` into the real tree and
+removed it afterwards, so a file that existed before the check would have
+been lost. A check that can destroy a file it did not create is a check with
+a side effect. The fixture now lives in a TemporaryDirectory with `asm.ROOT`
+swapped for its duration and asserts the swap was undone; the assembler is
+unchanged. Acceptance stays **306/306**. Roadmap unchanged at r6.9.10 — a
+test fixture is not a plan change.
+
+---
+
+## v0.6.9 · recut 6 — ADR-022 rev 2.4: the two debts of D6, paid in software
+
+The audit of recut5 lifted the HOLD and corrected one sentence of the
+handoff: "the next step lies outside the tree" was premature. Two ledger
+positions — `release-key-lifecycle-witnessing` and
+`release-revocation-by-name` — were software-and-normative debts; a
+ceremony on hardware would not have closed them, and the order was the
+reverse of the one written: decisions, code and acceptance first, then the
+build and the release. The owner authorised ADR-022 rev 2.4, taken while the
+amendment is still free — before the first `RELEASE_ATTESTED`, after which a
+new record kind in a hash-linked chain is a migration. Acceptance
+**306 → 307**.
+
+**Window 6 gains three emittable record kinds** — `KEY_ACTIVATED`,
+`KEY_REVOKED`, `RELEASE_REVOKED` — two hash-prefixes
+(`JJDAI:RELEASE:KEYLIFECYCLE:v1`, `JJDAI:RELEASE:REVOKED:v1`), one signing
+domain (`JJDAI:RELEASE:REVOKE:v1`) and one schema
+(`jjdai.release-revocation/v1`). The chain refuses to write a lifecycle or
+revocation record without a 64-hex `semantic_digest`: a bare `KEY_ACTIVATED`
+is a position with nothing at it.
+
+**Witnessed key lifecycle.** `check_lifecycle_witnessed`, third version,
+and the first that does what its name says. recut1 promised to read the
+record's pre-image and threw the record away; recut2 said so honestly and
+checked only that the position was not past the end. Now every registry
+position must resolve to a record of the declared kind whose digest is
+`key_lifecycle_digest(key_id, transition, public)`. REL-16 replays the
+original false green — six INFER records, a registry pointing at one — and
+adds the cases that isolate each check: the right kind naming the wrong key,
+the right key with the wrong transition, and the right DIGEST on the wrong
+kind. The registry must say `lifecycle_binding: witnessed`; `asserted`, the
+only honest value until today, is now a request to be believed where it
+could be checked, and is refused. Position 0 on an empty chain is no longer
+a convention: a key's activation is witnessed before the key signs
+anything, so every fixture chain now opens with two activation records and
+the first release of a node sits at index 2.
+
+**Named release revocation.** `revoke_release()` writes a signed
+`RevocationStatement` — checked under the registry key valid at that
+position BEFORE the record is written — and a `RELEASE_REVOKED` record
+binding the release by statement hash. `verify_publication`,
+`check_release_tag` and `toolset_authorizer` refuse a revoked release as
+`REL_REVOKED`; the attestation itself still verifies, because a revocation
+is a later signed fact about a release, not an edit of it. A revocation
+whose body is absent, mismatched, unregistered or unsigned by the key it
+names refuses as `REL_REVOKED_UNRESOLVED` — an unverifiable revocation is a
+revocation, because the alternative is a chain where the way to lift one is
+to lose its body. REL-23 covers all of it, including a rogue record written
+past `revoke_release()` straight into the chain.
+
+**Ledger.** Both positions closed by `DEBT_CLOSED` with evidence
+references. The publication boundary is clear; eight positions remain open,
+six on the tag. `ReleaseContext` gains `revocation_reader` (twelve fields);
+the assembler reads revocation bodies from `dist/revocations/`.
+
+**Mutations.** Kind check, digest check, revocation signature check, the
+revocation gate on the verification path, and the chain's refusal of a bare
+lifecycle record — five, all red. Two of them were GREEN on the first pass
+and exposed cases the tests had not isolated; those cases were added before
+the round was called done. Roadmap **r6.9.11**.
+
+---
+
+## v0.6.9 · recut 7 — the five defects of the rev 2.4 mechanism
+
+The audit of recut6 accepted the rev 2.4 step as necessary and in the right
+place and returned HOLD on its mechanism: five defects in `jjdai/release.py`,
+all reproduced, all confirmed against the tree, all closed here. Acceptance
+**307 → 308**. The two `DEBT_CLOSED` events of recut6 stand — the ledger is
+append-only and has no reopen event — and this entry records that the
+evidence they cited was insufficient for one recut. The tests they cite now
+cover what the audit reproduced.
+
+1. **`revoke_release()` signed and appended without verifying.** The
+   docstring promised verification under the registry key before the
+   append; the body had `key_valid_at` and no signature check. A body
+   signed by the verifier's key under `key_id="kb"` went into the
+   append-only chain and, by the fail-closed rule, blocked the release
+   forever. Now verified under the registered public key first; refusal
+   writes nothing, and REL-23 asserts the chain length.
+2. **A witnessed revocation could be hidden by the registry.**
+   `check_lifecycle_witnessed` verified only the positions the registry
+   presented, so `revoked: None` beside a real `KEY_REVOKED` record passed.
+   `lifecycle_projection()` now reads every lifecycle record naming the key
+   out of the chain and the registry must show the first activation and
+   first revocation at those positions; omission or a later position
+   substituted for the first refuses as `REL_LIFECYCLE_HIDDEN`. Releases
+   before the revocation stay valid — history is not re-signed.
+3. **The signed body was not checked against the target release.** A
+   signed revocation of B under a record whose digest named A had A verify
+   as revoked. Three values must agree now: the target statement, the
+   body's `statement_hash`, and the record digest recomputed from the body.
+4. **An authorizer outlived the revocation.** Currency was judged at
+   creation; the callback compared only the stored hash. It now deep-copies
+   the publication at creation — the caller's dict still cannot move it —
+   and re-verifies that snapshot against the LIVE chain on every use.
+5. **A revocation could land between the checks and the append.**
+   `publish()` ran lifecycle and revocation checks before taking the chain
+   lock. Both now run under the hold the record is written under, and
+   `revoke_release()` judges key validity at the position its record
+   actually takes. REL-24 observes the RLock from inside the checks.
+
+**P1.** `witness.append`'s "64-hex" guard checked type and length;
+`"z" * 64` passed. The alphabet is checked now.
+
+**New check (1).** `REL-24`; REL-16 and REL-23 extended with the exact
+scenarios the audit ran. Eight mutations, all red — one on the first pass
+was green because the mutation duplicated the checks instead of moving
+them; redone faithfully. Roadmap **r6.9.12**.
+
+---
+
+## v0.6.9 · recut 8 — integrity and lifecycle as PRECONDITIONS of a write
+
+The audit of recut7 confirmed the five fixes and found two scenarios that
+still put an inadmissible event into the append-only chain. Acceptance
+stays **308/308**: both regressions extend `REL-24` rather than add a check.
+
+1. **P0 — a revoked key could revoke a release.** `revoke_release()`
+   verified the signature and judged the position, but `key_valid_at`
+   reads the fields of the registry it is handed, and a stale registry
+   saying `revoked: None` beside a real `KEY_REVOKED` record passed. The
+   chain's own lifecycle projection is now checked against the registry
+   under the hold, before the key is judged and before anything is written:
+   a hidden revocation refuses as `REL_LIFECYCLE_HIDDEN`, a declared one as
+   `REL_KEY_REVOKED`, an unwitnessed activation as
+   `REL_LIFECYCLE_UNWITNESSED` — and the record count and the log size are
+   asserted unchanged in each case.
+2. **P1 — a publication was written into a chain that did not verify.**
+   Detection worked one record too late for a history that cannot take a
+   record back. `_chain_is_sound_or_refuse()` now runs under the hold in
+   both `publish()` and `revoke_release()` before any other check: a chain
+   whose hashes, links or node signatures are broken takes nothing.
+
+Three mutations, all red. Roadmap **r6.9.13** (journal only).
+
+---
+
+## v0.6.9 · recut 9 — the repository's README, from the source
+
+No code, no ADR, no roadmap change. The archive had shipped a 295-line
+README placeholder since the tree was first packaged; the repository has
+carried 676 lines of the owner's prose since v0.6.5, and under ADR-022 D12
+the README is INSIDE the subject tree — which is right, and which means the
+real file must travel from the build source rather than be restored on the
+repository side over every cut. The owner's landing report put the choice
+plainly: a real README at the source, or a branch whose digest never
+matches the audited one. This is the first.
+
+The prose was adapted to this tree by the repository side, with three
+edits each forced by a check: the three generated blocks removed and §3
+rewritten as a pointer to `docs/status_badge.md` (R-OWN-1; an empty §3 is
+caught by R-OWN-5); "two-person release approval" no longer listed as open,
+because the ledger projects it CANCELLED (R-OWN-5); the roadmap link moved
+to r6.9.13 (SYNC-2). Independently reproduced here from a clean recut8
+unpack: the patch applies, and after regeneration the tree converges to
+**`7e4ca3d7…`** — the digest the landing report predicted. Acceptance
+**308/308** twice in a row; evidence re-recorded against the new digest.
+
+Also fixed in the landing procedure (`GIT-LANDING`, outside the tree): its
+step 3 measured HEAD, not the worktree, inside a non-empty clone —
+`digest(require_clean=False)` picks its source by the presence of `.git`.
+The step now asks for the worktree digest explicitly.

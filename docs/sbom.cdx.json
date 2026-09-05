@@ -224,7 +224,7 @@
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "ba0e07760586127c82ffbf0ac4fc9951ae924d3edc49d83cf6cecfb7a6dc6dbb"
+          "content": "a76680923c52f0f36b7a06626305a3ed79ffe3502708f689668ff1ec32b2b69b"
         }
       ],
       "name": "CHANGELOG.md",
@@ -275,11 +275,22 @@
       "type": "file"
     },
     {
+      "bom-ref": "file:README.md",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "049730e06579e4cc30d07588c76150c38675989d2f5a54136ac4e7f9832ca7c6"
+        }
+      ],
+      "name": "README.md",
+      "type": "file"
+    },
+    {
       "bom-ref": "file:SECURITY.md",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "01098e25fb144014c342e099e864929186631be364afeb5c0e1b1cb99741955b"
+          "content": "825ae0d949914e688a861fc70dd283270cc880fa86e74f40d46b762138469301"
         }
       ],
       "name": "SECURITY.md",
@@ -686,10 +697,54 @@
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "95a3e0a30a6b0ffae9d9c54cef13fc3711031afc31d72b5a53a61d7ed00b10a6"
+          "content": "2e56ae3f071e814ef574a9ae96acf411700d7c25997ead72f2016f690625f19e"
         }
       ],
       "name": "deploy/wasm-toolset/README.md",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:deploy/wasm-toolset/recipe/bc.json",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "7f5361cfffa85fddc44f65a848cb1bf9fd2df1f893e48ab2034acc35692c9916"
+        }
+      ],
+      "name": "deploy/wasm-toolset/recipe/bc.json",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:deploy/wasm-toolset/recipe/fmt.json",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "e3e5b187468707c7454c4f54ff54fc8487566e726ad8a175c7e19a708764c51e"
+        }
+      ],
+      "name": "deploy/wasm-toolset/recipe/fmt.json",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:deploy/wasm-toolset/recipe/jq.json",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "bddbad0e4493dd3546191bb92779eb70705281c5083a5cebfec6ced7dcb2b7f5"
+        }
+      ],
+      "name": "deploy/wasm-toolset/recipe/jq.json",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:deploy/wasm-toolset/recipe/jsonschema.json",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "4ab5daa13c4fe58d0168de163b93b7f5399444b7d4571055b63f4a210c0fd311"
+        }
+      ],
+      "name": "deploy/wasm-toolset/recipe/jsonschema.json",
       "type": "file"
     },
     {
@@ -708,7 +763,7 @@
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "f9c6acfa630dbbd15cca2264926cd0ce2562bcd8b08dbe8cb225ab393d2a035c"
+          "content": "095dfcc2ee46658996b1a2276dfe3786b3c6c62aea82563e3a66390809393749"
         }
       ],
       "name": "docs/README.md",
@@ -818,7 +873,7 @@
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "7a76639114d886582966503e9425adf1f1fac7f7dd5fb1cdc30a2121e30b4609"
+          "content": "134c891ac5c35d984c9992e269eb3ae491725c495af3161ca980e0e83c13437e"
         }
       ],
       "name": "docs/adr/ADR-022-Executable-Provenance.md",
@@ -873,10 +928,21 @@
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "d85239c6faaf6139e37aa5cf42134076d9cb49ade9e8ed11a4c8d22ac8389153"
+          "content": "653c3b5b9ee4a3e3fde223a8efdaef19932245780fcb10c92eee5cb7546574e7"
         }
       ],
       "name": "docs/architecture_status.json",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:docs/digest_scope.json",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "456d0139612a78e6ac021c480af762d74f3b8a1015a57eb0b0d861a309c5030d"
+        }
+      ],
+      "name": "docs/digest_scope.json",
       "type": "file"
     },
     {
@@ -891,25 +957,36 @@
       "type": "file"
     },
     {
-      "bom-ref": "file:docs/roadmap/JJ_DAI_Roadmap_r6_9_5.md",
+      "bom-ref": "file:docs/release_keys.json",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "cde11da70acefd2759156b827ed059db070c663e1426879f0353cf33f6a1689b"
+          "content": "4b0933fc03d8ca43fc52d6deca01f9418f85b2672653ffe036af409094e25b32"
         }
       ],
-      "name": "docs/roadmap/JJ_DAI_Roadmap_r6_9_5.md",
+      "name": "docs/release_keys.json",
       "type": "file"
     },
     {
-      "bom-ref": "file:docs/roadmap/JJ_DAI_Roadmap_r6_9_5.pdf",
+      "bom-ref": "file:docs/roadmap/JJ_DAI_Roadmap_r6_9_13.md",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "eda8dee233a5b6e14cc79680e157d317982e0cd8679261c5d0a61faf162f25b6"
+          "content": "ed3c6290ec941879baa09dcec946b59e777607f9e08974890a1dbded24798d02"
         }
       ],
-      "name": "docs/roadmap/JJ_DAI_Roadmap_r6_9_5.pdf",
+      "name": "docs/roadmap/JJ_DAI_Roadmap_r6_9_13.md",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:docs/roadmap/JJ_DAI_Roadmap_r6_9_13.pdf",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "0bab78311f2fab22fbde6b8c5048d25a855010ae59cf3bb69fb76e7cfddea674"
+        }
+      ],
+      "name": "docs/roadmap/JJ_DAI_Roadmap_r6_9_13.pdf",
       "type": "file"
     },
     {
@@ -917,7 +994,7 @@
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "4b67756dba786e9be10f3ea6d6c9441901d5ffa28584862162425e6e470aa467"
+          "content": "222b93c4f17f2f02b3926761eb3d3801d9e3dff6d6894a9bc07ce46d7744855e"
         }
       ],
       "name": "docs/roadmap/README.md",
@@ -935,11 +1012,154 @@
       "type": "file"
     },
     {
+      "bom-ref": "file:docs/site/JJDAI_Architecture_Status_v0.5.0-dev6.html",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "6b32227431c5dc22e26462792aed4071ca3a319ff8a90014269e1260cec33088"
+        }
+      ],
+      "name": "docs/site/JJDAI_Architecture_Status_v0.5.0-dev6.html",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:docs/site/JJDAI_Architecture_Status_v0.5.1.html",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "569512ad2697828382ea3c61450e417d2b7e3dbb1de9f027801fac2bd1e0ea29"
+        }
+      ],
+      "name": "docs/site/JJDAI_Architecture_Status_v0.5.1.html",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:docs/site/JJDAI_Architecture_Status_v0.5.2.html",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "3ed43fdc7724237d47f5e0978f7fbe698c2b34cbf9be3eeacf18c89afe302e26"
+        }
+      ],
+      "name": "docs/site/JJDAI_Architecture_Status_v0.5.2.html",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:docs/site/JJDAI_Architecture_Status_v0.5.3.html",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "bd4050c5ff468c96830b6e5513be4e4ac1494c97db7298a70b85ab27c5fb0057"
+        }
+      ],
+      "name": "docs/site/JJDAI_Architecture_Status_v0.5.3.html",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:docs/site/JJDAI_Architecture_Status_v0.5.4.html",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "5bf73070a2d618853aba4e638048b05a2d27b9a57f35117189152269abcdf133"
+        }
+      ],
+      "name": "docs/site/JJDAI_Architecture_Status_v0.5.4.html",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:docs/site/JJDAI_Architecture_Status_v0.5.5.html",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "186690cd5552d8e31958a1feeb362c2286a05a548120da88bd0b9516ecd57060"
+        }
+      ],
+      "name": "docs/site/JJDAI_Architecture_Status_v0.5.5.html",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:docs/site/JJDAI_Architecture_Status_v0.6.1.html",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "fe4bb8c5ef71ae74719f17b8d0891aeadae8ca7247eb0149e8167256aa965047"
+        }
+      ],
+      "name": "docs/site/JJDAI_Architecture_Status_v0.6.1.html",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:docs/site/JJDAI_Architecture_Status_v0.6.3.html",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "3540d1a38b077a567bcd96489f347e6512aed989793f0d83ad1f632697812f6c"
+        }
+      ],
+      "name": "docs/site/JJDAI_Architecture_Status_v0.6.3.html",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:docs/site/JJDAI_Architecture_Status_v0.6.4.html",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "7302b5f34f16cac5895639f2ce8b0faa9f798af8bc9ceaf8adac3504cc2c4c6a"
+        }
+      ],
+      "name": "docs/site/JJDAI_Architecture_Status_v0.6.4.html",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:docs/site/JJDAI_Architecture_Status_v0.6.5.html",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "55b3323d07c3cae14dc160e7f725acf2b4344ee40b9897dd93dc13d97bad87e8"
+        }
+      ],
+      "name": "docs/site/JJDAI_Architecture_Status_v0.6.5.html",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:docs/site/JJDAI_Architecture_Status_v0.6.6.html",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "5dd07e1926f864ec3352e0c9fe316c94e7439252293113925ce352593a25f5a5"
+        }
+      ],
+      "name": "docs/site/JJDAI_Architecture_Status_v0.6.6.html",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:docs/site/JJDAI_Architecture_Status_v0.6.7.html",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "fb3f3ea0a2d86f59c7ee33605ef2fd2da496b6952c02613428e17ef3903a8b93"
+        }
+      ],
+      "name": "docs/site/JJDAI_Architecture_Status_v0.6.7.html",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:docs/site/JJDAI_Architecture_Status_v0.6.8.html",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "0bd198a59ee6eb3bf22ff48bce597053c45919a838d046c02fc2216c4eea75ec"
+        }
+      ],
+      "name": "docs/site/JJDAI_Architecture_Status_v0.6.8.html",
+      "type": "file"
+    },
+    {
       "bom-ref": "file:jjdai/__init__.py",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "866cded1d19fd000aaa4ac250b36a0d035e5b29bd0c4adeaf4f1f9c2333e05d6"
+          "content": "0d8337ce9c3b7951198f35be0bc2b10c8ad84f1b230cfaed393a7396d3539d8b"
         }
       ],
       "name": "jjdai/__init__.py",
@@ -1133,6 +1353,17 @@
       "type": "file"
     },
     {
+      "bom-ref": "file:jjdai/build_env.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "da7bbf02d2be0393444ffd5d3fcfbbfb2ea6b03625ea07e452591dacc8da8e8e"
+        }
+      ],
+      "name": "jjdai/build_env.py",
+      "type": "file"
+    },
+    {
       "bom-ref": "file:jjdai/canonical.py",
       "hashes": [
         {
@@ -1170,7 +1401,7 @@
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "f7a60bb00222644c3c6fc87ba9d2bcba98dde8569e00437ed9f557c40e130cd7"
+          "content": "dbda024c3613760eecf4b6fbf422e2630b2ea3c1e6c69529102b3d37a7715683"
         }
       ],
       "name": "jjdai/custody.py",
@@ -1199,6 +1430,28 @@
       "type": "file"
     },
     {
+      "bom-ref": "file:jjdai/provenance.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "e8c0969f4ee647441defd623786520e59b6621c539a6e4d7de4279f0718071dd"
+        }
+      ],
+      "name": "jjdai/provenance.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:jjdai/release.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "60fb596b51195f6d5c65283538fc57884372ddf3f42729717cb1c788b713553b"
+        }
+      ],
+      "name": "jjdai/release.py",
+      "type": "file"
+    },
+    {
       "bom-ref": "file:jjdai/reserved.py",
       "hashes": [
         {
@@ -1221,11 +1474,22 @@
       "type": "file"
     },
     {
+      "bom-ref": "file:jjdai/source_tree.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "5ab836add8f2c96fc04b036319ba57e1cb7436a98238e2d029c7555c7ae8ed3a"
+        }
+      ],
+      "name": "jjdai/source_tree.py",
+      "type": "file"
+    },
+    {
       "bom-ref": "file:jjdai/witness.py",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "da13e47a7cf8ab909882435400342c94c82a1414f9cc06beeab9611b8de32b78"
+          "content": "f066e5a62ae52ce2b78103ada6c0a071e721985c86907327ed88f464e5332170"
         }
       ],
       "name": "jjdai/witness.py",
@@ -1247,7 +1511,7 @@
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "c63d4418653023894f25ed6c56a51c13b4d5bf9bd8c7a258182a63a9b8247268"
+          "content": "638734c5486014610f179890c18d274829f537127db641db64561317964a8a55"
         }
       ],
       "name": "kernel/isolation.py",
@@ -1258,7 +1522,7 @@
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "28c42315e1c040b3ae79ecb34e08c3b9f37b38f03bf75258207db2384fbaa727"
+          "content": "4a17e2c8f6cf0dcb1ea5a186a8d107638c8a4d905138ebb0a9bc6a7cdc70d7a8"
         }
       ],
       "name": "kernel/karma.py",
@@ -1276,6 +1540,17 @@
       "type": "file"
     },
     {
+      "bom-ref": "file:kernel/toolset.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "8b5dd8d59d743559a0b2e847b88164e8140bf3acc4464df7a5e66c579cfd1da1"
+        }
+      ],
+      "name": "kernel/toolset.py",
+      "type": "file"
+    },
+    {
       "bom-ref": "file:kernel/viveka.py",
       "hashes": [
         {
@@ -1284,6 +1559,17 @@
         }
       ],
       "name": "kernel/viveka.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:kernel/wasm_pure.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "fcb376fe3bf4aaf0c3b7516f13340519c5f9c9ea22094559577097a88d5d39ae"
+        }
+      ],
+      "name": "kernel/wasm_pure.py",
       "type": "file"
     },
     {
@@ -1500,7 +1786,7 @@
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "04e23c9e811a2db13effe4aee3bc738b18640e62a18822763acb87e980e3d0b3"
+          "content": "ca50f2cd6cdf18ccac2cf6e75930c090f1335c88861ea4a08dd024dac51ffa5d"
         }
       ],
       "name": "pyproject.toml",
@@ -1573,11 +1859,22 @@
       "type": "file"
     },
     {
+      "bom-ref": "file:scripts/build_release.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "44e833b3be791c5f807699e87d74c908e955af3ae7c3227ea6a17861b56744f7"
+        }
+      ],
+      "name": "scripts/build_release.py",
+      "type": "file"
+    },
+    {
       "bom-ref": "file:scripts/check_docs_drift.py",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "49e47e189e31bbafb32a7a69b3be741b1182d6e67ec0322049b5d6f88780a117"
+          "content": "22060ea37c9c72d1ccbd7ffee25c6afd0695f8a9a4bfb0ab1d0797270747a08d"
         }
       ],
       "name": "scripts/check_docs_drift.py",
@@ -1588,7 +1885,7 @@
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "a6e04f1bbe2dc57895f07f2815f1f11682c40637de6e378a905915f04ffc09f0"
+          "content": "ed724896d31dc8b3ed859e47aa8b508da2f66239cd54d1f5b879a7e45ab8418f"
         }
       ],
       "name": "scripts/gen_architecture_docs.py",
@@ -1628,6 +1925,17 @@
       "type": "file"
     },
     {
+      "bom-ref": "file:scripts/make_release_statement.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "0a13d01ef539e58ddf76f81344ffdeed348a811beef105de307dab897069284f"
+        }
+      ],
+      "name": "scripts/make_release_statement.py",
+      "type": "file"
+    },
+    {
       "bom-ref": "file:scripts/roadmap_print.css",
       "hashes": [
         {
@@ -1643,7 +1951,7 @@
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "f10e4180de894a2971c77eea2f53f7440f2bbc8168ba18ca2b5d0d8e6506a8be"
+          "content": "dcdc09773a9e831f947d74265cf067ad0bd6a2ac8cd8388c88eeb6c10153207a"
         }
       ],
       "name": "scripts/run_acceptance.py",
@@ -2072,7 +2380,7 @@
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "dd8ccf1b76a7470bb3459fd43f6f146918543557ab304f91d9ee2d57bfbdbbac"
+          "content": "962e4b2fbc2a0f392de8ef95b206ec477bbccef8e82f86c6245c0ba44b6bce55"
         }
       ],
       "name": "tests/live/test_wasm_live.py",
@@ -2083,7 +2391,7 @@
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "cb02ec0cc4da0b6012c355c7d0455a0a1d0dabe24003d496f45ca7d2c71f1555"
+          "content": "033cd81c79d8b43a9a086167d6b47f47f237bfe76ddd23afdd8ba9f690ad1236"
         }
       ],
       "name": "tests/unit/test_acceptance_provenance.py",
@@ -2098,6 +2406,17 @@
         }
       ],
       "name": "tests/unit/test_adapter_layer.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/unit/test_adr022_p0_closures.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "59a3fed6e39a5da7f7f1f93aab9098d2dc4f29b45615e380e4f05a788343dc7e"
+        }
+      ],
+      "name": "tests/unit/test_adr022_p0_closures.py",
       "type": "file"
     },
     {
@@ -2145,6 +2464,17 @@
       "type": "file"
     },
     {
+      "bom-ref": "file:tests/unit/test_build_environment.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "c4f3cd162c76fbcbe066b48d7d444037f31d893a886c137ae1917d8f29a9fe64"
+        }
+      ],
+      "name": "tests/unit/test_build_environment.py",
+      "type": "file"
+    },
+    {
       "bom-ref": "file:tests/unit/test_challenge_round.py",
       "hashes": [
         {
@@ -2160,7 +2490,7 @@
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "97772429853eb2ca278dc1804870013e879610bfb60905ed30ed862606f6465d"
+          "content": "09dc84e01d2fa025c3ac02ae51ee426d6bbe14b6d37f92f1c20d4bdce04e344e"
         }
       ],
       "name": "tests/unit/test_changelog_attribution.py",
@@ -2193,10 +2523,21 @@
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "628b91f140db49e44066f26338e7a187ed69fd999595babdbe7cbfe8cbcd0338"
+          "content": "ab880218a2b446854a75c09c1e05c0683ed69d6441eeca81267a1af6c8aef182"
         }
       ],
       "name": "tests/unit/test_custody_reserve.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/unit/test_debt_ledger_and_tags.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "efbf9d921febfcacf0893689166e46e214f014d80648e6a34a439afd0c128754"
+        }
+      ],
+      "name": "tests/unit/test_debt_ledger_and_tags.py",
       "type": "file"
     },
     {
@@ -2248,7 +2589,7 @@
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "d00b695a43a445a1db9b1986642cd91dfa070f686ea17f94c9174c6ecccbeab1"
+          "content": "c4f96cf88647e3bcbfba966090b4556d316be56f3b5d91f040d618b4101f22e6"
         }
       ],
       "name": "tests/unit/test_evidence_identity.py",
@@ -2270,7 +2611,7 @@
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "14c17f3ecfd8c39bcc0698e4c800c69ff6318c9fec9e55d06129395cf2deed9e"
+          "content": "84344d2c43997e1416b3e7d50e2b0fe264e347eb0e26164ca5fa601cb7423f8b"
         }
       ],
       "name": "tests/unit/test_isolation_profiles.py",
@@ -2369,7 +2710,7 @@
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "b6383d4ec5c958417da5aaf1b5d4ef17eba917a1eb64db63ad11e5f275a01365"
+          "content": "c2c531e95610a3ba34f20419e5e6468fca9e67824dc25ec47daa956509e6d2b2"
         }
       ],
       "name": "tests/unit/test_readme_ownership.py",
@@ -2409,14 +2750,47 @@
       "type": "file"
     },
     {
+      "bom-ref": "file:tests/unit/test_release_assembler.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "6c6085d9c379881095d604d1eefb48349b79609503970c66ddf4cc6672064dbe"
+        }
+      ],
+      "name": "tests/unit/test_release_assembler.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/unit/test_release_chain.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "87601bb15497bb7ce50facf14ab7c7b8e59935458139cbf884c27bac10cd50f9"
+        }
+      ],
+      "name": "tests/unit/test_release_chain.py",
+      "type": "file"
+    },
+    {
       "bom-ref": "file:tests/unit/test_release_integrity.py",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "a22181cc9aa26d24dbc0513d75cb202bc8ca19b2fa2c6d4ee8a515078b443273"
+          "content": "d0843e7dc8f730be2cfad184d14b2301fe33f1d81054a5da6b501b6f57439d93"
         }
       ],
       "name": "tests/unit/test_release_integrity.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/unit/test_release_provenance.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "3e9bc87f07030e97ffaa42a4a75673f24f47f83961ffad0c82c063585fc1b021"
+        }
+      ],
+      "name": "tests/unit/test_release_provenance.py",
       "type": "file"
     },
     {
@@ -2453,14 +2827,36 @@
       "type": "file"
     },
     {
+      "bom-ref": "file:tests/unit/test_source_tree_digest.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "3dbaae90340202b163761884943379bef770356642e8466cd952b19023bafe08"
+        }
+      ],
+      "name": "tests/unit/test_source_tree_digest.py",
+      "type": "file"
+    },
+    {
       "bom-ref": "file:tests/unit/test_toolset_fault_codes.py",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "bad9642db4718aa405aa790bbac1508f0157611de4dbec2788227a1f11ba2fa8"
+          "content": "c2be468ced01f109a7dd39c138cca7e87cc83398a98851ef53ecba422eb509ac"
         }
       ],
       "name": "tests/unit/test_toolset_fault_codes.py",
+      "type": "file"
+    },
+    {
+      "bom-ref": "file:tests/unit/test_toolset_pure_boundary.py",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "4b940b29b9de9ed5aa159730e5c6c3799f8c996b18d3e3db51927ebb6e497582"
+        }
+      ],
+      "name": "tests/unit/test_toolset_pure_boundary.py",
       "type": "file"
     },
     {
@@ -2479,7 +2875,7 @@
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "9174d8ddd3b4255a113061f46a18abaa1cd2f3362cb32ede2e5c9bd064f36192"
+          "content": "2ad9a295c0e5d0a4a627eda690a9ba2c0a63980ceaccf7518ec67c797fbbb358"
         }
       ],
       "name": "tests/unit/test_tree_is_its_own_plan.py",
@@ -2528,11 +2924,22 @@
       ],
       "name": "tests/unit/test_xmr_anchor.py",
       "type": "file"
+    },
+    {
+      "bom-ref": "file:vendor/build-backend/PINS.json",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "66e804b77c30874e25c72ac720cacae7e93f248d9cc9cba5cfd892407846d1d4"
+        }
+      ],
+      "name": "vendor/build-backend/PINS.json",
+      "type": "file"
     }
   ],
   "metadata": {
     "component": {
-      "bom-ref": "pkg:generic/jjdai@0.6.8",
+      "bom-ref": "pkg:generic/jjdai@0.6.9",
       "description": "JJ DAI reference trust, governance and agent kernel. Runtime core is stdlib-only.",
       "licenses": [
         {
@@ -2567,14 +2974,14 @@
         }
       ],
       "name": "jjdai",
-      "purl": "pkg:generic/jjdai@0.6.8",
+      "purl": "pkg:generic/jjdai@0.6.9",
       "type": "application",
-      "version": "0.6.8"
+      "version": "0.6.9"
     },
     "properties": [
       {
         "name": "jjdai:inventory-digest",
-        "value": "119303b7c0ce60361c3ee436ab4bd2f269e1ee7c848329e50dce8315ae9f39d3"
+        "value": "b351044169649bcdbbfa89a975d8e17c17cebb5712268d7eeb8d50131958e048"
       },
       {
         "name": "jjdai:inventory-scope",
@@ -2582,7 +2989,7 @@
       },
       {
         "name": "jjdai:file-count",
-        "value": "213"
+        "value": "250"
       },
       {
         "name": "jjdai:runtime-dependencies",
@@ -2594,7 +3001,7 @@
       },
       {
         "name": "jjdai:supply-chain-open",
-        "value": "build-backend-unhashed, file-modes-and-symlink-targets, readme-outside-tree-digest, release-provenance, reproducible-build, signed-artefacts, t-toolset"
+        "value": "build-backend-unhashed, build-egress-enforcement, release-provenance, reproducible-build, signed-artefacts, t-toolset, toolset-module-path-toctou"
       },
       {
         "name": "jjdai:supply-chain-open-source",

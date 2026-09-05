@@ -539,17 +539,37 @@ The plan of record is
 What follows is what it says about the tree you are reading — and `SYNC-2`
 fails the build if this section names a roadmap the tree does not carry.
 
-This tree is **v0.6.8 — `code-complete · 219/219 recorded · untagged`**, with
-release debt open. It is not a release and does not pretend to be one.
+This tree is **v0.6.8 — `code-complete · 219/219 recorded · pre-flight
+tagged`**, with release debt open. It is not a release and does not pretend
+to be one.
+
+**`v0.6.8-preflight` names commit `4df83f9`** — annotated, so the caveat
+travels inside the tag rather than in a document beside it, and carrying
+`tree_digest 48236bb5…`, the same digest as the run that certifies the tree.
+No Release object exists and `latest` was not moved: a bare tag stays under
+*Tags* and never reads as a published version. **It does not consume a
+version number** — neither `v0.6.8` nor `v0.6.9` is spent, both stay
+available for the release tag that closes the supply-chain debt.
+
+What it buys is a point of reference. Three drops ran without one — v0.6.6
+never closed, v0.6.7 and v0.6.8 went untagged — so there was no way to say
+*this tree, this run, compare against it*. Now there is.
 
 The archive it came from is named `v0.6.9-pre`, and the *pre* is load-bearing:
 it is preparation for the v0.6.9 drop, not the drop. **None of v0.6.9's
 content — T-TOOLSET, the reproducible build, release objects,
-`RELEASE_ATTESTED` — is built.** A version number is spent by a tag, and there
-is no tag, so `jjdai.__version__` stays at `0.6.8` and `v0.6.9` stays
-available for the drop that actually contains it. What this package closes is
-the documentary basis: roadmap r6.9.5 and ADR-014…022 are in the tree, under
-the same `tree_digest` as the run that certifies it.
+`RELEASE_ATTESTED` — is built.** So `jjdai.__version__` stays at `0.6.8`, and
+it stays there until a drop actually carries that content: the version line
+above is generated from `architecture_status.json`, not from git, and no
+surface in this tree reads a tag at all. What this package closes is the
+documentary basis: roadmap r6.9.5 and ADR-014…022 are in the tree, under the
+same `tree_digest` as the run that certifies it.
+
+One consequence worth stating, since it looks like a contradiction. The
+tagged commit's own README says `untagged`, because a commit cannot describe
+the tag that names it — writing the description changes the commit, and the
+tag would then name something else. The snapshot is honest about the moment
+it was written; this paragraph exists one commit later.
 
 **v0.6.7 was declared as law, supply chain and the toolset. That is not what
 it turned out to be, and the roadmap says so rather than absorbing the gap.** Its actual content is the **live vertical**: a real engine inside
@@ -588,13 +608,13 @@ pinned **by hash** — PEP 517 gives `requires` no field for one, so this needs
 a different mechanism rather than a stricter string — signed artefacts,
 release provenance, and two-person release approval.
 
-**A green tree with open release debt can still be named.** r6.8.2 introduces
-the **pre-flight tag** — `v0.6.<n>-preflight` — for exactly that state: it
-must be annotated rather than lightweight so the caveat travels inside the
-tag, the commit must carry a `tree_digest` matching the recorded run, and no
-Release object is created nor `latest` moved. It **does not consume the
-version number**. Exactly one thing is forbidden: presenting an unclosed drop
-as a release.
+**A green tree with open release debt can still be named.** r6.8.2 introduced
+the **pre-flight tag** — `v0.6.<n>-preflight` — for exactly that state, on
+four conditions: annotated rather than lightweight, so the caveat travels
+inside the tag; a commit whose `tree_digest` matches the recorded run; no
+Release object and no `latest`; and normative documents synchronous with the
+tree. All four are met by `v0.6.8-preflight` above. Exactly one thing is
+forbidden: presenting an unclosed drop as a release.
 
 **Open, and named rather than implied.** No compiled wasm modules ship, so
 execution in practice is still the `reference` fence. The alert thresholds

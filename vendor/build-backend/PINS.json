@@ -1,0 +1,41 @@
+{
+  "schema": "jjdai.build-pins/v1",
+  "note": "The build backend and every one of its dependencies, pinned by sha256 OUTSIDE pyproject.toml. PEP 517 gives [build-system].requires no place for a hash, so the wheels are vendored here and scripts/build_release.py verifies each digest BEFORE installing anything. Verifying after installation would verify a decision already taken. The wheels themselves are NOT in this tree: they are fetched once, on a build host, checked against these digests and committed alongside them. Until they are, the build refuses with BUILD_PIN_MISSING, which is the honest state — a build without pinned backend bytes is a function of what an index served that day.",
+  "wheels": [
+    {
+      "name": "setuptools",
+      "version": "80.9.0",
+      "filename": "setuptools-80.9.0-py3-none-any.whl",
+      "sha256": "__OWED_ON_BUILD_HOST__",
+      "why": "the build backend named by pyproject.toml [build-system].requires"
+    },
+    {
+      "name": "build",
+      "version": "1.2.2.post1",
+      "filename": "build-1.2.2.post1-py3-none-any.whl",
+      "sha256": "__OWED_ON_BUILD_HOST__",
+      "why": "the build frontend; D3 pins it by name, version and sha256 like the backend"
+    },
+    {
+      "name": "wheel",
+      "version": "0.45.1",
+      "filename": "wheel-0.45.1-py3-none-any.whl",
+      "sha256": "__OWED_ON_BUILD_HOST__",
+      "why": "backend dependency; D4 pins the backend AND all of its dependencies, not the backend alone"
+    },
+    {
+      "name": "packaging",
+      "version": "25.0",
+      "filename": "packaging-25.0-py3-none-any.whl",
+      "sha256": "__OWED_ON_BUILD_HOST__",
+      "why": "build frontend dependency"
+    },
+    {
+      "name": "pyproject_hooks",
+      "version": "1.2.0",
+      "filename": "pyproject_hooks-1.2.0-py3-none-any.whl",
+      "sha256": "__OWED_ON_BUILD_HOST__",
+      "why": "build frontend dependency"
+    }
+  ]
+}

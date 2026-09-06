@@ -342,29 +342,22 @@ def gen_html(st: dict, acceptance: int) -> str:
 
 # --------------------------------------------------------------------------- #
 
-#: Every block the build is allowed to write, and nothing else. The README
-#: intro belongs to the repository: it explains the project to a reader who
-#: has not met it, and a generator that knows only the status file has no
-#: business rewriting that sentence. A build that needs to say something new
-#: gets a NEW marker block rather than reaching into the prose.
-MARKERS = {
-    "VERSION": ("<!-- VERSION:BEGIN", "<!-- VERSION:END -->"),
-    "STATUS": ("<!-- STATUS:BEGIN", "<!-- STATUS:END -->"),
-    "ACCEPT": ("<!-- ACCEPT:BEGIN", "<!-- ACCEPT:END -->"),
-}
-
-
-def splice(text: str, name: str, body: str) -> str:
-    """Replace only what sits between one marker pair, opening tag kept."""
-    open_tag, close_tag = MARKERS[name]
-    pat = re.compile(re.escape(open_tag) + r".*?-->" + r".*?"
-                     + re.escape(close_tag), re.S)
-    m = pat.search(text)
-    if not m:
-        raise SystemExit(f"README is missing {name} markers")
-    head = m.group(0)[:m.group(0).index("-->") + 3]
-    return text[:m.start()] + head + "\n" + body + "\n" + close_tag \
-        + text[m.end():]
+#: v0.6.9 (ADR-022 D12). The three generated blocks have LEFT the README.
+#:
+#: They lived between markers inside it, which meant the build wrote into a
+#: file that otherwise belongs to the repository — and that in turn was the
+#: reason README had to be excluded from the source digest, because hashing
+#: a file the run rewrites makes the pair unable to converge. The exclusion
+#: was the only one in the tree with no binding anywhere else.
+#:
+#: Moving the blocks out removes the reason rather than the symptom. The
+#: generated status now lives in its own file, README merely links to it,
+#: the build never touches README, and README joins the digest like any
+#: other shipped file. A NORMALISED hash over README was the alternative and
+#: is rejected: it trades byte exactness for exactness by agreement, and
+#: agreements drift.
+BADGE_FILE = os.path.join(ROOT, "docs", "status_badge.md")
+BADGE_REL = "docs/status_badge.md"
 
 
 def gen_version_line(st: dict) -> str:
@@ -383,22 +376,38 @@ def gen_accept_block(acceptance: int) -> str:
             f"gate on each target host.")
 
 
+def gen_status_badge(st: dict, acceptance: int) -> str:
+    """The whole generated surface, in one file the build owns entirely."""
+    return "\n".join([
+        "<!-- GENERATED from docs/architecture_status.json by",
+        "     scripts/gen_architecture_docs.py — do not edit by hand.",
+        "     Moved out of README.md in v0.6.9 (ADR-022 D12): the build",
+        "     owns this file and never writes into the README. -->",
+        "",
+        "# JJ DAI · status",
+        "",
+        gen_version_line(st),
+        "",
+        gen_accept_block(acceptance),
+        "",
+        gen_readme_table(st, acceptance),
+        "",
+    ])
+
+
 def generate(write: bool = True) -> dict:
     st = load()
     acceptance = count_acceptance()
     BADGE[0] = acceptance_badge()
-    table = gen_readme_table(st, acceptance)
-    readme = io.open(README, encoding="utf-8").read()
-    new_readme = splice(readme, "STATUS", table)
-    new_readme = splice(new_readme, "VERSION", gen_version_line(st))
-    new_readme = splice(new_readme, "ACCEPT", gen_accept_block(acceptance))
+    badge_md = gen_status_badge(st, acceptance)
     map_md = gen_map(st, acceptance)
     page = gen_html(st, acceptance)
     html_path = os.path.join(ROOT, "docs", "site",
                              f"JJDAI_Architecture_Status_v{st['version']}.html")
     map_md_path = map_path(st["version"])
     if write:
-        io.open(README, "w", encoding="utf-8").write(new_readme)
+        io.open(BADGE_FILE, "w", encoding="utf-8",
+                newline="\n").write(badge_md)
         io.open(map_md_path, "w", encoding="utf-8").write(map_md)
         # A map named after a previous release is not history — the HTML pages
         # carry the snapshots. Leaving it would mean two maps disagreeing, and
@@ -407,9 +416,9 @@ def generate(write: bool = True) -> dict:
             if os.path.abspath(stale) != os.path.abspath(map_md_path):
                 os.remove(stale)
         io.open(html_path, "w", encoding="utf-8").write(page)
-        print(f"generated: README table · {os.path.basename(map_md_path)} · "
+        print(f"generated: {BADGE_REL} · {os.path.basename(map_md_path)} · "
               f"{os.path.basename(html_path)}  (acceptance {acceptance})")
-    return {"readme": new_readme, "map": map_md, "html": page,
+    return {"badge": badge_md, "map": map_md, "html": page,
             "html_path": html_path, "acceptance": acceptance}
 
 

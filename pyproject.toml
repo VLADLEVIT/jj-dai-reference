@@ -1,15 +1,21 @@
 [build-system]
 # EXACT, not a floor. `setuptools>=68` resolved to whatever PyPI served at
-# build time, which makes the wheel a function of the calendar. This is a
-# version pin and NOT a hash pin: PEP 517 gives `requires` no place to put
-# one, so the remaining gap is real and is carried as open debt under
-# v0.6.10 (reproducible build) rather than papered over here.
+# build time, which makes the wheel a function of the calendar.
+#
+# This is a version pin and NOT a hash pin, and it cannot be one: PEP 517
+# gives `requires` no place to put a digest. v0.6.9 closes the gap OUTSIDE
+# this file (ADR-022 D4) — the backend wheel and every dependency are
+# vendored under `vendor/build-backend/`, pinned by sha256 in
+# `vendor/build-backend/PINS.json`, and `scripts/build_release.py` verifies
+# each digest BEFORE installing anything, then builds with
+# `--no-build-isolation` in the environment it prepared. The version here
+# and the pin there must agree; BLD-2 checks that they do.
 requires = ["setuptools==80.9.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "jjdai"
-version = "0.6.8"
+version = "0.6.9"
 description = "JJ DAI reference trust, governance and agent kernel (stdlib-only)"
 readme = "README.md"
 requires-python = ">=3.10"

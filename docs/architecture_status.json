@@ -1,5 +1,5 @@
 {
-  "version": "0.6.8",
+  "version": "0.6.9",
   "acceptance": null,
   "legend": {
     "impl": "Implemented — live, tested",
@@ -200,7 +200,7 @@
             "per-tool readiness",
             "fails closed"
           ],
-          "desc": "Named execution boundaries for Karma. reference is the v0.6.3 process fence (path confinement, rlimits, env scrub, streaming output cap). wasm-wasi runs a fixed toolset of precompiled WASI modules pinned by digest inside that same fence, with exactly one directory preopened and no arbitrary argv; wasmtime is a declared host binary, not a Python dependency. Readiness is computed per tool against real modules and pinned digests, so a declared capability is an executable one; a declared profile whose runtime is absent REFUSES the action and is reported unavailable in capabilities — never silently downgraded. microvm is reserved and unimplemented by design."
+          "desc": "Named execution boundaries for Karma. reference is the v0.6.3 process fence (path confinement, rlimits, env scrub, streaming output cap). wasm-wasi runs a fixed toolset of precompiled WASI modules pinned by digest inside that same fence, with ZERO preopened directories and no arbitrary argv (ADR-022 D9: 'without writing outside one preopen' meant writing inside it was allowed, so it was never the boundary of the pure class); wasmtime is a declared host binary, not a Python dependency. Readiness is computed per tool against real modules and pinned digests, so a declared capability is an executable one; a declared profile whose runtime is absent REFUSES the action and is reported unavailable in capabilities — never silently downgraded. microvm is reserved and unimplemented by design."
         }
       ]
     },
@@ -662,6 +662,70 @@
         "cancelled_in": "r6.9",
         "decision_ref": "ADR-022/D2",
         "note": "no ADR ever stood behind it; it entered with the auditor's supply-chain stream of 24 Jul 2026. With one principal it cannot be met in substance, and a formally-met control enters a signed artefact as independence that did not exist. Replaced by a two-key, two-device control described in numbers, not in a name."
+      },
+      {
+        "seq": 19,
+        "id": "readme-outside-tree-digest",
+        "event": "DEBT_CLOSED",
+        "closed_in": "v0.6.9",
+        "evidence_ref": "tests/unit/test_readme_ownership.py::R-OWN-3",
+        "note": "ADR-022/D12. README was the one exclusion in the tree bound nowhere else, which is the shape D11 forbids. The three generated blocks moved to docs/status_badge.md, which IS bound; the build no longer writes into a file it also hashes, so README joined the subject tree. The reason was removed rather than the symptom: a normalised hash over README was the alternative and trades byte exactness for exactness by agreement."
+      },
+      {
+        "seq": 20,
+        "id": "file-modes-and-symlink-targets",
+        "event": "DEBT_CLOSED",
+        "closed_in": "v0.6.9",
+        "evidence_ref": "tests/unit/test_source_tree_digest.py::TREE-2 · TREE-3",
+        "note": "ADR-022/D11. jjdai.source-tree/v2 carries the executable bit explicitly and records a symlink by its TARGET without dereferencing it, with the executable byte forced to zero because lstat reports the link's own bits. Two trees differing only in mode, or only in where a link points, now differ in digest."
+      },
+      {
+        "seq": 21,
+        "id": "release-revocation-by-name",
+        "event": "DEBT_OPENED",
+        "opened_in": "v0.6.9",
+        "blocks": "meaning-of-a-release-tag",
+        "note": "ADR-022 D6 requires that a release be revocable INDIVIDUALLY when the moment of a key's compromise is unknown — voiding the whole history of the key would take down releases that were sound. Implementing it needs a RELEASE_REVOKED record kind, and window 6 of the pre-genesis reserve does not contain one. Adding a serialized value to a frozen reserve is an ADR decision, not a build's to take, so this is owed rather than improvised. An earlier cut of jjdai/release.py answered it with a function that looked for a field nothing writes; that function is removed and this position replaces it. The boundary was OMITTED when this position was opened in recut1, at a time when nothing read the field; recut2 makes the gate read it, so the omission would have been a position blocking nothing."
+      },
+      {
+        "seq": 22,
+        "id": "release-key-lifecycle-witnessing",
+        "event": "DEBT_OPENED",
+        "opened_in": "v0.6.9-recut2",
+        "blocks": "publication",
+        "note": "ADR-022 D6 wants a key's activation and revocation ANCHORED in the chain, so that a registry cannot move a key's activation earlier by editing a digit. Doing it needs KEY_ACTIVATED and KEY_REVOKED record kinds, which window 6 of the pre-genesis reserve does not hold — the same wall as release-revocation-by-name, and the same answer: owed, not improvised. What the tree does today is checked and named: positions must RESOLVE to an existing index, and docs/release_keys.json declares lifecycle_binding: asserted. recut1 claimed more than that — check_lifecycle_witnessed promised in its docstring to read the record's pre-image, threw the record away, and was called by no production path, while REL-16 appended six INFER records and read one of them as the activation of a key. recut3 moves the boundary from the tag to PUBLICATION, which is strictly stronger and closes what the recut2 audit found: a RELEASE_ATTESTED record built on editable lifecycle positions was already usable as the authorization time of an L2 mutation while the tag itself was refused. No publication, no position to authorize at."
+      },
+      {
+        "seq": 23,
+        "id": "build-egress-enforcement",
+        "event": "DEBT_OPENED",
+        "opened_in": "v0.6.9-recut2",
+        "blocks": "meaning-of-a-release-tag",
+        "note": "ADR-022 D3 requires the build to run with the network DISABLED and checked. A process cannot deny its own egress: everything reachable from inside Python is a probe, and a probe answers about the endpoints it names. recut1 probed exactly 1.1.1.1:53 and pypi.org:443 and recorded 'disabled-and-checked' on a host that blocked those two and reached everything else. recut2 widens the probe and stops the overclaim — the environment table now carries network_enforcement, which is 'asserted' unless the host proves otherwise — but real enforcement is a namespace, a firewall or an air gap, which is the ceremony's to supply and the build's to record."
+      },
+      {
+        "seq": 24,
+        "id": "toolset-module-path-toctou",
+        "event": "DEBT_OPENED",
+        "opened_in": "v0.6.9-recut3",
+        "blocks": "phase-0-gate",
+        "note": "deploy/wasm-toolset/README.md said this was 'recorded as debt' and the canonical ledger held no such position — a claim about a register, made in prose, that the register did not carry. The gap itself is real: the loader hashes the module's real bytes and then hands wasmtime a PATH, and the CLI seam offers no way to pass the bytes it just verified. Closing it needs either an embedding API or a materialisation directory the runtime cannot reach between the two steps; both are Ф0 gate work on a target host, not a tree change."
+      },
+      {
+        "seq": 25,
+        "id": "release-key-lifecycle-witnessing",
+        "event": "DEBT_CLOSED",
+        "closed_in": "v0.6.9-recut6",
+        "evidence_ref": "tests/unit/test_release_chain.py::test_key_lifecycle_positions_resolve_in_the_chain",
+        "note": "ADR-022 rev 2.4 reserved KEY_ACTIVATED and KEY_REVOKED before first emission. check_lifecycle_witnessed now resolves every registry position to a record of the declared kind whose semantic_digest is key_lifecycle_digest(key_id, transition, public); a wrong kind, another key's record or the other transition of the same key refuse. docs/release_keys.json declares lifecycle_binding: witnessed and load_registry refuses anything else. The publication boundary this position held is released by this event, not by a ceremony — it was a software debt and it is paid in software."
+      },
+      {
+        "seq": 26,
+        "id": "release-revocation-by-name",
+        "event": "DEBT_CLOSED",
+        "closed_in": "v0.6.9-recut6",
+        "evidence_ref": "tests/unit/test_release_chain.py::test_a_release_is_revoked_by_name",
+        "note": "ADR-022 rev 2.4 reserved RELEASE_REVOKED, the schema jjdai.release-revocation/v1 and the signing domain JJDAI:RELEASE:REVOKE:v1. revoke_release() writes a signed RevocationStatement under a registered key valid at that position and a RELEASE_REVOKED record binding the release by statement hash; verify_publication, check_release_tag and toolset_authorizer refuse a revoked release as REL_REVOKED, and a revocation whose body cannot be read or verified refuses as REL_REVOKED_UNRESOLVED rather than lifting. The attestation stays intact: a revocation is a later signed fact about a release, not an edit of it."
       }
     ]
   },

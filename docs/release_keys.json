@@ -1,0 +1,7 @@
+{
+  "schema": "jjdai.release-keys/v1",
+  "note": "Append-only registry of release signing keys (ADR-022 D6, ADR-017 use domain `release_signing`). Keys are generated ON the device and never exported: a backup would turn distinct_devices into a fiction. An entry is added by a witnessed activation event and is never edited — a rotation is a new registration plus a revocation, both forward. This file is EMPTY because no key ceremony has been held: two keys on two physical devices are a Ф0 gate item, not something a build can produce. Until it has entries no release can be attested, which is the honest state rather than a gap.",
+  "lifecycle_binding": "witnessed",
+  "lifecycle_note": "What activated_at_witness_seq and revoked_at_witness_seq ARE since ADR-022 rev 2.4: positions of KEY_ACTIVATED / KEY_REVOKED records in the node's WitnessChain, each binding key_lifecycle_digest(key_id, transition, public) as its semantic_digest. jjdai.release.check_lifecycle_witnessed reads the record at each position and refuses a wrong kind or a digest naming another key or transition, and load_registry refuses any value here but \"witnessed\": the ceremony appends the activation records FIRST and fills the positions from what it appended. Until 5 September 2026 this said \"asserted\", honestly, because the kinds did not exist.",
+  "keys": []
+}

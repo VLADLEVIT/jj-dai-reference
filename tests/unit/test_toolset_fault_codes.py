@@ -18,6 +18,7 @@ guarantees the rare one is read as the common one.
 """
 from __future__ import annotations
 
+import copy as _copy
 import json
 import os
 import sys
@@ -28,8 +29,52 @@ for _p in (_ROOT, os.path.join(_ROOT, "node")):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-from jjdai.crypto import H_hex                                # noqa: E402
-from kernel import isolation as ISO                           # noqa: E402
+from jjdai import provenance as PRV                                # noqa: E402
+from jjdai.crypto import H_hex, SigningKey                                # noqa: E402
+from kernel import isolation as ISO
+from kernel import toolset as TS                           # noqa: E402
+
+
+# --------------------------------------------------------------------------- #
+# v0.6.9: a toolset manifest is VERIFIED before anything reads it, so the
+# fixtures sign one. The key and its resolver are local to the tests — the
+# tree ships no key registry, and a node without one has the wasm profile
+# unavailable, which is the honest state rather than a gap in these checks.
+# --------------------------------------------------------------------------- #
+_SK = SigningKey(b"\x21" * 32)
+_KEY_ID = "toolset-test-key"
+
+
+def _resolver(key_id):
+    if key_id != _KEY_ID:
+        return None
+    return {"public": _SK.public.hex(),
+            "key_domain": PRV.KEY_DOMAIN_TOOLSET_AUTHORIZATION,
+            "revoked": False}
+
+
+def _sign(doc):
+    doc["signer"] = {"key_id": _KEY_ID,
+                     "key_domain": PRV.KEY_DOMAIN_TOOLSET_AUTHORIZATION,
+                     "domain": PRV.DOMAIN_TOOLSET_MANIFEST}
+    doc["signature"] = _SK.sign(TS.signing_bytes(doc)).hex()
+    return doc
+
+
+
+def _module(tag: bytes) -> bytes:
+    """A WELL-FORMED wasm module carrying `tag`, so two fixtures differ in
+    content while both parse.
+
+    v0.6.9: the fixtures used to append raw text after the eight-byte
+    header, which is not a module — the bytes after the header are read as a
+    section id and a length. That went unnoticed while nothing parsed them;
+    the `pure` boundary parses them, and a fixture that is not a module
+    would now fail for a reason the check is not about. The tag rides in a
+    CUSTOM section (id 0), which is exactly what custom sections are for.
+    """
+    payload = bytes([len(tag)]) + tag
+    return b"\0asm\x01\0\0\0" + b"\x00" + bytes([len(payload)]) + payload
 
 
 def _fixture():
@@ -40,44 +85,82 @@ def _fixture():
     os.makedirs(tools)
     good = os.path.join(tools, "good.wasm")
     with open(good, "wb") as f:
-        f.write(b"\0asm\x01\0\0\0GOOD")
+        f.write(_module(b"GOOD"))
     drift = os.path.join(tools, "drift.wasm")
     with open(drift, "wb") as f:
-        f.write(b"\0asm\x01\0\0\0ORIGINAL")
+        f.write(_module(b"ORIGINAL"))
     pinned_drift = H_hex(open(drift, "rb").read())
     with open(drift, "wb") as f:                 # replaced after pinning
-        f.write(b"\0asm\x01\0\0\0REPLACED")
+        f.write(_module(b"REPLACED"))
     unpinned = os.path.join(tools, "unpinned.wasm")
     with open(unpinned, "wb") as f:
-        f.write(b"\0asm\x01\0\0\0NOPIN")
+        f.write(_module(b"NOPIN"))
+    # v0.6.9: every entry declares its effect class, because ADR-022 D9
+    # makes the declaration mandatory — an undeclared tool is refused, not
+    # assumed harmless. `classless` is added here as its own subject rather
+    # than by leaving one of the four without a class: the four above test
+    # DIGEST faults, and folding a manifest fault into one of them would
+    # make a red check point at the wrong defect.
     manifest = {
-        "schema": ISO.TOOLSET_SCHEMA,
+        "schema": ISO.TOOLSET_SCHEMA_V2,
         "tools": {
-            "good": {"module": "good.wasm",
+            "good": {"module": "good.wasm", "effect_class": "pure",
                      "sha256": H_hex(open(good, "rb").read())},
-            "drift": {"module": "drift.wasm", "sha256": pinned_drift},
-            "ghost": {"module": "ghost.wasm", "sha256": "00" * 32},
-            "unpinned": {"module": "unpinned.wasm"},
+            "drift": {"module": "drift.wasm", "effect_class": "pure",
+                      "sha256": pinned_drift},
+            "ghost": {"module": "ghost.wasm", "effect_class": "pure",
+                      "sha256": "00" * 32},
         },
     }
     # The manifest lives INSIDE the toolset directory — the profile derives
     # its path from tools_dir and takes no separate argument, so the fixture
     # must mirror the real deployment layout rather than invent one.
-    mpath = os.path.join(tools, "toolset.json")
+    manifest["authorization_form"] = PRV.AUTHORIZATION_FORM_INTERIM
+    manifest["sunset_condition"] = PRV.SUNSET_CONDITION_GAUNTLET
+    for entry in manifest["tools"].values():
+        entry.setdefault("recipe_hash", "ef" * 32)
+        entry.setdefault("limits", {"fuel": 10 ** 8,
+                                    "guest_memory_bytes": 1 << 24,
+                                    "output_bytes": 1 << 16})
+    mpath = os.path.join(tools, TS.MANIFEST_FILE)
+    signed = _sign(manifest)
     with open(mpath, "w") as f:
-        json.dump(manifest, f)
-    return root, tools, mpath
+        json.dump(signed, f)
+    return root, tools, mpath, signed
 
 
 def test_toolset_fault_codes():
     passed = 0
-    root, tools, mpath = _fixture()
-    prof = ISO.WasmWasiProfile(root, tools_dir=tools)
+    root, tools, mpath, manifest_doc = _fixture()
+    prof = ISO.WasmWasiProfile(root, tools_dir=tools, key_resolver=_resolver)
     assert prof.manifest_path() == mpath, prof.manifest_path()
     rep = prof.toolset_report()
 
     assert rep["good"]["ok"] is True and rep["good"]["code"] == ISO.TOOL_OK
     print("  [PASS] T-0 a correctly pinned module is executable")
+    passed += 1
+
+    # T-0b. A tool with no effect class does not produce a per-tool fault:
+    # it refuses the WHOLE manifest, and that is the stronger answer. The
+    # manifest is immutable and signed, so one entry that declares no
+    # enforceable limit makes the whole sanction invalid — reporting it as
+    # one broken tool beside three working ones would let the being keep a
+    # hand that a defective manifest authorised. Checked through
+    # `available()`, which is the door execution actually goes through.
+    broken = _copy.deepcopy(manifest_doc)
+    del broken["tools"]["good"]["effect_class"]
+    with open(mpath, "w") as f:
+        json.dump(_sign({k: v for k, v in broken.items()
+                         if k != "signature"}), f)
+    broken_prof = ISO.WasmWasiProfile(root, tools_dir=tools,
+                                      key_resolver=_resolver)
+    assert broken_prof.toolset() == {}, "a classless entry was loaded"
+    why = broken_prof.manifest_error()
+    assert ISO.toolset_mod.MANIFEST_NO_EFFECT_CLASS in why, why
+    with open(mpath, "w") as f:
+        json.dump(manifest_doc, f)
+    print("  [PASS] T-0b a tool with no declared effect class refuses the "
+          "WHOLE manifest (ADR-022 D9, fail-closed)")
     passed += 1
 
     assert rep["ghost"]["code"] == ISO.TOOL_MODULE_MISSING, rep["ghost"]
@@ -88,10 +171,25 @@ def test_toolset_fault_codes():
     print("  [PASS] T-2 replaced module -> DIGEST_DRIFT (security)")
     passed += 1
 
-    assert rep["unpinned"]["code"] == ISO.TOOL_UNPINNED, rep["unpinned"]
-    assert rep["unpinned"]["code"] != ISO.TOOL_DIGEST_DRIFT, (
-        "a missing pin must not masquerade as tampering")
-    print("  [PASS] T-3 unpinned entry -> UNPINNED, distinct from drift")
+    # T-3. An entry with no sha256 pin refuses the WHOLE manifest, for the
+    # same reason as T-0b: the manifest is the signed sanction, and one
+    # unverifiable module makes the sanction meaningless rather than making
+    # one tool unavailable. The per-tool UNPINNED code stays reachable on
+    # the legacy v1 path, where entries carry no v2 fields at all.
+    unpinned = _copy.deepcopy(manifest_doc)
+    del unpinned["tools"]["good"]["sha256"]
+    with open(mpath, "w") as f:
+        json.dump(_sign({k: v for k, v in unpinned.items()
+                         if k != "signature"}), f)
+    unpinned_prof = ISO.WasmWasiProfile(root, tools_dir=tools,
+                                        key_resolver=_resolver)
+    assert unpinned_prof.toolset() == {}, "an unpinned entry was loaded"
+    assert "sha256" in unpinned_prof.manifest_error(), \
+        unpinned_prof.manifest_error()
+    with open(mpath, "w") as f:
+        json.dump(manifest_doc, f)
+    print("  [PASS] T-3 an entry with no pin refuses the whole manifest; "
+          "UNPINNED remains the per-tool code on the legacy path")
     passed += 1
 
     try:

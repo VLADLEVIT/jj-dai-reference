@@ -246,7 +246,18 @@ def test_ambiguous_tokens_are_declared_and_excluded():
                                   "local_nontransactional", "external",
                                   "unknown")
     assert cus.NODE_PROFILES == ("network_member", "local_only")
-    for value in cus.EFFECT_CLASSES:
+    # v0.6.9 (ADR-022 D9) splits this group in three. `pure` is admitted by
+    # this drop — the starter toolset is entirely `pure` — so asserting that
+    # every effect class still refuses would pin the tree to the version
+    # being replaced. The deferred three and `unknown` still refuse, and
+    # CUST-8 now asserts the SPLIT rather than a blanket.
+    assert cus.ADMISSIBLE_EFFECT_CLASSES == ("pure",)
+    assert (set(cus.ADMISSIBLE_EFFECT_CLASSES) |
+            set(cus.DEFERRED_EFFECT_CLASSES) |
+            {cus.EFFECT_CLASS_UNKNOWN}) == set(cus.EFFECT_CLASSES)
+    for value in cus.ADMISSIBLE_EFFECT_CLASSES:
+        cus.check_effect_class(value)          # admissible: must NOT raise
+    for value in cus.DEFERRED_EFFECT_CLASSES + (cus.EFFECT_CLASS_UNKNOWN,):
         try:
             cus.check_effect_class(value)
             raise AssertionError(f"{value} not refused by argument")

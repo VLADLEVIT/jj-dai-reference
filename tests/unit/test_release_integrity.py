@@ -40,11 +40,15 @@ def _pkg_version():
 
 def test_versions_agree_everywhere():
     v = _pkg_version()
-    readme = _read("README.md")
+    # v0.6.9 (ADR-022 D12): the version line moved out of README into the
+    # generated status file, so this reads it where it now lives. Reading
+    # the old place would fail for the right reason and say the wrong one.
+    readme = _read("docs/status_badge.md")
     m = re.search(r"\*\*Version:\*\*\s*`([^`]+)`", readme)
-    assert m, "R-VER: README has no **Version:** `x.y.z` line"
+    assert m, ("R-VER: docs/status_badge.md has no **Version:** `x.y.z` "
+               "line")
     assert m.group(1) == v, \
-        f"R-VER: README says {m.group(1)}, package says {v}"
+        f"R-VER: status badge says {m.group(1)}, package says {v}"
     pyproject = _read("pyproject.toml")
     m = re.search(r'^version\s*=\s*"([^"]+)"', pyproject, re.M)
     assert m and m.group(1) == v, \
@@ -58,7 +62,7 @@ def test_versions_agree_everywhere():
     assert headers, "R-VER: CHANGELOG has no release headers"
     assert headers[-1] == v, \
         f"R-VER: last CHANGELOG header is v{headers[-1]}, package is v{v}"
-    print(f"  [PASS] R-VER    README / pyproject / SECURITY / CHANGELOG "
+    print(f"  [PASS] R-VER    status badge / pyproject / SECURITY / CHANGELOG "
           f"all say v{v}")
 
 
@@ -117,7 +121,10 @@ def test_acceptance_count_matches_collected():
     # step has a reason to edit hand-owned prose (see
     # tests/unit/test_readme_ownership.py). It is still checked here, from
     # inside the block.
-    readme = _read("README.md")
+    # v0.6.9 (ADR-022 D12): the version line moved out of README into the
+    # generated status file, so this reads it where it now lives. Reading
+    # the old place would fail for the right reason and say the wrong one.
+    readme = _read("docs/status_badge.md")
     manual = re.findall(r"(\d+)/(\d+)\s+acceptance checks green", readme)
     assert manual, "R-ACCEPT: README lacks an acceptance badge"
     for a, b in manual:

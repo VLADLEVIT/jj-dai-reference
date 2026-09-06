@@ -282,13 +282,68 @@ def check_trace_state(value: str) -> None:
         raise ReservedValueError(_phase_note(f"trace state {value!r}"))
 
 
-def check_effect_class(value: str) -> None:
-    """Refuse use of a reserved tool effect class.
+#: v0.6.9 (ADR-022 D9). The starter toolset is admitted in this drop and it
+#: is entirely `pure`, so `pure` stops being a reserved name and becomes a
+#: declarable class. The other three stay reserved: the first tool above
+#: `pure` needs the write-set, the pre-state root and the undo plan of
+#: ADR-019 D4, and that machinery is Ф2. Un-reserving them together with
+#: `pure` would let a manifest declare a class the runtime cannot enforce —
+#: the declaration would read as a limit and be a label.
+ADMISSIBLE_EFFECT_CLASSES = ("pure",)
 
-    Reserved by ARGUMENT only: see AMBIGUOUS_TOKENS and the module docstring.
+#: Reserved until Ф2, for the reason above.
+DEFERRED_EFFECT_CLASSES = ("local_transactional", "local_nontransactional",
+                           "external")
+
+#: `unknown` is refused for a DIFFERENT reason from the three above, and the
+#: two refusals are kept apart on purpose. The deferred classes are refused
+#: because their phase has not come; `unknown` is refused because it never
+#: names a limit at all. It is the fail-closed default of D9 — an undeclared
+#: tool is refused, not assumed harmless — and it will still refuse in Ф2
+#: when the deferred three are admitted.
+EFFECT_CLASS_UNKNOWN = "unknown"
+
+
+def check_effect_class(value: str) -> None:
+    """Refuse a tool effect class that may not be declared yet.
+
+    Three outcomes, not two: `pure` passes (v0.6.9), the deferred classes
+    refuse until their machinery exists, and `unknown` refuses closed and
+    permanently. Reserved by ARGUMENT only: see AMBIGUOUS_TOKENS and the
+    module docstring.
     """
-    if value in EFFECT_CLASSES:
-        raise ReservedValueError(_phase_note(f"tool effect class {value!r}"))
+    if value in ADMISSIBLE_EFFECT_CLASSES:
+        return
+    if value == EFFECT_CLASS_UNKNOWN:
+        raise ReservedValueError(
+            f"tool effect class {value!r} is FAIL-CLOSED (ADR-022 D9, "
+            f"ADR-019 D4): a tool that does not declare its maximum effect "
+            f"is refused, never treated as harmless. This refusal outlives "
+            f"the phase gate on the classes below it — `unknown` is not a "
+            f"class waiting for its runtime, it is the absence of one.")
+    if value in DEFERRED_EFFECT_CLASSES:
+        raise ReservedValueError(
+            f"tool effect class {value!r} is RESERVED until Ф2: the "
+            f"write-set, pre-state root and undo plan that make an effect "
+            f"above `pure` reversible are ADR-019 D4 machinery and are not "
+            f"in this tree (ADR-022 D9). Admitting the name before the "
+            f"mechanism would let a manifest declare a limit nothing "
+            f"enforces. The starter toolset is entirely `pure`.")
+    # TOTAL, and this is the point. The first cut of this function refused
+    # the names it knew and returned None for everything else, so
+    # `check_effect_class("made_up")`, `"PURE"`, `""`, None and 42 all
+    # passed — straight into the loader, which trusts this as its one door.
+    # A checker with a fall-through is not fail-closed; it is fail-closed on
+    # the cases somebody remembered. The vocabulary is closed, so anything
+    # outside it is `unknown` by another spelling and gets `unknown`'s
+    # answer.
+    raise ReservedValueError(
+        f"tool effect class {value!r} is not one of {list(EFFECT_CLASSES)} "
+        f"(ADR-019 D4 / ADR-022 D9). An unrecognised class is not a new "
+        f"class: it is a tool declaring no enforceable limit, which is what "
+        f"`unknown` means, and it is refused for the same reason. Matching "
+        f"is exact — `PURE` is not `pure`, because a serialized value with "
+        f"two spellings is two values.")
 
 
 def check_node_profile(value: str) -> None:

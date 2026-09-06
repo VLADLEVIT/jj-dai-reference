@@ -1,140 +1,167 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-test_readme_ownership — v0.6.5: the build may not touch the prose
-=================================================================
-The README has two owners. The repository owns the title, the notice and
-section 1 "What is JJ DAI" — the sentence that explains the project to
-someone who has not met it, which a generator knowing only a status file has
-no business rewriting. The build owns three fenced blocks and nothing else.
+README ownership — after ADR-022 D12 the build does not write here at all.
 
-Until now that was a convention, and a convention loses to a `sed` in a hurry:
-the acceptance badge and the version line were hand-written, the build edited
-them anyway, and a repository maintainer editing the same region got a
-conflict — or worse, silently lost their wording to the next generated
-README.
+Until v0.6.9 the build owned three fenced blocks inside the README and the
+check was that it wrote nowhere else. That arrangement carried one cost: a
+file the build rewrites cannot be hashed into the source digest, because
+writing the result would invalidate the run that result describes. So README
+held the only exclusion in the tree with no binding anywhere else, and
+"excluded, bound nowhere" is exactly what D11 forbids.
 
-  R-OWN-1  The three marker blocks exist and are well formed.
-  R-OWN-2  Running the generator changes NOTHING outside them, byte for
-           byte — proven with a sentinel planted in the prose, including in
-           section 1 itself.
-  R-OWN-3  The generator is idempotent: a second run is a no-op, so a build
-           never produces a spurious diff for the repository to resolve.
-  R-OWN-4  The build's own facts live INSIDE the blocks, so no build step
-           has a reason to reach outside them.
+The blocks moved to `docs/status_badge.md`. These checks assert the stronger
+property that replaces the old one.
+
+  R-OWN-1  The generated blocks are GONE from README, and the file points at
+           where they went.
+  R-OWN-2  Running the generator changes NOT ONE BYTE of README — asserted
+           with a sentinel planted in the prose a maintainer edits by hand.
+  R-OWN-3  README is inside the source digest, and `docs/status_badge.md`
+           is in the output set with a binding.
+  R-OWN-4  The generated file regenerates identically, so its exclusion is
+           an exclusion and not a hiding place.
+  R-OWN-5  The HAND-WRITTEN prose agrees with the debt ledger. No generator
+           touches it, so nothing else would ever catch it drifting — and it
+           did: §8 listed two-person release approval as open debt for a
+           drop and a half after ADR-022/D2 cancelled it, contradicting the
+           ledger, the roadmap and the CHANGELOG at once. Sections that
+           exist and say nothing are caught here for the same reason.
 """
 from __future__ import annotations
 
 import io
 import os
-import re
 import shutil
 import subprocess
 import sys
 import tempfile
 
-_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__))))
 if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
 README = os.path.join(_ROOT, "README.md")
-BLOCKS = ("VERSION", "STATUS", "ACCEPT")
-SENTINEL = ("JJ DAI is an architecture for a decentralized 3-tier network of "
-            "persistent-memory-owning and self-evolving AI agents. "
-            "SENTINEL-DO-NOT-TOUCH-7f3a")
+BADGE = os.path.join(_ROOT, "docs", "status_badge.md")
+SENTINEL = "<!-- sentinel: a maintainer's own sentence -->"
+
+from jjdai import source_tree as st                            # noqa: E402
 
 
-def _blocks(text: str) -> dict:
-    out = {}
-    for name in BLOCKS:
-        m = re.search(re.escape(f"<!-- {name}:BEGIN") + r".*?"
-                      + re.escape(f"<!-- {name}:END -->"), text, re.S)
-        assert m, f"R-OWN-1: README has no {name} marker block"
-        out[name] = m.span()
-    return out
-
-
-def _outside(text: str) -> str:
-    """Everything the build must not touch, concatenated."""
-    spans = sorted(_blocks(text).values())
-    keep, cursor = [], 0
-    for start, end in spans:
-        keep.append(text[cursor:start])
-        cursor = end
-    keep.append(text[cursor:])
-    return "".join(keep)
-
-
-def test_marker_blocks_exist():
+def test_generated_blocks_have_left_the_readme():
+    """R-OWN-1"""
     text = io.open(README, encoding="utf-8").read()
-    spans = _blocks(text)
-    ordered = sorted(spans.values())
-    for (s1, e1), (s2, _) in zip(ordered, ordered[1:]):
-        assert e1 <= s2, "R-OWN-1: marker blocks overlap"
-    print("  [PASS] R-OWN-1  VERSION / STATUS / ACCEPT blocks are well formed")
+    for name in ("VERSION", "STATUS", "ACCEPT"):
+        assert f"{name}:BEGIN" not in text, (
+            f"{name} block is still spliced into README; D12 moves the "
+            f"generated surface out so the file can be hashed")
+    assert "docs/status_badge.md" in text, (
+        "README must say where the generated status went — a block that "
+        "vanishes without a pointer reads as a deletion")
+    assert os.path.exists(BADGE)
+    print("  [PASS] R-OWN-1  the three generated blocks are gone and README "
+          "points at docs/status_badge.md")
 
 
-def test_generator_touches_nothing_outside_its_blocks():
+def test_generator_changes_no_byte_of_the_readme():
+    """R-OWN-2"""
     with tempfile.TemporaryDirectory() as tmp:
         work = os.path.join(tmp, "repo")
         shutil.copytree(_ROOT, work, ignore=shutil.ignore_patterns(
             "__pycache__", ".git", "*.pyc"))
         path = os.path.join(work, "README.md")
         text = io.open(path, encoding="utf-8").read()
-
-        # plant a sentinel in the prose the repository owns — the very
-        # sentence a maintainer edits by hand
         marker = "## 1. What is JJ DAI\n"
         assert marker in text, "section 1 heading moved; update this check"
         text = text.replace(marker, marker + "\n" + SENTINEL + "\n")
-        io.open(path, "w", encoding="utf-8").write(text)
-        before_outside = _outside(text)
+        io.open(path, "w", encoding="utf-8", newline="\n").write(text)
 
         r = subprocess.run([sys.executable,
-                            os.path.join("scripts", "gen_architecture_docs.py")],
+                            os.path.join("scripts",
+                                         "gen_architecture_docs.py")],
                            cwd=work, capture_output=True, text=True)
         assert r.returncode == 0, r.stderr
-
         after = io.open(path, encoding="utf-8").read()
-        assert SENTINEL in after, \
-            "R-OWN-2: the build overwrote hand-owned prose in section 1"
-        assert _outside(after) == before_outside, \
-            "R-OWN-2: the build changed bytes outside its marker blocks"
-        print("  [PASS] R-OWN-2  generator left every hand-owned byte intact")
-
-        r2 = subprocess.run([sys.executable,
-                             os.path.join("scripts", "gen_architecture_docs.py")],
-                            cwd=work, capture_output=True, text=True)
-        assert r2.returncode == 0, r2.stderr
-        assert io.open(path, encoding="utf-8").read() == after, \
-            "R-OWN-3: the generator is not idempotent — a build would hand " \
-            "the repository a diff it did not ask for"
-        print("  [PASS] R-OWN-3  second run is a no-op")
+        assert after == text, (
+            "the generator rewrote README. It owns docs/status_badge.md and "
+            "nothing here; the whole point of D12 is that this file can be "
+            "hashed because the build never touches it")
+        assert SENTINEL in after
+    print("  [PASS] R-OWN-2  the generator changes no byte of README, "
+          "sentinel intact")
 
 
-def test_build_facts_live_inside_the_blocks():
+def test_readme_is_hashed_and_the_badge_is_bound():
+    """R-OWN-3"""
+    scope = st.load_scope(_ROOT)
+    assert not st.in_output_set("README.md", scope), (
+        "README is in the OUTPUT set: it is not generated any more, so "
+        "excluding it would be an exclusion with nothing behind it")
+    assert st.in_output_set("docs/status_badge.md", scope), (
+        "the generated status file must be in the output set — hashing a "
+        "file the run writes stops the pair converging")
+    bindings = scope["bindings"]
+    key = [k for k in bindings if k.startswith("docs/status_badge")]
+    assert key, ("docs/status_badge.md is excluded and bound nowhere; a "
+                 "merely excluded file does not exist (ADR-022 D11)")
+    entries = [e[0] for e in st.worktree_entries(_ROOT)]
+    assert "README.md" in entries
+    print("  [PASS] R-OWN-3  README is in the subject tree; the generated "
+          "status file is in the output set with a binding")
+
+
+def test_generated_status_regenerates_identically():
+    """R-OWN-4"""
+    before = io.open(BADGE, encoding="utf-8").read()
+    sys.path.insert(0, os.path.join(_ROOT, "scripts"))
+    import gen_architecture_docs as gen                         # noqa: E402
+    result = gen.generate(write=False)
+    assert result["badge"] == before, (
+        "docs/status_badge.md drifted from what the generator produces. It "
+        "sits outside the digest, so nothing else would catch it: an "
+        "exclusion is only safe while the file is provably derived")
+    print("  [PASS] R-OWN-4  the generated status file regenerates byte for "
+          "byte")
+
+
+def test_readme_prose_agrees_with_the_ledger():
+    """R-OWN-5"""
+    import json
+    from jjdai import provenance as prv
     text = io.open(README, encoding="utf-8").read()
-    spans = _blocks(text)
-    inside = {name: text[a:b] for name, (a, b) in spans.items()}
-    outside = _outside(text)
-
-    assert "**Version:**" in inside["VERSION"], \
-        "R-OWN-4: the version line is not inside its block"
-    assert "acceptance checks green" in inside["ACCEPT"], \
-        "R-OWN-4: the acceptance badge is not inside its block"
-    # and no copy of either survives in hand-owned territory, where a build
-    # step would be tempted to edit it
-    assert "acceptance checks green" not in outside, \
-        "R-OWN-4: a second acceptance badge lives outside the blocks"
-    assert not re.search(r"^\*\*Version:\*\*", outside, re.M), \
-        "R-OWN-4: a second version line lives outside the blocks"
-    print("  [PASS] R-OWN-4  every machine-owned fact sits inside a block")
+    status = json.load(io.open(os.path.join(_ROOT, "docs",
+                                            "architecture_status.json"),
+                               encoding="utf-8"))
+    state = prv.load_debt_ledger(status)
+    # A cancelled or closed position must not be described as owed. The
+    # ledger is the source of truth; this file is prose beside it, and prose
+    # beside a source of truth is where a stale claim survives longest.
+    for position, phrase in (
+            ("two-person-approval", "two-person release approval"),
+            ("sbom", "an SBOM is still owed"),
+            ("gitattributes", ".gitattributes is missing")):
+        if state.get(position) != prv.DEBT_OPEN:
+            assert phrase not in text, (
+                f"README still describes {position!r} as owed; the ledger "
+                f"projects it as {state.get(position)!r}")
+    # every non-empty numbered section actually says something
+    import re
+    sections = re.split(r"^## ", text, flags=re.M)[1:]
+    for section in sections:
+        head, _, body = section.partition("\n")
+        assert body.strip(), (
+            f"section {head.strip()!r} is empty. An empty section is worse "
+            f"than a missing one: a reader takes the heading as a promise "
+            f"that was kept somewhere below")
+    print("  [PASS] R-OWN-5  the hand-written prose agrees with the debt "
+          "ledger, and no section is empty")
 
 
 if __name__ == "__main__":
-    tests = [test_marker_blocks_exist,
-             test_generator_touches_nothing_outside_its_blocks,
-             test_build_facts_live_inside_the_blocks]
-    for t in tests:
-        t()
-    print(f"\nreadme ownership — {len(tests)}/{len(tests)} checks green")
+    for fn in (test_generated_blocks_have_left_the_readme,
+               test_generator_changes_no_byte_of_the_readme,
+               test_readme_is_hashed_and_the_badge_is_bound,
+               test_generated_status_regenerates_identically,
+               test_readme_prose_agrees_with_the_ledger):
+        fn()

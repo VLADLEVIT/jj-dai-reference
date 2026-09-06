@@ -44,6 +44,8 @@ for _p in (_ROOT, os.path.join(_ROOT, "scripts")):
 
 import gen_architecture_docs as G                             # noqa: E402
 from run_acceptance import read_result, source_digest         # noqa: E402
+from jjdai.source_tree import SOURCE_WORKTREE as ST_WORKTREE, SOURCE_GIT as ST_GIT  # noqa: E402
+from jjdai import source_tree as _st  # noqa: E402
 
 
 def test_result_names_the_tree_it_ran_against():
@@ -80,6 +82,15 @@ def test_digest_is_a_function_of_content():
         io.open(a, "w", encoding="utf-8").write("x = 1\n")
         io.open(os.path.join(root, "pkg", "b.py"), "w",
                 encoding="utf-8").write("y = 2\n")
+        # v0.6.9 (ADR-022 D11): a tree with no declared boundary has no
+        # digest — `docs/digest_scope.json` is fail-closed, because absence
+        # would otherwise mean "hash everything", and the boundary would sit
+        # wherever the code happened to put it. So the fixture declares one.
+        os.makedirs(os.path.join(root, "docs"), exist_ok=True)
+        io.open(os.path.join(root, "docs", "digest_scope.json"), "w",
+                encoding="utf-8").write(
+                    '{"schema": "jjdai.digest-scope/v1", "output_files": [],'
+                    ' "output_prefixes": [], "bindings": {}}')
         first = source_digest(root)
 
         io.open(a, "w", encoding="utf-8").write("x = 2\n")
@@ -141,7 +152,7 @@ def test_stale_digest_costs_the_badge_its_green():
 
 
 def test_digest_ignores_what_the_run_produces():
-    before = source_digest()
+    before = source_digest(source=ST_WORKTREE)
     # The generated surfaces live under docs/ — including the recorded
     # result itself. If the digest covered them, writing the badge would
     # invalidate the run the badge describes and the pair could never
@@ -149,17 +160,38 @@ def test_digest_ignores_what_the_run_produces():
     # list. Deliberately NOT by calling the generator: a test that rewrites
     # the repository's documentation mid-run makes every later check depend
     # on the order it ran in.
-    excluded = os.path.join(_ROOT, "docs", "evidence", ".probe.json")
-    os.makedirs(os.path.dirname(excluded), exist_ok=True)
+    # v0.6.9: the boundary lists exact FILES, not prefixes, so the probe
+    # rewrites the recorded result itself rather than dropping a new file
+    # beside it. That is the stronger statement anyway — an arbitrary file
+    # under docs/evidence/ is NOT excluded any more, on purpose: an
+    # exclusion is justified by a file being derived from something hashed,
+    # and a name that begins a certain way derives from nothing.
+    # ON DISK, explicitly. The first git clone of this tree ran this check
+    # red: `source_digest()` lets D11 pick the source, which inside a
+    # checkout is the COMMITTED tree, and a committed tree does not see a
+    # file dropped beside it. That is D11 working, not this check failing —
+    # so the check says which tree it probes, and states the other half too.
+    recorded = os.path.join(_ROOT, "docs", "evidence", "hermetic.json")
+    original = io.open(recorded, encoding="utf-8").read()
     try:
-        io.open(excluded, "w", encoding="utf-8").write("{}\n")
-        assert source_digest() == before, (
-            "ACC-TREE-4: a file written into the evidence directory changed "
-            "the source digest — writing a result would invalidate the run "
-            "that result describes and the pair could never converge")
+        io.open(recorded, "w", encoding="utf-8").write(
+            original.replace("\n", "\n", 1) + "\n")
+        assert source_digest(source=ST_WORKTREE) == before, (
+            "ACC-TREE-4: rewriting the recorded result changed the source "
+            "digest — writing a result would invalidate the run that result "
+            "describes and the pair could never converge")
     finally:
-        if os.path.exists(excluded):
-            os.remove(excluded)
+        io.open(recorded, "w", encoding="utf-8", newline="").write(original)
+    stray = os.path.join(_ROOT, "docs", "evidence", ".probe.json")
+    try:
+        io.open(stray, "w", encoding="utf-8").write("{}\n")
+        assert source_digest(source=ST_WORKTREE) != before, (
+            "ACC-TREE-4: an arbitrary file under docs/evidence/ left the "
+            "digest untouched. Nothing derives it and nothing binds it, so "
+            "it must be hashed like any other shipped file")
+    finally:
+        if os.path.exists(stray):
+            os.remove(stray)
 
     # The mirror, and since recut3 the more important half: docs/ is NOT
     # excluded wholesale any more. The ADRs and the roadmap are normative
@@ -167,16 +199,16 @@ def test_digest_ignores_what_the_run_produces():
     normative = os.path.join(_ROOT, "docs", "adr", ".probe.md")
     try:
         io.open(normative, "w", encoding="utf-8").write("probe\n")
-        assert source_digest() != before, (
+        assert source_digest(source=ST_WORKTREE) != before, (
             "ACC-TREE-4: a new file under docs/adr left the digest "
             "unchanged — the normative documents are outside the evidence")
     finally:
         if os.path.exists(normative):
             os.remove(normative)
-    assert source_digest() == before
+    assert source_digest(source=ST_WORKTREE) == before
     import compileall
     compileall.compile_dir(os.path.join(_ROOT, "jjdai"), quiet=2)
-    assert source_digest() == before, \
+    assert source_digest(source=ST_WORKTREE) == before, \
         "ACC-TREE-4: byte-compiling the tree changed the source digest"
     print("  [PASS] ACC-TREE-4 generated surfaces and caches are outside "
           "the digest")

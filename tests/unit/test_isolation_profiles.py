@@ -39,30 +39,94 @@ for _p in (_ROOT, os.path.join(_ROOT, "node")):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-from jjdai.crypto import H_hex                                     # noqa: E402
+from jjdai import provenance as PRV                                # noqa: E402
+from jjdai.crypto import H_hex, SigningKey                                     # noqa: E402
+from kernel import toolset as TS                                  # noqa: E402
 from kernel.isolation import (WasmWasiProfile, profile_status,     # noqa: E402
                               resolve_profile)
 from kernel.karma import (Karma, ProfileUnavailable, Sandbox,      # noqa: E402
                           SandboxEscape, ToolNotPermitted)
 
+
+# --------------------------------------------------------------------------- #
+# v0.6.9: a toolset manifest is VERIFIED before anything reads it, so the
+# fixtures sign one. The key and its resolver are local to the tests — the
+# tree ships no key registry, and a node without one has the wasm profile
+# unavailable, which is the honest state rather than a gap in these checks.
+# --------------------------------------------------------------------------- #
+_SK = SigningKey(b"\x21" * 32)
+_KEY_ID = "toolset-test-key"
+
+
+def _resolver(key_id):
+    if key_id != _KEY_ID:
+        return None
+    return {"public": _SK.public.hex(),
+            "key_domain": PRV.KEY_DOMAIN_TOOLSET_AUTHORIZATION,
+            "revoked": False}
+
+
+def _sign(doc):
+    doc["signer"] = {"key_id": _KEY_ID,
+                     "key_domain": PRV.KEY_DOMAIN_TOOLSET_AUTHORIZATION,
+                     "domain": PRV.DOMAIN_TOOLSET_MANIFEST}
+    doc["signature"] = _SK.sign(TS.signing_bytes(doc)).hex()
+    return doc
+
+
 BEING = "being:isolation-test"
 
 
-def _toolset(dirpath: str, tools: dict):
-    with open(os.path.join(dirpath, "toolset.json"), "w", encoding="utf-8") as f:
-        json.dump({"schema": "jjdai.toolset/v1", "tools": tools}, f)
+def _toolset(dirpath: str, tools: dict, *, schema=None):
+    """Write a toolset manifest.
+
+    v0.6.9: every entry gets `effect_class: "pure"` unless the caller says
+    otherwise, because ADR-022 D9 makes the class MANDATORY — a tool that
+    does not declare its maximum effect is refused, never assumed harmless.
+    The default is applied here rather than in each fixture so the subject of
+    each check below stays what it was (permission, digest pinning, ghost
+    modules) instead of turning into a manifest-shape check. The absence
+    itself is checked once, on purpose, in I-9.
+    """
+    entries = {name: (dict(entry) if isinstance(entry, dict) else entry)
+               for name, entry in tools.items()}
+    for entry in entries.values():
+        if isinstance(entry, dict):
+            entry.setdefault("effect_class", "pure")
+    doc = {"schema": schema or PRV.SCHEMA_TOOLSET_MANIFEST,
+           "authorization_form": PRV.AUTHORIZATION_FORM_INTERIM,
+           "sunset_condition": PRV.SUNSET_CONDITION_GAUNTLET,
+           "tools": entries}
+    for entry in entries.values():
+        if isinstance(entry, dict):
+            entry.setdefault("recipe_hash", "ef" * 32)
+            entry.setdefault("limits", {"fuel": 10 ** 8,
+                                        "guest_memory_bytes": 1 << 24,
+                                        "output_bytes": 1 << 16})
+    with open(os.path.join(dirpath, TS.MANIFEST_FILE), "w",
+              encoding="utf-8") as f:
+        json.dump(_sign(doc), f)
 
 
-def _fake_wasmtime(dirpath: str) -> str:
+def _fake_wasmtime(dirpath: str, *, supports_limits: bool = True) -> str:
     """A stand-in for the runtime binary: echoes the argv it was handed.
 
     The seam is what this build ships; the runtime is a host requirement.
     Testing the mapping against a shim keeps acceptance hermetic and
     deterministic on a machine that has no wasmtime.
+
+    v0.6.9: the shim also answers `run --help`, because the profile probes
+    the runtime for the limit flags before using it. `supports_limits=False`
+    gives a runtime that does NOT list them, which is how the refusal is
+    exercised — a limit a runtime ignores is not a limit.
     """
     path = os.path.join(dirpath, "wasmtime")
+    help_text = ("fuel=N\n  max-memory-size=N\n" if supports_limits
+                 else "nothing to see here\n")
     with open(path, "w", encoding="utf-8") as f:
-        f.write("#!/bin/sh\nfor a in \"$@\"; do echo \"$a\"; done\n")
+        f.write("#!/bin/sh\n"
+                'case "$2" in --help) printf %s "' + help_text + '"; exit 0;; esac\n'
+                'for a in "$@"; do echo "$a"; done\n')
     os.chmod(path, os.stat(path).st_mode | stat.S_IEXEC | stat.S_IXGRP
              | stat.S_IXOTH)
     return path
@@ -91,7 +155,7 @@ def test_missing_runtime_fails_closed():
             tempfile.TemporaryDirectory() as tools:
         _toolset(tools, {"noop": {"module": "noop.wasm", "sha256": "00" * 32}})
         prof = WasmWasiProfile(ws, tools_dir=tools,
-                               wasmtime="jjdai-absent-runtime")
+                               wasmtime="jjdai-absent-runtime", key_resolver=_resolver)
         ok, reason = prof.available()
         assert not ok and "not found" in reason, (ok, reason)
 
@@ -123,7 +187,7 @@ def test_refusal_is_witnessed():
         w = Recorder()
         k = Karma(BEING, ws, witness=w,
                   profile=WasmWasiProfile(ws, tools_dir=tools,
-                                          wasmtime="jjdai-absent-runtime"))
+                                          wasmtime="jjdai-absent-runtime", key_resolver=_resolver))
         try:
             k.shell(["noop"])
         except ProfileUnavailable:
@@ -152,7 +216,7 @@ def test_tool_outside_the_fixed_set_is_refused():
             f.write(b"\0asm\x01\0\0\0")
         _toolset(tools, {"noop": {"module": "noop.wasm",
                                   "sha256": H_hex(open(mod, "rb").read())}})
-        prof = WasmWasiProfile(ws, tools_dir=tools, wasmtime=rt)
+        prof = WasmWasiProfile(ws, tools_dir=tools, wasmtime=rt, key_resolver=_resolver)
         assert prof.available()[0], prof.available()
 
         k = Karma(BEING, ws, profile=prof)
@@ -173,7 +237,7 @@ def test_digest_mismatch_is_refused():
         with open(mod, "wb") as f:
             f.write(b"\0asm\x01\0\0\0")
         _toolset(tools, {"noop": {"module": "noop.wasm", "sha256": "ab" * 32}})
-        prof = WasmWasiProfile(ws, tools_dir=tools, wasmtime=rt)
+        prof = WasmWasiProfile(ws, tools_dir=tools, wasmtime=rt, key_resolver=_resolver)
         k = Karma(BEING, ws, profile=prof)
         try:
             k.shell(["noop"])
@@ -192,19 +256,27 @@ def test_argv_is_mapped_onto_the_runtime():
             f.write(b"\0asm\x01\0\0\0")
         _toolset(tools, {"noop": {"module": "noop.wasm",
                                   "sha256": H_hex(open(mod, "rb").read())}})
-        prof = WasmWasiProfile(ws, tools_dir=tools, wasmtime=rt)
+        prof = WasmWasiProfile(ws, tools_dir=tools, wasmtime=rt, key_resolver=_resolver)
 
         argv = prof.wasm_argv(["noop", "alpha"], prof.root)
         assert argv[0] == rt and argv[1] == "run", argv
-        assert argv[2] == "--dir", argv
-        assert argv[3] == f"{prof.root}::/work", argv
-        assert argv[4] == mod and argv[5] == "--" and argv[6] == "alpha", argv
-        # exactly one directory is preopened — nothing else is reachable
-        assert argv.count("--dir") == 1, argv
+        assert argv[-3] == mod and argv[-2] == "--" and argv[-1] == "alpha", argv
+        # the per-tool limits from the SIGNED manifest ride on the command;
+        # a declared limit the runtime never receives is not a limit
+        assert "fuel=100000000" in argv and "max-memory-size=16777216" in argv, argv
+        # v0.6.9 (ADR-022 D9): ZERO preopen directories. This assertion used
+        # to require exactly ONE — the guest could then write inside it, so
+        # `pure` named a boundary it did not draw. The rewrite is the point
+        # of the change and not an adjustment to it: the old assertion was
+        # faithful to the old definition, which r6.9.1 removed.
+        assert not any(str(a).startswith("--dir") or
+                       str(a).startswith("--mapdir") for a in argv), argv
 
         r = prof.run(["noop", "alpha"])
         assert r.ok, r.as_dict()
-        assert "alpha" in r.stdout and "/work" in r.stdout, r.stdout
+        assert "alpha" in r.stdout, r.stdout
+        assert "/work" not in r.stdout, (
+            "the guest was handed a directory: nothing is preopened now")
 
 
 def test_path_confinement_is_inherited():
@@ -212,7 +284,7 @@ def test_path_confinement_is_inherited():
             tempfile.TemporaryDirectory() as tools:
         rt = _fake_wasmtime(tools)
         _toolset(tools, {"noop": {"module": "noop.wasm", "sha256": "00" * 32}})
-        prof = WasmWasiProfile(ws, tools_dir=tools, wasmtime=rt)
+        prof = WasmWasiProfile(ws, tools_dir=tools, wasmtime=rt, key_resolver=_resolver)
         try:
             prof.resolve("../../etc/passwd")
         except SandboxEscape:
@@ -250,7 +322,7 @@ def test_declared_readiness_equals_executable_readiness():
         # a) a manifest naming a GHOST module must not report ready
         _toolset(tools, {"ghost": {"module": "missing.wasm",
                                    "sha256": "00" * 32}})
-        prof = WasmWasiProfile(ws, tools_dir=tools, wasmtime=rt)
+        prof = WasmWasiProfile(ws, tools_dir=tools, wasmtime=rt, key_resolver=_resolver)
         ok, reason = prof.available()
         assert not ok, "a ghost module was advertised as ready"
         assert "ghost" in reason, reason
@@ -273,7 +345,7 @@ def test_declared_readiness_equals_executable_readiness():
             f.write(b"\0asm\x01\0\0\0")
         _toolset(tools, {"drift": {"module": "real.wasm",
                                    "sha256": "cd" * 32}})
-        prof = WasmWasiProfile(ws, tools_dir=tools, wasmtime=rt)
+        prof = WasmWasiProfile(ws, tools_dir=tools, wasmtime=rt, key_resolver=_resolver)
         assert prof.available()[0] is False, prof.available()
         try:
             prof.run(["drift"])
@@ -286,13 +358,21 @@ def test_declared_readiness_equals_executable_readiness():
         good = H_hex(open(real, "rb").read())
         _toolset(tools, {"drift": {"module": "real.wasm", "sha256": "cd" * 32},
                          "good": {"module": "real.wasm", "sha256": good}})
-        prof = WasmWasiProfile(ws, tools_dir=tools, wasmtime=rt)
+        prof = WasmWasiProfile(ws, tools_dir=tools, wasmtime=rt, key_resolver=_resolver)
         ok, reason = prof.available()
         assert ok, f"one bad entry took the whole profile down: {reason}"
         cap = prof.capabilities()
         assert cap["toolset_ready"] == ["good"], cap
         assert list(cap["toolset_broken"]) == ["drift"], cap
-        assert cap["manifest_signed"] is False, "unsigned manifest overclaimed"
+        # COMPUTED since recut3. It was hardcoded False, so the one
+        # capability that distinguishes a verified toolset from an
+        # unverified one said the same thing in both cases. This manifest
+        # verified, so it says so — and a profile whose manifest does NOT
+        # verify says the opposite, which is the half that matters.
+        assert cap["manifest_signed"] is True, cap
+        broken = WasmWasiProfile(ws, tools_dir=os.path.join(ws, "absent"),
+                                 wasmtime=rt, key_resolver=_resolver)
+        assert broken.capabilities()["manifest_signed"] is False
         assert len(cap["toolset_hash"]) == 64, cap["toolset_hash"]
         assert prof.run(["good"]).ok
 

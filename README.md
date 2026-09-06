@@ -1,27 +1,33 @@
 # JJ DAI — Reference Trust, Governance & Agent Kernel
 
-<!-- VERSION:BEGIN (generated — the build owns this line and nothing else near it) -->
-**Version:** `0.6.8` (matches `jjdai.__version__`; enforced by the release-integrity test) · **Python:** ≥3.10, stdlib-only core · **Site:** [jj-dai.org](https://jj-dai.org)
-<!-- VERSION:END -->
+> **Version, acceptance count and the component status table** live in
+> [`docs/status_badge.md`](docs/status_badge.md), generated from
+> `docs/architecture_status.json`. They moved out of this file in v0.6.9
+> (ADR-022 D12): the build owns that file entirely and does not write
+> here, so this README is hashed into `jjdai.source-tree/v2` like every
+> other shipped file.
 
 <!--
-  README OWNERSHIP (v0.6.8)
+  README OWNERSHIP (v0.6.9)
   ------------------------
-  Everything OUTSIDE a generated marker block is owned by the repository and
-  is never written by the build. That includes the title, this notice, and
-  section 1 "What is JJ DAI" — the prose that explains the project to a
-  reader who has not met it belongs to whoever maintains the repository, not
-  to a generator that knows only the status file.
+  The build does not write into this file AT ALL.
 
-  The build owns exactly three blocks, each fenced by markers:
-      VERSION:BEGIN/END   the version line
-      STATUS:BEGIN/END    the component status table
-      ACCEPT:BEGIN/END    the acceptance count and group note
+  Until v0.6.9 it owned three fenced blocks here — VERSION, STATUS and
+  ACCEPT — and everything outside them belonged to the repository. That
+  arrangement worked, and it had one cost: a file the build rewrites cannot
+  be hashed into the source digest, because writing the result would
+  invalidate the run the result describes. So README carried the only
+  exclusion in the tree with no binding anywhere else.
 
-  scripts/gen_architecture_docs.py splices only between those markers, and
-  tests/unit/test_readme_ownership.py fails the build if a single byte
-  outside them changes. If the build ever needs to say something new, it
-  gets a new marker block — it does not reach into the prose.
+  ADR-022 D12 removes the reason rather than the symptom. The three blocks
+  now live in docs/status_badge.md, generated whole from
+  docs/architecture_status.json; this file links to it and is hashed like
+  every other shipped file. A normalised hash over README was the
+  alternative and was rejected: it trades byte exactness for exactness by
+  agreement, and agreements drift.
+
+  tests/unit/test_readme_ownership.py now asserts the stronger property —
+  running the generator changes NO byte of this file.
 -->
 
 > A tested reference implementation of JJ DAI identity, memory, verification,
@@ -128,56 +134,19 @@ journals, replicas and the workspace.
 
 ## 3. What is in this release
 
-<!-- STATUS:BEGIN (generated from docs/architecture_status.json — do not edit by hand) -->
-| Component | Status |
-|---|---|
-| Canonical serialization | Implemented |
-| Ed25519, ids, commitments, keystore | Implemented (Implemented, reference crypto) |
-| VRF and threshold governance | Implemented (Implemented, RFC 9381 vectors, FROST deferred) |
-| Merkle trees | Implemented |
-| Witness chain | Implemented |
-| Typed boundary and durability | Implemented |
-| External anchoring | Prototype |
-| Monero root-as-spend-key anchor | Prototype (Prototype, v0.5.2) |
-| Track V reserved vocabulary | Interface only (Interface only, ADR-018, reserved, non-emittable) |
-| Deferred-verification reserved vocabulary | Interface only (Interface only, ADR-019, reserved, non-emittable) |
-| Value-level refusal of both reserves | Implemented (Implemented, v0.6.8, P0-1) |
-| Smriti — continuity and memory | Implemented |
-| Viveka — discernment and deliberation | Implemented |
-| Karma — governed action | Implemented (Implemented, reference sandbox) |
-| Isolation profiles — the boundary seam | Implemented (Implemented, per-tool readiness, fails closed) |
-| BeingRuntime | Prototype (Prototype, v0.5.3) |
-| Decision lifecycle | Prototype (Prototype, v0.5.3) |
-| Semantic recovery | Prototype (Prototype, v0.5.3) |
-| POST /v1/tasks | Prototype (Prototype, v0.5.3) |
-| Node and Being identity | Implemented |
-| Reputation §9.9 and sealed verdicts | Implemented |
-| Governed Plane H | Implemented (Governance implemented, retrieval baseline) |
-| Witness replication and recovery | Prototype (Prototype fabric) |
-| Cross-chain entanglement | Prototype |
-| IFF — friend or foe | Prototype |
-| Provenance and diversity | Implemented (Implemented algorithm) |
-| Weight attestation | Prototype |
-| Unified router | Prototype (Prototype, composed in v0.5.3) |
-| Adversarial challenge round | Prototype (Prototype, networked v0.5.5) |
-| Peer cross-verification loop | Prototype |
-| Containment — Article 25 | Prototype (Reference prototype) |
-| Ingress hardening — caps before authorization | Implemented |
-| Observability — liveness/readiness split, watchdog, sleep detection | Implemented (Implemented, v0.6.6 recut) |
-| Tier-1 trust node daemon | Prototype |
-| Adapter layer — EngineBackend Protocol v1 | Implemented (Implemented, protocol v1 declared whole) |
-| NECS v0.1 + harness | Implemented |
-| Acceptance and CI | Implemented (219/219 green (recorded run on Python 3.11.15; stdlib runner, CI matrix 3.10-3.12)) |
-| Retired M1-M5 lineage | Implemented (Frozen) |
-| Deployment kit (Linux + macOS) | Implemented (Implemented, macOS kit v0.6.2) |
-| Release provenance — partial | Prototype (Partial, SBOM + pinning v0.6.8) |
-| Plane B canary lifecycle | Planned |
-| Knowledge graph / ontology semantics | Planned |
-| TEE / runtime attestation | Planned |
-| DIIP — governed self-improvement | Planned (Do not start yet) |
-| Training federation | Planned |
-| Human governance layer | Constitutional text only |
-<!-- STATUS:END -->
+The component table — what is Implemented, Prototype, Planned or
+Constitutional-text-only — lives in
+[`docs/status_badge.md`](docs/status_badge.md), together with the version
+line and the acceptance count. It is generated whole from
+`docs/architecture_status.json`, which is the source of truth; `check_docs_drift`
+fails CI when the two disagree.
+
+It moved out of this file in v0.6.9 (ADR-022 D12) so that the build writes
+nowhere in the README. A file the build rewrites cannot be hashed into the
+source digest — writing the result would invalidate the run that result
+describes — so keeping the table here bought a permanent exclusion. Moving it
+removed the reason instead of the symptom, and this README is now hashed like
+every other shipped file.
 
 ## 4. What is NOT in this release
 
@@ -466,12 +435,6 @@ python scripts/run_acceptance.py [unit|integration|conformance|adversarial|legac
 
 CI runs the matrix on Python 3.10–3.12 (`.github/workflows/ci.yml`).
 
-<!-- ACCEPT:BEGIN (generated — do not edit by hand) -->
-Current status: 219/219 acceptance checks green (hermetic default groups).
-
-The `live` group is opt-in and excluded from the default run: `python scripts/run_acceptance.py live` exercises the wasm-wasi
-boundary against a real `wasmtime` and is required by the Ф0 gate on each target host.
-<!-- ACCEPT:END -->
 
 That count grew from 94 at v0.6.3: v0.6.4 added I-1…I-9 (isolation
 profiles) and G-1…G-8 (ingress hardening) for 111; v0.6.5 added A-1…A-11
@@ -535,7 +498,7 @@ skips itself is not evidence.
 ## 9. Roadmap
 
 The plan of record is
-[`docs/roadmap/JJ_DAI_Roadmap_r6_9_5.md`](docs/roadmap/JJ_DAI_Roadmap_r6_9_5.md).
+[`docs/roadmap/JJ_DAI_Roadmap_r6_9_13.md`](docs/roadmap/JJ_DAI_Roadmap_r6_9_13.md).
 What follows is what it says about the tree you are reading — and `SYNC-2`
 fails the build if this section names a roadmap the tree does not carry.
 
@@ -603,10 +566,13 @@ act on. **Done and in the tree:** `.gitattributes` with `* -text`, a
 CycloneDX SBOM with a drift check in CI, test dependencies pinned by version
 *and* hash, workflow actions pinned by commit, the build backend pinned to an
 exact version, and `SYNC-6` verifying that the roadmap PDF is not stale
-against its markdown. **Still open:** a reproducible build, the build backend
-pinned **by hash** — PEP 517 gives `requires` no field for one, so this needs
-a different mechanism rather than a stricter string — signed artefacts,
-release provenance, and two-person release approval.
+against its markdown. **Still open**, as the ledger in
+`docs/architecture_status.json` projects it: a reproducible build, the build
+backend pinned **by hash** — PEP 517 gives `requires` no field for one, so
+this needs a different mechanism rather than a stricter string — signed
+artefacts, and release provenance. Two-person approval is no longer owed:
+the ledger records it **cancelled**, and `R-OWN-5` fails this file if the
+prose keeps calling it open.
 
 **A green tree with open release debt can still be named.** r6.8.2 introduced
 the **pre-flight tag** — `v0.6.<n>-preflight` — for exactly that state, on
@@ -638,9 +604,10 @@ counts, kinds, timing).
 **P2:** DIIP · training federation · champion/challenger deployment ·
 constitutional human governance (Collegium of Guardians, Being Registry) ·
 economic layer · TEE attestation · multi-jurisdiction Witness network ·
-the Ф3 form of the append rule, where the runtime keeps the local chain and
-the witness plane does the anchoring, so no organ of a being calls
-`append` at all.
+the deep form of the append rule — ADR-016 D2, placed in **Ф2** by its
+§4.2: Sākṣī-local as a separate process with an ingest-only tap, so no organ
+of a being holds a reference to the chain or calls `append` at all; the
+ledger and anchoring that follow are Ф3 (ADR-016 §4.3).
 
 ## 10. License
 

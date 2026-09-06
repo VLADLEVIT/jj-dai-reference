@@ -78,11 +78,32 @@ def test_changelog_attributions_are_true():
             f"own header documents only {sorted(documented, key=lambda s: int(s.rsplit('-', 1)[1]))}. "
             f"Either the check is in another file or the header was never "
             f"updated — a reader following the CHANGELOG would find nothing.")
-        numbers = sorted(int(i.rsplit("-", 1)[1]) for i in documented)
-        assert numbers == list(range(1, len(numbers) + 1)), (
-            f"X-3: {path} documents a non-contiguous ID set {numbers} — "
+        # v0.6.9: contiguity is checked PER FAMILY, not per file. The rule
+        # was written when every file held one prefix, and three files in
+        # this drop hold two — PURE with TSET, DEBT with TAG, ASM with LIVE
+        # — because the subjects belong together and splitting them would
+        # scatter one story across two files to satisfy a counter.
+        #
+        # This is a generalisation and not a loosening, and the difference
+        # is worth being exact about: the defect X-3 exists for is a
+        # CHANGELOG range naming IDs a reader cannot find, which came from a
+        # gap or an improvised suffix INSIDE a family (`G-6b` against a
+        # range counting through G-8). Both are still caught — the assertion
+        # below runs once per prefix. What is no longer caught, because it
+        # was never a defect, is two complete families sharing a file.
+        families = {}
+        for ident in documented:
+            prefix, number = ident.rsplit("-", 1)
+            families.setdefault(prefix, []).append(int(number))
+        for prefix, numbers in sorted(families.items()):
+            numbers = sorted(numbers)
+            assert numbers == list(range(1, len(numbers) + 1)), (
+                f"X-3: {path} documents a non-contiguous {prefix} set "
+                f"{numbers} — "
             f"gaps and improvised suffixes are how a header and a CHANGELOG "
-            f"range drift apart while each looks right on its own")
+                f"gaps and improvised suffixes are how a header and a "
+                f"CHANGELOG range drift apart while each looks right on "
+                f"its own")
         assert _test_count(path) >= 1, f"X-3: {path} defines no tests"
         checked += 1
 

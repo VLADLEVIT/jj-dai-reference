@@ -21,11 +21,17 @@ all. Three profiles are foreseen; two exist here.
 
                 Consequence, stated plainly: arbitrary shell does not exist
                 here. The profile executes a FIXED SET OF PRECOMPILED TOOLS,
-                each pinned by digest in a plain manifest — the digest is
-                verified on every execution, but the manifest itself is NOT
-                signed in this build, and nothing yet witnesses the act of
-                adding a tool. A narrower action surface is the point of the
-                profile, not a shortcoming of the implementation.
+                each pinned by digest in a SIGNED manifest (v0.6.9,
+                `jjdai.toolset-manifest/v2`): the digest is verified on
+                every execution, the manifest's signature under the
+                `toolset_authorization` domain is verified at the door, and
+                the position it was authorized at is resolved from the
+                release that names it, never declared by the manifest. What
+                is not yet true is stated where it is owed: the act of
+                adding a tool is not witnessed by its own record kind until
+                the Profile Gauntlet of Ф3. A narrower action surface is the
+                point of the profile, not a shortcoming of the
+                implementation.
 
                 What is still owed, named here rather than implied: by
                 ADR-015 adding an executable tool is an L2 capability
@@ -56,14 +62,75 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import subprocess
 import sys
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from jjdai.crypto import H_hex                                    # noqa: E402
+from jjdai import provenance                                      # noqa: E402
+from jjdai.custody import check_effect_class                      # noqa: E402
+from kernel import toolset as toolset_mod                         # noqa: E402
+from kernel import wasm_pure                                      # noqa: E402
+from kernel.wasm_pure import (PureBoundaryError, breach_code,     # noqa: E402
+                              check_limits_declared,
+                              check_no_preopens, check_pure_imports)
 from kernel.karma import (ActionResult, ProfileUnavailable,        # noqa: E402
                           Sandbox, ToolNotPermitted)
 
 TOOLSET_SCHEMA = "jjdai.toolset/v1"
+
+#: v0.6.9: the manifest the drop moves to. v1 is still read so a node
+#: mid-upgrade reports honestly rather than going dark, but a v1 entry
+#: carries no effect class and therefore cannot be executed — see
+#: `_module_for`, which refuses it by the absence rather than by the
+#: schema version. Refusing by version would say "old file"; refusing
+#: by absence says what is actually missing.
+TOOLSET_SCHEMA_V2 = provenance.SCHEMA_TOOLSET_MANIFEST
+TOOLSET_SCHEMAS = (TOOLSET_SCHEMA, TOOLSET_SCHEMA_V2)
+
+#: The pre-v0.6.9 filename, read only as a fallback. See
+#: `manifest_path`.
+LEGACY_MANIFEST_FILE = "toolset.json"
+
+#: How the per-tool limits are handed to the runtime. Kept as data so the
+#: spelling is in one place and can be probed rather than assumed; wasmtime
+#: has moved these flags between releases, and a flag this build guesses
+#: wrong is a limit that silently is not applied.
+RUNTIME_LIMIT_FLAGS = {
+    "fuel": lambda n: ["-W", f"fuel={int(n)}"],
+    "memory": lambda n: ["-W", f"max-memory-size={int(n)}"],
+}
+
+#: How a runtime reports each breach. wasmtime raises a distinct
+#: `OutOfFuel` trap for fuel exhaustion and a memory-growth failure for the
+#: linear-memory cap; both must be told apart from an ordinary module error
+#: and from a host failure, because D9 requires the breach of a limit to be
+#: a NAMED refusal and not an exit code. Matched on the runtime's own text
+#: because the CLI gives no machine-readable channel for it — recorded as a
+#: seam rather than pretended away, and the `live` group is what proves the
+#: strings on a real wasmtime.
+RUNTIME_BREACH_MARKERS = (
+    ("all fuel consumed", wasm_pure.PURE_LIMIT_FUEL),
+    ("out of fuel", wasm_pure.PURE_LIMIT_FUEL),
+    ("outoffuel", wasm_pure.PURE_LIMIT_FUEL),
+    ("memory minimum size", wasm_pure.PURE_LIMIT_MEMORY),
+    ("failed to grow memory", wasm_pure.PURE_LIMIT_MEMORY),
+    ("exceeds memory limits", wasm_pure.PURE_LIMIT_MEMORY),
+    ("max-memory-size", wasm_pure.PURE_LIMIT_MEMORY),
+)
+
+
+def classify_runtime_breach(stderr: str) -> str:
+    """Which declared limit, if any, the runtime says was breached."""
+    low = (stderr or "").lower()
+    for marker, code in RUNTIME_BREACH_MARKERS:
+        if marker in low:
+            return code
+    return ""
+
+#: What must appear in `wasmtime run --help` for the flags above to mean
+#: anything on this host.
+RUNTIME_LIMIT_PROBE = {"fuel": "fuel", "memory": "max-memory-size"}
 DEFAULT_WASMTIME = "wasmtime"
 
 #: Why a declared tool is not executable. Added in v0.6.6 because "broken"
@@ -79,6 +146,9 @@ TOOL_OUTSIDE_ROOT = "OUTSIDE_ROOT"          # path escapes the toolset dir
 TOOL_MODULE_MISSING = "MODULE_MISSING"      # declared, artifact absent
 TOOL_UNPINNED = "UNPINNED"                  # manifest entry carries no digest
 TOOL_DIGEST_DRIFT = "DIGEST_DRIFT"          # artifact != pinned digest
+TOOL_NO_EFFECT_CLASS = "NO_EFFECT_CLASS"    # v0.6.9: manifest entry
+                                            # declares no effect class
+                                            # (ADR-022 D9, fail-closed)
 
 #: Codes that must never be reported as routine operational noise.
 TOOL_SECURITY_CODES = (TOOL_DIGEST_DRIFT, TOOL_OUTSIDE_ROOT)
@@ -105,8 +175,27 @@ class WasmWasiProfile(Sandbox):
 
     def __init__(self, root: str, *, tools_dir: str = None,
                  wasmtime: str = DEFAULT_WASMTIME, guest_dir: str = "/work",
-                 **kw):
+                 key_resolver=None, gauntlet_available: bool = False,
+                 toolset_authorization=None, **kw):
         super().__init__(root, **kw)
+        # v0.6.9 (ADR-022 D8/D10). Without a resolver for the signing key
+        # the manifest cannot be verified, and an unverified manifest does
+        # not sanction an L2 mutation — so the profile is UNAVAILABLE rather
+        # than permissive. That is today's honest state on every node: this
+        # tree ships no key registry, and no compiled modules either.
+        self.key_resolver = key_resolver
+        self.gauntlet_available = gauntlet_available
+        # WHO SAYS WHEN THE MANIFEST WAS AUTHORIZED. Resolved by a party
+        # holding the chain and a verified ReleasePublication —
+        # `jjdai.release.toolset_authorizer` builds one. None means the node
+        # has no release to resolve against, and for a registry that records
+        # a key lifecycle the manifest then REFUSES: the audit of recut2
+        # found the authorizer built and never handed to the door it guards,
+        # which is the third time in this drop a checker stood beside the
+        # boundary instead of being it.
+        self.toolset_authorization = toolset_authorization
+        self._manifest_error = ""
+        self._limit_flags_ok = None
         self.tools_dir = os.path.realpath(
             tools_dir or os.path.join(os.path.dirname(__file__), "..",
                                       "deploy", "wasm-toolset"))
@@ -115,24 +204,62 @@ class WasmWasiProfile(Sandbox):
 
     # ---- the fixed toolset ---- #
     def manifest_path(self) -> str:
-        return os.path.join(self.tools_dir, "toolset.json")
+        """The one filename. ADR-022 D8 names `toolset-manifest.json`; the
+        v0.6.4 tree called it `toolset.json`, and two names for the object
+        that sanctions the hand is one name too many. The old name is read
+        as a FALLBACK so an un-migrated node reports its state instead of
+        going dark, and `toolset()` refuses it by the absence of the v2
+        fields rather than by its filename."""
+        primary = os.path.join(self.tools_dir, toolset_mod.MANIFEST_FILE)
+        if os.path.exists(primary):
+            return primary
+        legacy = os.path.join(self.tools_dir, LEGACY_MANIFEST_FILE)
+        return legacy if os.path.exists(legacy) else primary
 
     def toolset(self) -> dict:
-        """{tool_name: {module, sha256}} or {} when unreadable.
+        """{tool_name: entry} from the VERIFIED manifest, or {}.
 
-        Unreadable is not an error here — availability reports it, and every
-        execution path re-checks. A profile that cannot name its tools simply
-        has none, and every action against it is refused.
+        v0.6.9: this used to read and parse the file itself and never call
+        the validator, so a manifest with no signature, no authorization
+        form, no sunset, no recipe hash and no limits produced
+        `available = (True, "")` and executed. The validator was beside the
+        door instead of being it. Now there is one door
+        (`kernel.toolset.load_verified_manifest`) and everything —
+        availability, capabilities, module resolution, execution — arrives
+        through it.
+
+        Unreadable or unverifiable is still not an exception here:
+        availability reports the reason, and every execution path re-checks.
+        A profile that cannot verify its manifest has no tools, and every
+        action against it is refused.
         """
         try:
-            with open(self.manifest_path(), encoding="utf-8") as f:
-                doc = json.load(f)
-        except (OSError, json.JSONDecodeError):
+            doc = toolset_mod.load_verified_manifest(
+                self.manifest_path(), resolver=self.key_resolver,
+                gauntlet_available=self.gauntlet_available,
+                authorization=self.toolset_authorization)
+        except toolset_mod.ToolsetError as e:
+            self._manifest_error = f"{e.code}: {e}"
             return {}
-        if doc.get("schema") != TOOLSET_SCHEMA:
+        except (ValueError, TypeError) as e:
+            # provenance / custody refusals travel as ValueError; a manifest
+            # that trips one of them is as unloadable as a malformed one and
+            # must not be reported as merely absent.
+            self._manifest_error = f"MANIFEST_REFUSED: {e}"
             return {}
-        tools = doc.get("tools")
-        return tools if isinstance(tools, dict) else {}
+        self._manifest_error = ""
+        return doc["tools"]
+
+    def manifest_error(self) -> str:
+        """Why the manifest did not load, or "" — public because readiness,
+        capabilities and the operator all need the CAUSE and not just the
+        absence. A profile with no tools because its manifest failed
+        verification — unsigned, unauthorized at a resolvable position,
+        or refused for any other reason the door reports — is
+        a different situation from one whose manifest is simply not there.
+        """
+        self.toolset()
+        return self._manifest_error
 
     def toolset_status(self) -> dict:
         """{tool: (ok, reason)} — per-tool EXECUTABLE readiness.
@@ -196,13 +323,50 @@ class WasmWasiProfile(Sandbox):
         if shutil.which(self.wasmtime) is None:
             return False, (f"wasm runtime {self.wasmtime!r} not found on this "
                            f"host — profile {self.NAME!r} cannot execute")
+        ok, why = self._runtime_supports_limits()
+        if not ok:
+            return False, why
         if not os.path.exists(self.manifest_path()):
             return False, (f"toolset manifest missing at "
                            f"{self.manifest_path()!r}")
         if not self.toolset():
-            return False, (f"toolset manifest at {self.manifest_path()!r} is "
-                           f"empty or not schema {TOOLSET_SCHEMA}")
+            why = self._manifest_error or (
+                f"empty or not schema {TOOLSET_SCHEMA_V2}")
+            return False, (f"toolset manifest at {self.manifest_path()!r} "
+                           f"is not usable — {why}")
         return True, ""
+
+    def _runtime_supports_limits(self) -> tuple[bool, str]:
+        """Does THIS wasmtime accept the flags that carry the limits?
+
+        Asked once and cached. A runtime that does not accept them makes the
+        profile unavailable rather than running without them: a limit passed
+        to a binary that ignores it is not a limit, and D9 requires the
+        breach of one to be a named refusal. Probed by `--help` rather than
+        by version, because a version string says what was released and the
+        help text says what this build takes.
+        """
+        if self._limit_flags_ok is not None:
+            return self._limit_flags_ok
+        try:
+            probe = subprocess.run([self.wasmtime, "run", "--help"],
+                                   capture_output=True, text=True, timeout=20)
+            text = (probe.stdout or "") + (probe.stderr or "")
+        except (OSError, subprocess.SubprocessError) as e:
+            self._limit_flags_ok = (False, f"wasm runtime probe failed: {e}")
+            return self._limit_flags_ok
+        missing = [name for name in RUNTIME_LIMIT_FLAGS
+                   if RUNTIME_LIMIT_PROBE[name] not in text]
+        if missing:
+            self._limit_flags_ok = (
+                False,
+                f"wasm runtime {self.wasmtime!r} does not accept the "
+                f"{missing} limit option(s) this build passes; the profile "
+                f"is unavailable rather than executing without them — a "
+                f"limit a runtime ignores is not a limit (ADR-022 D9)")
+        else:
+            self._limit_flags_ok = (True, "")
+        return self._limit_flags_ok
 
     def available(self) -> tuple[bool, str]:
         ok, reason = self._runtime_ready()
@@ -241,7 +405,12 @@ class WasmWasiProfile(Sandbox):
                                   in self.toolset_report().items()
                                   if not r["ok"]},
                 "toolset_hash": self.toolset_hash(),
-                "manifest_signed": False,
+                # COMPUTED, not declared. It was hardcoded `False` even
+                # after a signature verified, so the one capability a reader
+                # would use to tell a signed toolset from an unsigned one
+                # said the same thing in both cases.
+                "manifest_signed": bool(self.toolset()) and
+                                   not self._manifest_error,
                 "fail_closed": True}
 
     # ---- module resolution, pinned by digest ---- #
@@ -277,17 +446,83 @@ class WasmWasiProfile(Sandbox):
             raise _fail(ToolNotPermitted, TOOL_DIGEST_DRIFT,
                 f"module digest mismatch for tool {tool!r}: manifest pins "
                 f"{want}, module hashes {got} — refused")
+        # v0.6.9 (ADR-022 D9). The module IS the pinned one; now ask whether
+        # it stays inside the effect class the manifest declares for it. The
+        # order is deliberate: a drifted module is reported as drift, not as
+        # whatever its imports happen to be. A tool with no declared class
+        # is refused rather than assumed harmless — `unknown` is fail-closed
+        # and `check_effect_class` is the one door for that.
+        declared = (entry.get("effect_class") or "").strip()
+        if not declared:
+            raise _fail(ToolNotPermitted, TOOL_NO_EFFECT_CLASS,
+                f"tool {tool!r} declares no effect_class — refused. Without "
+                f"one the limit on the hand in custody has nothing to be "
+                f"told apart from, so an undeclared tool is not a permissive "
+                f"default, it is a refusal (ADR-022 D9)")
+        check_effect_class(declared)
+        if declared == "pure":
+            with open(module, "rb") as f:
+                data = f.read()
+            try:
+                check_pure_imports(data)
+            except PureBoundaryError as e:
+                # Re-raised as a TOOL fault carrying the boundary's own code.
+                # `toolset_report()` catches ToolNotPermitted and
+                # ProfileUnavailable; letting a PureBoundaryError through
+                # would take the whole report down instead of marking one
+                # tool unavailable — the readiness rule this codebase has
+                # already been bitten by twice. The code is kept as the
+                # boundary spelled it (IMPORT_DENIED / MALFORMED_MODULE /
+                # NOT_WASM) because "this module reaches past `pure`" and
+                # "this module is not a module" are different facts.
+                raise _fail(ToolNotPermitted, e.code,
+                    f"tool {tool!r} declares effect_class 'pure' and its "
+                    f"module does not hold to it: {e}") from None
         return module
 
-    def wasm_argv(self, argv: list, workdir: str) -> list:
+    def wasm_argv(self, argv: list, workdir: str, limits=None) -> list:
         """The command handed to the reference fence. Split out so the
-        mapping is testable without a runtime present."""
-        module = self._module_for(argv[0])
-        return [self.wasmtime, "run",
-                "--dir", f"{workdir}::{self.guest_dir}",
-                module, "--", *[str(a) for a in argv[1:]]]
+        mapping is testable without a runtime present.
 
-    def run(self, argv: list, *, cwd: str = None) -> ActionResult:
+        v0.6.9 (ADR-022 D9): ZERO preopen directories. The earlier form
+        passed `--dir {workdir}::{guest_dir}`, which meant the guest could
+        write inside that directory — so `pure` described a boundary it did
+        not draw. `workdir` is kept in the signature because the fence below
+        still runs the process somewhere; it is no longer handed to the
+        guest. The assembled command is checked rather than trusted, because
+        the preopen that mattered arrived as a flag on exactly this line.
+        """
+        module = self._module_for(argv[0])
+        limits = limits or self.limits_for(argv[0])
+        # Fuel and guest memory are the RUNTIME's to enforce; the process
+        # rlimit below them bounds the host, not the guest, and the two are
+        # not the same number. The flag spelling is declared as data rather
+        # than inlined, and `_runtime_supports_limits()` refuses a runtime
+        # that does not accept it — an unrecognised flag would otherwise be
+        # passed, ignored or fatal depending on the wasmtime build, and the
+        # limit would be enforced on some hosts and not others. Which
+        # spelling a given wasmtime accepts is verified on the target host
+        # by the `live` group, not asserted here.
+        cmd = [self.wasmtime, "run",
+               *RUNTIME_LIMIT_FLAGS["fuel"](limits.fuel),
+               *RUNTIME_LIMIT_FLAGS["memory"](limits.guest_memory_bytes),
+               module, "--", *[str(a) for a in argv[1:]]]
+        check_no_preopens(cmd)
+        del workdir
+        return cmd
+
+    def limits_for(self, tool: str):
+        """The per-tool limits from the VERIFIED manifest.
+
+        Not defaults, not the process-wide sandbox numbers: `pure` means the
+        limits the signed manifest declares for THIS tool, and a manifest
+        entry without them does not load at all.
+        """
+        entry = self.toolset().get(tool) or {}
+        return check_limits_declared(entry.get("limits"))
+
+    def run(self, argv: list, *, cwd: str = None,
+            input_bytes: bytes = b"", **_kw) -> ActionResult:
         if not argv:
             raise ToolNotPermitted("empty argv — refused")
         ok, reason = self._runtime_ready()
@@ -296,7 +531,58 @@ class WasmWasiProfile(Sandbox):
         # tool resolution happens inside wasm_argv and raises the precise
         # refusal — not permitted, missing module, or digest drift
         workdir = self.resolve(cwd) if cwd else self.root
-        return super().run(self.wasm_argv(argv, workdir), cwd=cwd)
+        # The command is assembled FIRST, because `_module_for` inside it is
+        # what refuses an unknown tool. Reading limits before that would
+        # answer "noop2" with "its limits are not a mapping" instead of "it
+        # is not in the fixed toolset" — a refusal naming the wrong cause,
+        # which this file already keeps three separate code families to
+        # avoid.
+        cmd = self.wasm_argv(argv, workdir)
+        limits = self.limits_for(argv[0])
+        r = super().run(cmd, cwd=cwd, input_bytes=input_bytes,
+                        max_output=limits.output_bytes,
+                        mem_bytes=limits.host_memory_bytes)
+        # v0.6.9 (ADR-022 D9). Exceeding a limit gives a DETERMINISTIC
+        # REFUSAL with a reason code, never a truncated output. The baseline
+        # sandbox caps what it buffers and returns the prefix with
+        # `truncated=True`, which for a general shell is a reasonable
+        # answer and for a deterministic tool is a WRONG ANSWER THAT LOOKS
+        # LIKE AN ANSWER — the caller cannot tell a complete result from the
+        # first N bytes of a different one. So the prefix is discarded here
+        # rather than returned.
+        # Fuel and guest memory are breached INSIDE the runtime, so their
+        # verdict comes from what the runtime said. Without this the two of
+        # them returned an ordinary non-zero exit and `verdict: None` — two
+        # of D9's three limits enforced in name only.
+        breach = classify_runtime_breach(r.stderr)
+        if breach:
+            return ActionResult(
+                "shell", False, r.exit_code, "", "", r.duration_s,
+                truncated=False, timed_out=r.timed_out,
+                detail={"verdict": breach, "limits": limits._asdict(),
+                        "reason": (f"tool {argv[0]!r} exhausted a declared "
+                                   f"limit inside the runtime; the partial "
+                                   f"output is discarded for the same "
+                                   f"reason as an output breach"),
+                        "runtime_said": r.stderr[:400]})
+        emitted = (r.detail or {}).get("bytes_emitted", {})
+        # TOTAL output, not the larger stream. The first cut took
+        # `max(out, err)`, so 40 bytes on each channel passed a 64-byte
+        # limit — a cap on each half is not a cap on the whole.
+        over = int(emitted.get("out", 0)) + int(emitted.get("err", 0))
+        if r.truncated or over > limits.output_bytes:
+            code = breach_code("output_bytes")
+            return ActionResult(
+                "shell", False, r.exit_code, "", "", r.duration_s,
+                truncated=False, timed_out=r.timed_out,
+                detail={"verdict": code, "limit": limits.output_bytes,
+                        "bytes_emitted": emitted,
+                        "reason": (f"tool {argv[0]!r} exceeded its declared "
+                                   f"output limit; the partial output is "
+                                   f"DISCARDED because a truncated result "
+                                   f"from a deterministic tool cannot be "
+                                   f"told apart from a complete one")})
+        return r
 
 
 #: Registry. microvm is named but deliberately absent — declaring a profile

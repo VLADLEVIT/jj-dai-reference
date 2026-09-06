@@ -31,6 +31,8 @@ from .crypto import H_hex, SigningKey, verify, node_id, canonical_node_id, commi
 from .merkle import merkle_root
 from .cognitive import COGNITIVE_KINDS, check_kind_emittable as _cognitive_kind
 from .custody import CUSTODY_KINDS, check_kind_emittable as _custody_kind
+from .provenance import (KIND_RELEASE_ATTESTED, PROVENANCE_KINDS,
+                         RELEASE_ATTESTED_FIELDS)
 from .reserved import check_no_reserved_values
 
 GENESIS = "0" * 64
@@ -80,6 +82,26 @@ KINDS = ("INFER", "SANDBOX", "GROUNDING", "REGISTRY", "CONTAINMENT", "MEMORY",
 #: re-declared. ONE canonical enum, three declaration sites — a second copy
 #: of a name is how two spellings of one value get into a hash-chained store.
 KINDS = KINDS + COGNITIVE_KINDS + CUSTODY_KINDS
+
+#: v0.6.9 (ADR-022 D5.5): release provenance folds in the same way and then
+#: parts company with the other two — RELEASE_ATTESTED is EMITTABLE, and
+#: deliberately absent from RESERVED_KINDS below. Tracks V and VI freeze
+#: names that nothing may write until Ф2–Ф3; window 6 freezes names AND
+#: schemas because THIS drop writes them, and a signature covers a canonical
+#: encoding, so changing that encoding after the first emission would be a
+#: migration rather than a clarification (roadmap r6.9.1, freeze table).
+KINDS = KINDS + PROVENANCE_KINDS
+
+def _is_hex64(value) -> bool:
+    """Sixty-four HEX characters — the alphabet, not only the length.
+
+    The first cut checked type and length and called it "64-hex"; `"z" *
+    64` passed. A digest that is not hex is not a digest, and a lifecycle
+    record binding one names nothing.
+    """
+    return (isinstance(value, str) and len(value) == 64
+            and all(c in "0123456789abcdef" for c in value))
+
 
 #: Kinds nothing may emit yet. Reserving a NAME is cheap and pre-genesis;
 #: emitting a record whose semantics are not yet defined is not.
@@ -265,6 +287,36 @@ class WitnessChain:
                 f"but nothing may emit it until its semantics land in Ф2–Ф3 "
                 f"(ADR-015). Emitting a record whose meaning is undefined is "
                 f"worse than not having the name.")
+        # v0.6.9 (ADR-022 D5.5). RELEASE_ATTESTED is the one kind this drop
+        # makes emittable, and an emittable kind with no required content is
+        # worse than a reserved one: the reserve at least refuses. The four
+        # fields ARE the record — a release attestation that names no
+        # attestation, no statement, no version and no tree is a signed
+        # assertion that something was released, with nothing said about
+        # what. Carried in `provenance`, which is the pre-image of
+        # `provenance_hash` and therefore inside what the node signs.
+        # rev 2.4: a lifecycle or revocation record is a binding or it is
+        # nothing. Without a semantic_digest the record names no key and no
+        # release, and a registry position pointing at it would prove only
+        # that SOMETHING sat there — the recut1 defect with a better kind.
+        if kind in PROVENANCE_KINDS and kind != KIND_RELEASE_ATTESTED \
+                and not _is_hex64(semantic_digest):
+            raise ValueError(
+                f"{kind} requires a 64-hex semantic_digest binding what it "
+                f"witnesses (ADR-022 rev 2.4); a bare {kind} record is a "
+                f"position with nothing at it")
+        if kind == KIND_RELEASE_ATTESTED:
+            missing = [f for f in RELEASE_ATTESTED_FIELDS
+                       if not (isinstance(provenance, dict)
+                               and provenance.get(f))]
+            if missing:
+                raise ValueError(
+                    f"{kind} omits {missing}: ADR-022 D5.5 writes this "
+                    f"record only after every mandatory approval is in and "
+                    f"every 5.4 check has passed, and the record is what "
+                    f"binds that attestation to a version and a tree. An "
+                    f"empty one would be an unfinished release reaching the "
+                    f"chain, which D5.5 forbids outright.")
         check_plane_value("semantic_digest", semantic_digest)
         # v0.6.8 P0-1: a reserved name must be refused as a VALUE and not
         # only as an argument. Scanned on the node-authored fields that reach
@@ -288,6 +340,25 @@ class WitnessChain:
                     f"may populate it until its grammar lands in Ф2–Ф3 "
                     f"(ADR-015). A reserved field that accepts anything is a "
                     f"dead-drop with a schedule.")
+        # v0.6.9. EVERYTHING from here is one critical section. The lock has
+        # said "guards append" since v0.5.3 and was never taken: two threads
+        # both read `next_index()`, both built a body at index 0, both
+        # persisted, and `verify_chain()` went False. That is a defect of the
+        # WitnessChain itself and not of anything built on it — the release
+        # code merely made it visible.
+        #
+        # `next_index`, `head_hash`, the salts, the signature, the persist
+        # and the in-memory append are ONE step or they are none: an index
+        # read outside the lock is a guess about what the chain will look
+        # like by the time the record lands.
+        with self.lock:
+            return self._append_locked(
+                kind, request, response, provenance, semantic_digest,
+                timestamp, entanglement, session_id, ir_schema_version)
+
+    def _append_locked(self, kind, request, response, provenance,
+                       semantic_digest, timestamp, entanglement, session_id,
+                       ir_schema_version) -> dict:
         idx = self.next_index()
         body = {
             "index": idx,

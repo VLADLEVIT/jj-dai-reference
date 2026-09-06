@@ -468,13 +468,20 @@ def test_sbom_regenerates_and_claims_only_what_it_proves():
     # turning the roadmap red — a check that fires when a decision is
     # recorded, rather than when a claim outruns its evidence, trains
     # people to edit the check.
+    # v0.6.9: the projection is computed by `jjdai.provenance`, not scanned
+    # again here. The inline scan took the LAST event it saw, which is a
+    # projection by accident: it never checked that a history begins with
+    # DEBT_OPENED, that nothing follows a terminal event, or that a terminal
+    # event carries its reference. Two implementations of one projection
+    # disagree the moment either is fixed.
+    from jjdai import provenance as _prv
+    status = json.load(io.open(os.path.join(_ROOT, "docs",
+                                            "architecture_status.json"),
+                               encoding="utf-8"))
     ledger = _ledger()
-    projection = ledger["projection"]
-    state, blocks = {}, {}
-    for row in ledger["events"]:
-        state[row["id"]] = projection[row["event"]]
-        if "blocks" in row:
-            blocks[row["id"]] = row["blocks"]
+    state = _prv.load_debt_ledger(status)
+    blocks = {row["id"]: row["blocks"]
+              for row in ledger["events"] if "blocks" in row}
     expect = sorted(
         i for i, st in state.items()
         if st == "open"
@@ -533,18 +540,40 @@ def test_roadmap_count_agrees_with_evidence_and_surfaces():
     assert len(mds) == 1, "SYNC-8: expected one roadmap markdown, found %s" % mds
     road = _read("docs", "roadmap", mds[0])
 
-    # Only CURRENT claims. The revision journal quotes what earlier revisions
-    # said, and rewriting history to satisfy a check would be the very defect
-    # this project refuses everywhere else.
-    claims = re.findall(r"(\d+)/(\d+) recorded", road)
-    assert claims, ("SYNC-8: the roadmap states no acceptance count at all — "
-                    "a plan that never states one cannot be checked against "
-                    "the tree")
-    wrong = sorted({"%s/%s" % c for c in claims if int(c[1]) != collected})
+    # WHY THE PATTERN IS NO LONGER `N/M recorded`. It was, and the audit of
+    # recut1 found `219/219` in the paragraph on numbering rules — no
+    # "recorded" beside it, so this check looked straight past it while
+    # reporting clean. A check narrowed to one phrasing polices one
+    # sentence, not a document; and «правильный текст рядом с устаревшим»
+    # is the defect these very pages name in their crosscutting principles.
+    #
+    # Two classes stay exempt, and both are HISTORY rather than claims:
+    # the revision journal quotes what earlier revisions said, and the drop
+    # table records what each closed drop counted. Rewriting either to
+    # satisfy a check would be the defect this project refuses everywhere
+    # else. Everything outside them is a statement about the tree as it is
+    # NOW, and must agree with it.
+    claims, historical = [], []
+    for m in re.finditer(r"(\d+)/(\d+)", road):
+        start = road.rfind("\n", 0, m.start()) + 1
+        end = road.find("\n", m.end())
+        line = road[start:end if end != -1 else len(road)].strip()
+        # `|` a table row, `>` the blockquoted revision journal
+        (historical if line[:1] in ("|", ">") else claims).append(
+            (m.group(0), int(m.group(2))))
+    assert claims, ("SYNC-8: the roadmap states no acceptance count in "
+                    "normative prose at all — a plan that never states one "
+                    "cannot be checked against the tree")
+    wrong = sorted({pair for pair, total in claims if total != collected})
     assert not wrong, (
-        "SYNC-8: the roadmap states %s while the runner collects %d. A test "
-        "was added and the plan was not told — the same drift twice in two "
-        "days." % (", ".join(wrong), collected))
+        "SYNC-8: the roadmap states %s in normative prose while the runner "
+        "collects %d. A test was added and the plan was not told — twice in "
+        "two days by the old check, and once past it." 
+        % (", ".join(wrong), collected))
+    assert historical, (
+        "SYNC-8: the exemption for the journal and the drop table found "
+        "nothing to exempt, which means it is matching something other "
+        "than what it was written for")
 
     mapdoc = _read("docs", os.path.basename(genarch.MAP))
     m = re.search(r"Acceptance:\s*(\d+)/(\d+)", mapdoc)

@@ -61,8 +61,16 @@ def main() -> int:
 
     # 2. surfaces match regeneration
     fresh = generate(write=False)
-    if io.open(README, encoding="utf-8").read() != fresh["readme"]:
-        findings.append("README status table drifted from "
+    # v0.6.9 (ADR-022 D12): the generated surface left README for
+    # docs/status_badge.md. README itself is no longer generated — it is
+    # hashed into the source digest instead, so drift in it is caught by the
+    # digest and does not belong here.
+    badge = os.path.join(ROOT, "docs", "status_badge.md")
+    if not os.path.exists(badge):
+        findings.append("docs/status_badge.md missing — run "
+                        "scripts/gen_architecture_docs.py")
+    elif io.open(badge, encoding="utf-8").read() != fresh["badge"]:
+        findings.append("docs/status_badge.md drifted from "
                         "architecture_status.json — run "
                         "scripts/gen_architecture_docs.py")
     # A map under the wrong NAME is reported by check 5, by name; reading it

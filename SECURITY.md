@@ -12,7 +12,7 @@ Please include, as far as you can:
 
 ```
 Component:   (e.g. jjdai/witness.py, node/daemon.py, deploy kit)
-Version:     (git commit or release tag, e.g. v0.6.8)
+Version:     (git commit or release tag, e.g. v0.6.9)
 Class:       forgeability / identity bypass / sandbox escape /
              containment bypass / canonicalization / other
 Impact:      what an attacker gains; preconditions (network position,
@@ -28,9 +28,9 @@ Triage: we confirm severity within 72 h of acknowledgment; P0 issues
 may trigger the Emergency Security Procedure (reversible containment
 outside DIIP, witnessed, ratified afterwards — roadmap r5, Ф2).
 
-## Scope notes for this release (v0.6.8)
+## Scope notes for this release (v0.6.9)
 
-This is a REFERENCE implementation (v0.6.8). Known, documented
+This is a REFERENCE implementation (v0.6.9). Known, documented
 non-goals of this build — not reportable as vulnerabilities:
 weight attestation proves the operator MEASURED and signed the artifact
 it claims to serve — without TEE/secure-boot it cannot prove the engine

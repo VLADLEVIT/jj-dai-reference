@@ -46,6 +46,8 @@ for _p in (_ROOT, os.path.join(_ROOT, "scripts")):
         sys.path.insert(0, _p)
 
 import run_acceptance as RA                                   # noqa: E402
+from jjdai.source_tree import SOURCE_WORKTREE as ST_WORKTREE, SOURCE_GIT as ST_GIT  # noqa: E402
+from jjdai import source_tree as _st  # noqa: E402
 from run_acceptance import (digest_files, read_result,        # noqa: E402
                             result_path, source_digest)
 
@@ -77,18 +79,48 @@ def test_digest_covers_the_shipped_tree():
                           ("CI", (".yml", ".yaml"))):
         hits = [f for f in files if f.endswith(suffix)]
         assert hits, f"EVID-1: no {label} file is covered by the digest"
-    # and the content really participates
-    before = source_digest()
+    # and the content really participates — ON DISK, explicitly (see
+    # ACC-TREE-4 for why the source is named: inside a git checkout the
+    # default is the committed tree, which does not see this edit)
+    before = source_digest(source=ST_WORKTREE)
     target = os.path.join(_ROOT, "deploy", "authz.testnet.json")
     raw = io.open(target, encoding="utf-8").read()
     try:
         io.open(target, "w", encoding="utf-8").write(raw + "\n")
-        assert source_digest() != before, (
+        assert source_digest(source=ST_WORKTREE) != before, (
             "EVID-1: editing the authz policy left the digest unchanged — "
             "the exact hole the audit walked through")
     finally:
         io.open(target, "w", encoding="utf-8").write(raw)
-    assert source_digest() == before
+    assert source_digest(source=ST_WORKTREE) == before
+    # THE OTHER HALF OF D11, stated rather than discovered: inside a git
+    # checkout the default source is the committed tree, and an uncommitted
+    # edit must NOT move it — the recorded run addresses a commit, not
+    # somebody's working copy. Outside a checkout there is no committed tree
+    # and the default is the worktree, which does move.
+    auto = _st.digest(_ROOT, require_clean=False)[1]
+    if auto == ST_GIT:
+        committed = source_digest()
+        try:
+            io.open(target, "w", encoding="utf-8").write(raw + "\n")
+            assert _st.digest(_ROOT, require_clean=False)[0] == committed, (
+                "EVID-1: the committed-tree digest moved on an uncommitted "
+                "edit; D11 addresses the commit")
+            assert source_digest(source=ST_WORKTREE) != committed
+            # AND THE RECORDED RUN MAY NOT BORROW THE COMMIT'S NAME. With
+            # the working copy edited, what executed is not the commit, so
+            # the default helper must answer the worktree digest under the
+            # worktree label — never the old digest under the committed one.
+            named = RA.source_digest_named()
+            assert named["tree_digest_source"] == ST_WORKTREE, named
+            assert named["tree_digest"] != committed
+            assert named["tree_digest"] == source_digest(source=ST_WORKTREE)
+        finally:
+            io.open(target, "w", encoding="utf-8").write(raw)
+        # restored: the label is the commit's again, earned by equality
+        named = RA.source_digest_named()
+        assert named["tree_digest_source"] == ST_GIT and \
+            named["tree_digest"] == committed, named
     print(f"  [PASS] EVID-1  {len(files)} shipped files covered, not just "
           f"Python")
 
@@ -96,6 +128,14 @@ def test_digest_covers_the_shipped_tree():
 def test_unanticipated_file_types_are_covered_by_default():
     with tempfile.TemporaryDirectory() as tmp:
         io.open(os.path.join(tmp, "a.py"), "w").write("x = 1\n")
+        # v0.6.9 (ADR-022 D11): a tree with no declared boundary has no
+        # digest — the scope file is fail-closed, because absence would
+        # otherwise read as "hash everything" and put the boundary wherever
+        # the code happened to leave it.
+        os.makedirs(os.path.join(tmp, "docs"), exist_ok=True)
+        io.open(os.path.join(tmp, "docs", "digest_scope.json"), "w").write(
+            '{"schema": "jjdai.digest-scope/v1", "output_files": [],'
+            ' "output_prefixes": [], "bindings": {}}')
         base = source_digest(tmp)
         for name in ("policy.rego", "node.service", "rules.prometheus",
                      "weights.safetensors.meta", "Makefile", "noext"):
@@ -114,12 +154,31 @@ def test_only_generated_surfaces_are_excluded():
     files = set(digest_files())
     # each exclusion exists because the file carries the badge, so hashing
     # it would let writing a result invalidate the run it describes
-    assert "README.md" not in files
+    #
+    # v0.6.9 (ADR-022 D12): README is now INSIDE the digest. It was the one
+    # exclusion here with no binding anywhere else, and D11 forbids exactly
+    # that shape — a merely excluded file does not exist. The generated
+    # blocks moved to docs/status_badge.md, which IS bound, so the build no
+    # longer writes into a file it also hashes.
+    assert "README.md" in files, (
+        "README left the exclusion list when its generated blocks moved out")
+    assert "docs/status_badge.md" not in files
+    # v0.6.9: the boundary lists exact FILES and no prefixes. A prefix is
+    # the wrong shape for it — an exclusion is justified by a file being
+    # DERIVED from something hashed, and derivation is a property of a
+    # particular file, not of a name that begins a certain way. Fourteen
+    # historical status pages sat under an excluded prefix, regenerated by
+    # nothing and answering to nothing; they are hashed now.
+    assert any(f.startswith("docs/site/JJDAI_Architecture_Status_v0.6.8")
+               for f in files), (
+        "a historical status page is still outside the digest")
+    # and every exclusion is declared in ONE place that is itself hashed
+    assert "docs/digest_scope.json" in files, (
+        "the file that declares the boundary must be inside the boundary, "
+        "or the boundary can be moved silently")
     assert not any(f.startswith("docs/evidence/") for f in files)
-    assert not any(f.startswith("docs/JJDAI_Code_Architecture_Map_v")
-                   for f in files)
-    assert not any(f.startswith("docs/site/JJDAI_Architecture_Status_v")
-                   for f in files)
+    assert "docs/JJDAI_Code_Architecture_Map_v0.6.9.md" not in files
+    assert "docs/site/JJDAI_Architecture_Status_v0.6.9.html" not in files
     # nothing ELSE under docs/ is excluded: the ADRs and the roadmap are
     # normative and shipped
     assert any(f.startswith("docs/adr/") for f in files), \

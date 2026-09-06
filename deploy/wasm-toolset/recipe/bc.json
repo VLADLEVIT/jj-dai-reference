@@ -1,0 +1,14 @@
+{
+  "format": "jjdai.toolset-recipe/v1",
+  "tool": "bc",
+  "why": "numeric checks without the host's floating-point arithmetic",
+  "effect_class": "pure",
+  "upstream_url": "__OWED_ON_BUILD_HOST__",
+  "upstream_commit": "__OWED_ON_BUILD_HOST__",
+  "source_sha256": "__OWED_ON_BUILD_HOST__",
+  "build_image_digest": "__OWED_ON_BUILD_HOST__",
+  "build_command": "__OWED_ON_BUILD_HOST__",
+  "expected_sha256": "__OWED_ON_BUILD_HOST__",
+  "note": "Pins are filled on a build host with the toolchain and upstream access. Until then load_recipe() refuses this file by its placeholder rather than admitting a hash-shaped string that pins nothing. Whether the chosen toolchain gives BOTH a byte-for-byte repeat AND an import set inside the `pure` allowlist is ADR-022 O-3, and it is answered by building, not by writing it down here.",
+  "reproducible": true
+}

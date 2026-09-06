@@ -50,7 +50,7 @@ boundary against a real `wasmtime` and is required by the Ф0 gate on each targe
 | Tier-1 trust node daemon | Prototype |
 | Adapter layer — EngineBackend Protocol v1 | Implemented (Implemented, protocol v1 declared whole) |
 | NECS v0.1 + harness | Implemented |
-| Acceptance and CI | Implemented (308/308 green (recorded run on Python 3.12.3; stdlib runner, CI matrix 3.10-3.12)) |
+| Acceptance and CI | Implemented (308/308 green (recorded run on Python 3.11.15; stdlib runner, CI matrix 3.10-3.12)) |
 | Retired M1-M5 lineage | Implemented (Frozen) |
 | Deployment kit (Linux + macOS) | Implemented (Implemented, macOS kit v0.6.2) |
 | Release provenance — partial | Prototype (Partial, SBOM + pinning v0.6.8) |
